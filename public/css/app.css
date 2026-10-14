@@ -777,6 +777,281 @@ a { color: var(--acento); }
   border-top: 1px solid #cbd5e1; font-size: 10px; color: #666;
 }
 
+/* ============================================================
+   SIDEBAR RESPONSIVE E INDUSTRIAL — "De Otro Tiempo"
+   ------------------------------------------------------------
+   Paleta antracita + acentos de línea: AZUL = Placares,
+   ROJO = Cocinas. Sin dependencias externas (CSS nativo).
+
+   Comportamiento por ancho de ventana:
+     >1024px   Escritorio: desplegado (260px). ☰ lo colapsa a rail 64px.
+     768-1023  Tabletas de planta: RAIL automático (64px) para maximizar
+               la superficie táctil de fichado. ☰ lo superpone a 260px.
+     <768px    Celular: oculto; se despliega como drawer desde el ☰
+               de la barra superior.
+
+   El marcado lo genera public/js/sidebar.js (fuente única del menú).
+   ============================================================ */
+
+:root {
+  --sb-ancho:  260px;
+  --sb-rail:    64px;
+
+  --ind-fondo:    #121214;  /* base profunda (cabecera / pie) */
+  --ind-panel:    #1e1e24;  /* antracita: cuerpo del menú */
+  --ind-hover:    #2e2e38;  /* hover / ítem activo */
+  --ind-borde:    #35353f;
+  --ind-texto:    #e6e7ea;
+  --ind-suave:    #8f919b;
+  --ind-placares: #2f80ed;  /* acento AZUL industrial */
+  --ind-cocinas:  #e03131;  /* acento ROJO corporativo */
+}
+
+/* Capa de contenido empujada por el sidebar (sólo ≥768px). */
+.app-cuerpo { min-height: 100vh; transition: margin-left .2s ease; }
+
+.sidebar {
+  position: fixed;
+  top: 0; bottom: 0; left: 0;
+  z-index: 90;                     /* > topbar (50), < modales (100) */
+  width: var(--sb-ancho);
+  display: flex;
+  flex-direction: column;
+  background: var(--ind-panel);
+  color: var(--ind-texto);
+  border-right: 1px solid #000;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, .35);
+  overflow: hidden;                /* el menú scrollea, no el conjunto */
+  transition: width .2s ease, transform .22s ease;
+}
+
+/* Fondo del drawer (móvil y superposición de tablet). */
+.sb-fondo {
+  position: fixed; inset: 0;
+  z-index: 85;
+  background: rgba(6, 6, 8, .62);
+  backdrop-filter: blur(2px);
+}
+
+/* --------------------------- Cabecera --------------------------- */
+.sb-cabecera {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 12px;
+  background: var(--ind-fondo);
+  border-bottom: 1px solid var(--ind-borde);
+}
+.sb-marca {
+  display: flex; align-items: center; gap: 10px;
+  min-width: 0; flex: 1 1 auto;
+  text-decoration: none; color: inherit;
+}
+.sb-escudo {
+  width: 38px; height: 38px; flex: none;
+  border-radius: 9px;
+  background: linear-gradient(145deg, var(--ind-placares), #1b5fb0);
+  color: #fff;
+  display: grid; place-items: center;
+  font-weight: 800; font-size: .95rem; letter-spacing: .5px;
+}
+.sb-marca-txt { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.sb-marca-txt b { font-size: 1rem; letter-spacing: 2.5px; }
+.sb-marca-txt small {
+  font-size: .62rem; color: var(--ind-suave);
+  letter-spacing: .6px; font-family: Consolas, "Courier New", monospace;
+}
+
+.sb-btn {
+  flex: none;
+  width: 40px; height: 40px;
+  border-radius: 9px;
+  border: 1px solid var(--ind-borde);
+  background: transparent;
+  color: var(--ind-texto);
+  font-size: 1.05rem; line-height: 1;
+  cursor: pointer;
+  display: grid; place-items: center;
+}
+.sb-btn:hover { background: var(--ind-hover); }
+.sb-btn:focus-visible,
+.sb-item:focus-visible,
+.sb-salir:focus-visible { outline: 2px solid var(--ind-placares); outline-offset: 2px; }
+
+/* --------------------------- Menú ------------------------------- */
+.sb-menu { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; padding: 8px; }
+
+.sb-seccion {
+  margin: 16px 8px 7px;
+  font-size: .62rem; font-weight: 800;
+  letter-spacing: 1.6px; text-transform: uppercase;
+  color: var(--ind-suave);
+}
+.sb-seccion:first-child { margin-top: 4px; }
+.sb-seccion::after { content: none; }
+
+.sb-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 11px;
+  margin-bottom: 3px;
+  border-radius: 10px;
+  border-left: 3px solid transparent;
+  color: var(--ind-texto);
+  text-decoration: none;
+  font-weight: 600; font-size: .9rem;
+  transition: background .12s ease, border-color .12s ease;
+}
+.sb-item:hover { background: var(--ind-hover); }
+.sb-item .sb-ico { flex: none; width: 22px; text-align: center; font-size: 1.05rem; line-height: 1.2; }
+.sb-txt { display: flex; flex-direction: column; min-width: 0; }
+.sb-sub {
+  font-size: .64rem; font-weight: 500; color: var(--ind-suave);
+  letter-spacing: .2px; line-height: 1.25; margin-top: 1px;
+}
+
+/* Activo: barra de acento según identidad de línea. */
+.sb-item.activo { background: var(--ind-hover); }
+.sb-item:not([data-acento]).activo          { border-left-color: #b9bcc6; }
+.sb-item[data-acento="placares"].activo     { border-left-color: var(--ind-placares); }
+.sb-item[data-acento="cocinas"].activo      { border-left-color: var(--ind-cocinas); }
+.sb-item[data-acento="compartidos"].activo  { border-left-color: var(--amarillo, #f0b429); }
+
+/* --------------------------- Pie -------------------------------- */
+.sb-pie {
+  border-top: 1px solid var(--ind-borde);
+  background: var(--ind-fondo);
+  padding: 12px;
+  display: grid; gap: 10px;
+}
+.sb-usuario { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sb-avatar {
+  width: 36px; height: 36px; flex: none;
+  border-radius: 50%;
+  background: #33333d; color: #fff;
+  display: grid; place-items: center;
+  font-weight: 800; font-size: .8rem; letter-spacing: .5px;
+}
+.sb-usuario-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.sb-usuario-txt b { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-usuario-txt small {
+  font-size: .62rem; text-transform: uppercase; letter-spacing: .8px; color: var(--ind-suave);
+}
+.sb-salir {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; min-height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--ind-borde);
+  background: transparent;
+  color: var(--ind-texto);
+  font-weight: 700; font-size: .84rem;
+  cursor: pointer;
+}
+.sb-salir:hover { background: #3a1f22; border-color: var(--ind-cocinas); color: #ff9b9b; }
+.sb-salir-txt { display: inline; }
+
+/* ------------------ Botón ☰ de la barra superior ------------------ */
+.topbar-menu {
+  display: none;
+  width: 46px; height: 46px; flex: none;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, .28);
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+  font-size: 1.25rem; line-height: 1;
+  cursor: pointer;
+  align-items: center; justify-content: center;
+}
+.topbar-menu:hover { background: rgba(255, 255, 255, .22); }
+
+/* Los anclajes del menú no deben quedar tapados por la topbar pegajosa. */
+.panel, section[id] { scroll-margin-top: 92px; }
+
+/* ============================================================
+   BREAKPOINT 1 · Móviles / celulares (<768px) → DRAWER FLOTANTE
+   ============================================================ */
+@media (max-width: 767px) {
+  .topbar-menu { display: flex; }
+  .sidebar { transform: translateX(-102%); }   /* fuera de pantalla */
+  body.sb-abierto .sidebar { transform: none; }
+}
+
+/* ============================================================
+   BREAKPOINT 2 · Tabletas de planta (768px–1023px) → ICON-RAIL
+   El rail es AUTOMÁTICO para maximizar la superficie de fichado.
+   ☰ lo superpone a 260px sin mover el contenido (más cómodo con
+   el dedo en pantalla: no se reflowea lo que ya se estaba viendo).
+   ============================================================ */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .app-cuerpo { margin-left: var(--sb-rail); }
+  .sidebar    { width: var(--sb-rail); transform: none; }
+  body.sb-abierto .sidebar {
+    width: var(--sb-ancho);
+    box-shadow: 10px 0 36px rgba(0, 0, 0, .5);
+  }
+}
+
+/* ============================================================
+   BREAKPOINT 3 · Escritorio (>1024px) → DESPLEGADO / COLAPSADO
+   ============================================================ */
+@media (min-width: 1024px) {
+  .app-cuerpo { margin-left: var(--sb-ancho); }
+  .sidebar    { width: var(--sb-ancho); transform: none; }
+  body.sb-colapsado .app-cuerpo { margin-left: var(--sb-rail); }
+  body.sb-colapsado .sidebar    { width: var(--sb-rail); }
+}
+
+/* ============================================================
+   FORMATO RAIL (64px): sólo iconos + tooltips nativos (title).
+   Se declara dos veces porque CSS no puede medir el ancho real:
+     (a) tablet 768–1023 sin desplegar,
+     (b) escritorio con ☰ de colapso pulsado.
+   ============================================================ */
+@media (min-width: 768px) and (max-width: 1023px) {
+  body:not(.sb-abierto) .sb-marca-txt,
+  body:not(.sb-abierto) .sb-txt,
+  body:not(.sb-abierto) .sb-usuario-txt,
+  body:not(.sb-abierto) .sb-salir-txt,
+  body:not(.sb-abierto) .sb-seccion > span { display: none; }
+
+  body:not(.sb-abierto) .sb-cabecera { flex-direction: column; padding: 11px 6px; gap: 8px; }
+  body:not(.sb-abierto) .sb-marca    { flex: none; justify-content: center; }
+  body:not(.sb-abierto) .sb-menu     { padding: 8px 6px; }
+  body:not(.sb-abierto) .sb-item     { justify-content: center; padding: 11px 0; gap: 0; }
+  body:not(.sb-abierto) .sb-seccion  { text-align: center; margin: 14px 0 8px; }
+  body:not(.sb-abierto) .sb-seccion::after {
+    content: ""; display: block; width: 20px; height: 2px; margin: 6px auto 0;
+    background: rgba(255, 255, 255, .18); border-radius: 2px;
+  }
+  body:not(.sb-abierto) .sb-pie      { padding: 8px 6px; }
+  body:not(.sb-abierto) .sb-usuario  { justify-content: center; }
+  body:not(.sb-abierto) .sb-salir    { padding: 0; }
+}
+
+@media (min-width: 1024px) {
+  body.sb-colapsado .sb-marca-txt,
+  body.sb-colapsado .sb-txt,
+  body.sb-colapsado .sb-usuario-txt,
+  body.sb-colapsado .sb-salir-txt,
+  body.sb-colapsado .sb-seccion > span { display: none; }
+
+  body.sb-colapsado .sb-cabecera { flex-direction: column; padding: 11px 6px; gap: 8px; }
+  body.sb-colapsado .sb-marca    { flex: none; justify-content: center; }
+  body.sb-colapsado .sb-menu     { padding: 8px 6px; }
+  body.sb-colapsado .sb-item     { justify-content: center; padding: 11px 0; gap: 0; }
+  body.sb-colapsado .sb-seccion  { text-align: center; margin: 14px 0 8px; }
+  body.sb-colapsado .sb-seccion::after {
+    content: ""; display: block; width: 20px; height: 2px; margin: 6px auto 0;
+    background: rgba(255, 255, 255, .18); border-radius: 2px;
+  }
+  body.sb-colapsado .sb-pie      { padding: 8px 6px; }
+  body.sb-colapsado .sb-usuario  { justify-content: center; }
+  body.sb-colapsado .sb-salir    { padding: 0; }
+}
+
+/* El menú nunca se imprime (tampoco el botón ☰ ni el fondo del drawer). */
+@media print {
+  .sidebar, .sb-fondo, .topbar-menu { display: none !important; }
+  .app-cuerpo { margin-left: 0 !important; }
+}
+
 /* Al imprimir: sólo la hoja, a ancho A4, sin fondos de la app. */
 @media print {
   body.imprimiendo > *:not(#capa-impresion) { display: none !important; }

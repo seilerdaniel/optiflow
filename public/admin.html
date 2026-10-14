@@ -16,6 +16,9 @@
 </head>
 <body>
 
+<!-- Envoltorio de contenido: lo desplaza el sidebar (ver app.css). -->
+<div class="app-cuerpo">
+
 <header class="topbar">
   <div class="marca">
     <div class="escudo">OF</div>
@@ -186,7 +189,7 @@
       </div>
 
       <!-- Materiales / placas requeridas (Fase 3) -->
-      <fieldset class="materiales-bloque" style="margin-top:14px; border:1px solid var(--borde, #d8d4cc); border-radius:10px; padding:12px;">
+      <fieldset class="materiales-bloque" id="materiales-bloque" style="margin-top:14px; border:1px solid var(--borde, #d8d4cc); border-radius:10px; padding:12px;">
         <legend style="font-size:.85rem; font-weight:700; padding:0 6px;">🪵 Materiales / placas requeridas</legend>
         <div class="materiales-filas" id="materiales-filas"></div>
         <div class="fila-flex" style="margin-top:8px;">
@@ -218,7 +221,7 @@
   </section>
 
   <!-- ============ LISTA DE OTs ============ -->
-  <section class="panel ancho-completo">
+  <section class="panel ancho-completo" id="panel-ots">
     <h2 class="panel-titulo">
       <span class="etiqueta-titulo">📋 Órdenes de trabajo</span>
       <span class="fila-flex">
@@ -236,6 +239,14 @@
         <option>En Producción</option>
         <option>Detenido</option>
         <option>Finalizado</option>
+      </select>
+      <!-- Filtro rápido de línea: lo enlaza el sidebar (?linea=…) -->
+      <select id="filtro-linea" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:10px; background:#fff;"
+              aria-label="Filtrar por línea de producción">
+        <option value="">Todas las líneas</option>
+        <option value="Placares">📦 Placares</option>
+        <option value="Cocinas">🍳 Cocinas</option>
+        <option value="compartidos">🤝 Requieren compartidos</option>
       </select>
       <span class="espaciador"></span>
       <span class="texto-suave" id="resumen-ot"></span>
@@ -444,9 +455,12 @@
   </div>
 </div>
 
+</div><!-- /.app-cuerpo -->
+
 <div id="avisos"></div>
 
 <script src="/js/api.js"></script>
+<script src="/js/sidebar.js"></script>
 <script src="/js/admin.js"></script>
 <script>
   // Registro del Service Worker (PWA · Fase 7). Silencioso si no hay soporte.

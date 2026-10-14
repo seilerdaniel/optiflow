@@ -312,7 +312,16 @@ async function servirEstatico(req, res, pathname) {
   res.writeHead(200, {
     'Content-Type': MIME[ext] || 'application/octet-stream',
     'Content-Length': contenido.length,
-    'Cache-Control': esHTML ? 'no-store' : 'public, max-age=300',
+    // HTML: sin cachear (siempre versión fresca y protegida por sesión).
+    //
+    // CSS/JS: `no-cache` = "revalida con el servidor", NO "no guardes".
+    // El offline lo resuelve el Service Worker (sw.js, cache-first con
+    // CACHE_VERSION). Con `max-age>0` había DOS capas de caché: el HTTP
+    // cache le entregaba bytes viejos a la precarga del SW, así que tras
+    // cada deploy la planta podía ejecutar JS obsoleto hasta 5 minutos
+    // aunque ya se hubiera subido CACHE_VERSION. Con `no-cache` el SW es
+    // la única autoridad: al instalar/revalidar siempre baja lo último.
+    'Cache-Control': esHTML ? 'no-store' : 'no-cache',
     ...HEADERS_SEGURIDAD,
     ...cabecerasCORS(req),
   });

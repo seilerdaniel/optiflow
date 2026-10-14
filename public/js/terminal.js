@@ -92,6 +92,8 @@ async function arrancar() {
 function pintarSesion(u) {
   const chip = $('sesion-chip');
   if (chip) { chip.hidden = false; chip.textContent = `👤 ${u.nombre}`; }
+  // Perfil del pie del sidebar (nombre + rol + cerrar sesión).
+  if (window.Sidebar) Sidebar.pintarSesion(u);
   const salir = $('sesion-salir');
   if (salir) {
     salir.hidden = false;

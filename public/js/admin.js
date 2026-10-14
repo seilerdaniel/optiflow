@@ -68,6 +68,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 function pintarSesion(u) {
   const chip = $('sesion-chip');
   if (chip) { chip.hidden = false; chip.textContent = `👤 ${u.nombre} (${u.rol})`; }
+  // Perfil del pie del sidebar (nombre + rol + cerrar sesión).
+  if (window.Sidebar) Sidebar.pintarSesion(u);
   const salir = $('sesion-salir');
   if (salir) {
     salir.hidden = false;
@@ -99,6 +101,9 @@ function ligarEventos() {
 
   $('filtro-ot').addEventListener('input', pintarTabla);
   $('filtro-estado').addEventListener('change', pintarTabla);
+  // Filtro rápido de línea (enlazado desde el sidebar: Placares/Cocinas/compartidos)
+  $('filtro-linea').addEventListener('change', () => { sincronizarLineaEnURL(); pintarTabla(); });
+  aplicarLineaDesdeURL(); // ?linea= llegado del sidebar
   $('filtro-sector-seg').addEventListener('change', pintarSeguimiento);
   $('filtro-avance').addEventListener('change', pintarSeguimiento);
 
@@ -418,14 +423,50 @@ function chipsRequisitos(ot) {
   return activos.map(([, nombre, clase, icono]) => h('span', { class: `chip ${clase}`, text: `${icono} ${nombre}` }));
 }
 
+/* ------------------------------------------------------------------ */
+/* Filtro rápido de línea (?linea=Placares | Cocinas | compartidos)    */
+/* Enlazado desde el sidebar: azul = Placares, rojo = Cocinas.         */
+/* ------------------------------------------------------------------ */
+
+/** Valores admitidos por #filtro-linea (los mismos que usa el sidebar). */
+const LINEAS_FILTRO = ['Placares', 'Cocinas', 'compartidos'];
+
+/** ¿La OT requiere algún sector compartido (Lustre/Herrería/Vidrio/Especiales)? */
+function requiereCompartidos(ot) {
+  return !!(ot.requiere_vidrio || ot.requiere_lustre
+    || ot.requiere_herreria || ot.requiere_especiales);
+}
+
+/**
+ * Lee ?linea= de la URL (viene del sidebar) y lo refleja en el select.
+ * Ej.: /admin?linea=Placares#panel-ots → lista sólo la línea Placares.
+ */
+function aplicarLineaDesdeURL() {
+  const v = new URLSearchParams(location.search).get('linea') || '';
+  const sel = $('filtro-linea');
+  if (sel) sel.value = LINEAS_FILTRO.includes(v) ? v : '';
+}
+
+/** Mantiene la URL en espejo del select (link compartible con la planta). */
+function sincronizarLineaEnURL() {
+  if (!history.replaceState) return;
+  const v = $('filtro-linea').value;
+  const u = new URL(location.href);
+  if (v) u.searchParams.set('linea', v); else u.searchParams.delete('linea');
+  history.replaceState(null, '', u);
+}
+
 function pintarTabla() {
   const q = FORMATO.normalizar($('filtro-ot').value.trim());
   const estado = $('filtro-estado').value;
+  const linea = $('filtro-linea').value;
   const cuerpo = $('cuerpo-ots');
   cuerpo.innerHTML = '';
 
   const filas = S.ordenes.filter((ot) => {
     if (estado && ot.estado_general !== estado) return false;
+    if (linea === 'compartidos' && !requiereCompartidos(ot)) return false;
+    if (linea && linea !== 'compartidos' && (ot.linea_area || 'Placares') !== linea) return false;
     if (!q) return true;
     return FORMATO.normalizar(ot.numero_ot).includes(q)
       || FORMATO.normalizar(ot.cliente).includes(q)

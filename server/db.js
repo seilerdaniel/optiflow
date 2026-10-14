@@ -193,6 +193,27 @@ function cadenaConexion() {
   return url;
 }
 
+/**
+ * ¿La cadena apunta a una base LOCAL? El host puede venir DESPUÉS de las
+ * credenciales (`postgresql://postgres:clave@localhost:5432/optiflow`), así
+ * que se parsea la URL en lugar de usar un regex sobre el inicio de la cadena.
+ * (Ese era el bug: el regex no matcheaba y se forzaba TLS contra un Postgres
+ * local que no lo soporta → "The server does not support SSL connections".)
+ *
+ * Si la cadena no se puede parsear, se devuelve `false`: ante la duda se
+ * conserva TLS, que es lo correcto para el pooler remoto de Supabase.
+ * `PG_SSL=0` sigue siendo el interruptor manual para forzar lo contrario.
+ */
+function esBaseLocal(cadena) {
+  let host;
+  try {
+    host = new URL(cadena).hostname; // 'localhost' | '127.0.0.1' | '[::1]' | 'x.supabase.co'
+  } catch {
+    return false;
+  }
+  return /^(localhost|127(\.\d{1,3}){3}|0\.0\.0\.0|\[?::1\]?)$/i.test(host);
+}
+
 function opcionesPool() {
   const enVercel = !!process.env.VERCEL;
   const opts = {
@@ -208,7 +229,7 @@ function opcionesPool() {
   // aquí se refuerza para los motores que no propagan el parámetro.
   const sslExplicito = process.env.PG_SSL;
   const necesitaSSL = sslExplicito !== '0' && sslExplicito !== 'false'
-    && !/^postgres(ql)?:\/\/(localhost|127\.)/i.test(opts.connectionString);
+    && !esBaseLocal(opts.connectionString);
   if (necesitaSSL) {
     // Supabase termina con un certificado propio; se acepta la cadena del
     // sistema y se relaja la verificación del hostname sólo si PG_SSL_VERIFY=0.
@@ -419,6 +440,36 @@ async function cerrarEtapasDuplicadas(p) {
 /* Semillas (idempotentes)                                             */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Interfaz `get/run/ahoraUTC` APARCADA SOBRE EL POOL EN CONSTRUCCIÓN.
+ *
+ * `auth.asegurarAdminInicial()` espera la API del módulo db (get/run), no el
+ * pool crudo, que sólo expone `query` (de ahí el TypeError
+ * `db_.get is not a function` en el arranque sobre PostgreSQL local).
+ *
+ * NO se reutiliza `module.exports.get` aquí: eso llamaría a abrirConexion()
+ * y entraría en recursión, porque este pool todavía no está publicado.
+ * Se replica el mismo puente `? → $n` + `RETURNING id` que usa `consultar()`.
+ */
+function apiSobrePool(p) {
+  const ejecutar = (sql, params) => {
+    const arg = params && params.length ? [params] : [];
+    return p.query(aPlaceholders(sql), ...arg);
+  };
+  return {
+    ahoraUTC,
+    async get(sql, ...params) {
+      const r = await ejecutar(sql, params);
+      return r.rows.length ? r.rows[0] : undefined;
+    },
+    async run(sql, ...params) {
+      const r = await ejecutar(conReturning(String(sql).trim()), params);
+      const id = r.rows && r.rows[0] && r.rows[0].id !== undefined ? Number(r.rows[0].id) : 0;
+      return { changes: Number(r.rowCount || 0), lastInsertRowid: id };
+    },
+  };
+}
+
 /** Inserta sectores base y OTs de demostración si faltan (idempotente). */
 async function sembrar(database) {
   const ahora = ahoraUTC();
@@ -475,7 +526,7 @@ async function sembrar(database) {
   // Administrador inicial (auditoría V-1): sólo si la tabla `usuarios` está
   // vacía. La contraseña sale de OPTIFLOW_ADMIN_PASSWORD o se genera al azar
   // y se imprime UNA sola vez (no vuelve a mostrarse jamás).
-  const admin = await auth.asegurarAdminInicial(database);
+  const admin = await auth.asegurarAdminInicial(apiSobrePool(database));
   if (admin.creado) {
     console.log(`  · Usuario administrador inicial creado: "${admin.usuario}"`);
     if (admin.passwordGenerada) {

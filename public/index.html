@@ -16,6 +16,9 @@
 </head>
 <body>
 
+<!-- Envoltorio de contenido: lo desplaza el sidebar (ver app.css). -->
+<div class="app-cuerpo">
+
 <header class="topbar">
   <div class="marca">
     <div class="escudo">OF</div>
@@ -230,9 +233,12 @@
   </div>
 </div>
 
+</div><!-- /.app-cuerpo -->
+
 <div id="avisos"></div>
 
 <script src="/js/api.js"></script>
+<script src="/js/sidebar.js"></script>
 <script src="/js/terminal.js"></script>
 <script>
   // Registro del Service Worker (PWA · Fase 7). Silencioso si no hay soporte

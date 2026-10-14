@@ -15,19 +15,23 @@
  * bump CACHE_VERSION para descartar los assets viejos.
  * ============================================================ */
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v4';
 const CACHE_ESTATICOS = `optiflow-estaticos-${CACHE_VERSION}`;
 const CACHE_PAGINAS = `optiflow-paginas-${CACHE_VERSION}`;
 
 // Assets estáticos que conforman la app shell (se precachean al instalar).
 // NOTA (V-1): /admin NO se precachea: el servidor lo protege con sesión y
 // sólo debe servirse desde red. /login.html sí forma parte de la shell.
+// /js/sidebar.js va en el shell porque ambas vistas (terminal y admin)
+// dependen de él: sin precachearlo, la planta quedaría sin menú al operar
+// con red caída.
 const SHELL = [
   '/',
   '/login.html',
   '/css/app.css',
   '/js/api.js',
   '/js/login.js',
+  '/js/sidebar.js',
   '/js/terminal.js',
   '/js/admin.js',
   '/manifest.json',
