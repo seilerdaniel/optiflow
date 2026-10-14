@@ -1,0 +1,26 @@
+# Dependencias
+node_modules/
+
+# Entorno local (nunca subir credenciales)
+.env
+.env.local
+.env.*.local
+
+# Base de datos SQLite (legado de las fases 1-6; la Fase 7 usa Supabase)
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Runtime portátil de Node
+.runtime/
+
+# Caché local de skills/herramientas
+.atl/
+
+# Vercel
+.vercel/
+
+# Sistema
+Thumbs.db
+.DS_Store

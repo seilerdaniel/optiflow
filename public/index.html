@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#0f2f4f">
+  <title>Optiflow · Terminal de Fichado</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231d6fd1'/><text y='72' x='50' text-anchor='middle' font-size='56' font-family='Arial' font-weight='bold' fill='white'>OF</text></svg>">
+  <!-- PWA (Fase 7): manifest + iconos de instalación -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Optiflow">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="marca">
+    <div class="escudo">OF</div>
+    <div>
+      <h1>OPTIFLOW</h1>
+      <p>Control de Tiempos y Trazabilidad · Sector Placares · De Otro Tiempo</p>
+    </div>
+  </div>
+  <div class="topbar-dcha">
+    <div class="reloj"><span id="reloj-hora">--:--:--</span><small id="reloj-fecha">&nbsp;</small></div>
+    <span class="chip chip-gris" id="sesion-chip" hidden>👤 —</span>
+    <nav class="nav">
+      <a href="/" class="activo">⏱ Terminal</a>
+      <a href="/admin">📋 Administración</a>
+      <a href="#" id="sesion-salir" hidden style="opacity:.8;">⏻ Salir</a>
+    </nav>
+  </div>
+</header>
+
+<main class="contenedor">
+
+  <!-- ============ 1. SELECCIÓN DE OT ============ -->
+  <section class="panel">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo"><span class="paso">1</span> Orden de trabajo</span>
+      <span class="chip chip-gris" id="chip-ot">Sin seleccionar</span>
+    </h2>
+
+    <div class="buscador-ot">
+      <input type="search" id="buscador-ot" autocomplete="off" spellcheck="false"
+             placeholder="🔍  Buscar por N° de OT o cliente…" aria-label="Buscar orden de trabajo">
+      <div class="resultados-ot" id="resultados-ot" role="listbox"></div>
+    </div>
+
+    <div id="ficha-ot"></div>
+  </section>
+
+  <!-- ============ 2. ESTADO EN VIVO ============ -->
+  <section class="panel">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo"><span class="paso">2</span> Estado en vivo</span>
+      <span class="chip chip-gris" id="chip-estado">—</span>
+    </h2>
+
+    <div id="estado-vivo" class="estado-vivo sin-seleccion">
+      <div class="estado-nombre">Sin etapa seleccionada</div>
+      <div class="cronometro">00:00:00</div>
+      <div class="detalle">Elija la OT y el sector para ver el cronómetro.</div>
+    </div>
+
+    <div id="etapas-ot-bloque" hidden>
+      <h3 class="titulo-seccion" style="font-size:.86rem; margin:16px 0 4px;">OTRAS ETAPAS ABIERTAS DE LA OT</h3>
+      <ul class="lista-etapas" id="lista-etapas-abiertas"></ul>
+    </div>
+  </section>
+
+  <!-- ============ 3. SECTOR ============ -->
+  <section class="panel">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo"><span class="paso">3</span> Sector de producción</span>
+      <span class="chip chip-gris" id="chip-sector">Sin seleccionar</span>
+    </h2>
+    <div class="grid-sectores" id="grid-sectores"></div>
+    <p class="texto-suave" id="pista-sectores" style="margin:12px 0 0;">
+      Toque el sector donde se realiza el trabajo. Los sectores marcados en rojo ya tienen etapa en curso.
+      Los sectores agrupados bajo la línea de la OT son los que puede fichar; los de otra línea quedan atenuados.
+    </p>
+  </section>
+
+  <!-- ============ 4. OPERARIO ============ -->
+  <section class="panel">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo"><span class="paso">4</span> Operario responsable</span>
+    </h2>
+
+    <label class="campo">
+      <span>Nombre del operario *</span>
+      <input type="text" id="operario" list="lista-operarios" autocomplete="off"
+             placeholder="Ej: Carlos Pérez" maxlength="80" required>
+      <datalist id="lista-operarios"></datalist>
+      <p id="pista-operario" class="texto-suave" style="margin:4px 0 0; font-size:.78rem; display:none;"></p>
+    </label>
+
+    <div id="bloque-ultimo-operario"></div>
+
+    <p class="texto-suave" style="margin-top:14px;">
+      ⚠ Un operario sólo puede tener <b>una etapa abierta</b> a la vez: si dejó una sin finalizar,
+      el sistema le avisará.
+    </p>
+  </section>
+
+  <!-- ============ ACCIONES ============ -->
+  <section class="ancho-completo">
+    <div class="acciones">
+      <button id="btn-iniciar" class="accion accion-iniciar" disabled>
+        <span class="icono">▶</span> Iniciar etapa
+      </button>
+      <button id="btn-pausar" class="accion accion-pausar" disabled>
+        <span class="icono">⏸</span> Pausar etapa
+      </button>
+      <button id="btn-reanudar" class="accion accion-reanudar" disabled>
+        <span class="icono">⏵</span> Reanudar
+      </button>
+      <button id="btn-finalizar" class="accion accion-finalizar" disabled>
+        <span class="icono">■</span> Finalizar etapa
+      </button>
+    </div>
+    <p class="texto-suave" id="mensaje-accion" style="margin:10px 2px 0; min-height:1.2em;"></p>
+  </section>
+
+  <!-- ============ ÚLTIMOS REGISTROS ============ -->
+  <section class="panel ancho-completo">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo">Últimos registros de tiempo de la OT</span>
+      <a class="btn btn-chico" href="/admin">Ver todo en Administración</a>
+    </h2>
+    <div class="tabla-envoltura">
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th>Sector</th>
+            <th>Operario</th>
+            <th>Inicio</th>
+            <th>Fin</th>
+            <th class="num">Duración</th>
+            <th>Estado</th>
+            <th>Motivo pausa / Observación</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo-registros">
+          <tr><td colspan="7" class="vacio">Seleccione una OT para ver sus registros.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ MODAL: PAUSA ============ -->
+<div class="modal-fondo" id="modal-pausa">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titulo-pausa">
+    <div class="modal-cabecera">
+      <h3 id="titulo-pausa">⏸ Pausar etapa</h3>
+      <button class="modal-cerrar" data-cerrar="modal-pausa" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-cuerpo">
+      <div class="resumen-modal" id="resumen-pausa"></div>
+      <span class="campo"><span>Motivo de la pausa *</span></span>
+      <div class="motivos" id="motivos-pausa"></div>
+      <p class="texto-suave" id="pista-pausa" style="margin:-6px 0 14px;">Seleccione un motivo para habilitar la confirmación.</p>
+      <label class="campo">
+        <span>Observación (opcional)</span>
+        <textarea id="obs-pausa" maxlength="500" placeholder="Ej: llega el proveedor de herrajes a las 15:00"></textarea>
+      </label>
+    </div>
+    <div class="modal-pie">
+      <button class="btn" data-cerrar="modal-pausa">Cancelar</button>
+      <button class="btn btn-primario" id="btn-confirmar-pausa">Confirmar pausa</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: FINALIZAR ============ -->
+<div class="modal-fondo" id="modal-finalizar">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titulo-finalizar">
+    <div class="modal-cabecera">
+      <h3 id="titulo-finalizar">■ Finalizar etapa</h3>
+      <button class="modal-cerrar" data-cerrar="modal-finalizar" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-cuerpo">
+      <div class="resumen-modal" id="resumen-finalizar"></div>
+      <label class="campo">
+        <span>Observación final (opcional)</span>
+        <textarea id="obs-finalizar" maxlength="500" placeholder="Ej: trabajado según plano rev. B"></textarea>
+      </label>
+      <p class="texto-suave">La duración se calcula automáticamente con la hora del servidor,
+        descontando el tiempo en pausa.</p>
+    </div>
+    <div class="modal-pie">
+      <button class="btn" data-cerrar="modal-finalizar">Cancelar</button>
+      <button class="btn btn-peligro" id="btn-confirmar-finalizar">Sí, finalizar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: LOGIN (bloqueante, auditoría V-1) ============ -->
+<div class="modal-fondo modal-bloqueante" id="modal-login">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titulo-login">
+    <div class="modal-cabecera">
+      <h3 id="titulo-login">🔐 Iniciar sesión en Optiflow</h3>
+    </div>
+    <div class="modal-cuerpo">
+      <p class="texto-suave" style="margin-top:0;">
+        Para fichar etapas (iniciar, pausar, reanudar o finalizar) debe identificarse
+        con su usuario de planta.
+      </p>
+      <label class="campo">
+        <span>Usuario *</span>
+        <input type="text" id="login-usuario" autocomplete="username" maxlength="40"
+               autocapitalize="none" spellcheck="false" placeholder="su.usuario">
+      </label>
+      <label class="campo">
+        <span>Contraseña *</span>
+        <input type="password" id="login-password" autocomplete="current-password"
+               maxlength="200" placeholder="••••••••">
+      </label>
+      <p id="login-error" class="texto-suave" style="color:#c0392b; min-height:1.2em; margin:2px 0 0;"></p>
+    </div>
+    <div class="modal-pie">
+      <button class="btn btn-primario" id="btn-login">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="avisos"></div>
+
+<script src="/js/api.js"></script>
+<script src="/js/terminal.js"></script>
+<script>
+  // Registro del Service Worker (PWA · Fase 7). Silencioso si no hay soporte
+  // (navegadores viejos) o si se corre por http:// de red local sin https.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>

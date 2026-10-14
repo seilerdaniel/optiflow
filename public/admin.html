@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#0f2f4f">
+  <title>Optiflow · Administración de OTs</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231d6fd1'/><text y='72' x='50' text-anchor='middle' font-size='56' font-family='Arial' font-weight='bold' fill='white'>OF</text></svg>">
+  <!-- PWA (Fase 7): manifest + iconos de instalación -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Optiflow">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="marca">
+    <div class="escudo">OF</div>
+    <div>
+      <h1>OPTIFLOW</h1>
+      <p>Administración de Órdenes de Trabajo · Sector Placares · De Otro Tiempo</p>
+    </div>
+  </div>
+  <div class="topbar-dcha">
+    <div class="reloj"><span id="reloj-hora">--:--:--</span><small id="reloj-fecha">&nbsp;</small></div>
+    <span class="chip chip-gris" id="sesion-chip" hidden>👤 —</span>
+    <nav class="nav">
+      <a href="/">⏱ Terminal</a>
+      <a href="/admin" class="activo">📋 Administración</a>
+      <a href="#" id="sesion-salir" hidden style="opacity:.8;">⏻ Salir</a>
+    </nav>
+  </div>
+</header>
+
+<main class="contenedor">
+
+  <!-- ============ DASHBOARD KPIs ============ -->
+  <section class="panel ancho-completo" id="panel-kpis">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo">📊 Dashboard de gestión</span>
+      <span class="texto-suave" id="kpi-actualizado">Cargando métricas…</span>
+    </h2>
+    <div class="kpis-grid">
+      <div class="kpi">
+        <div class="kpi-titulo">OTs activas</div>
+        <div class="kpi-valor" id="kpi-activas">—</div>
+        <div class="kpi-sub" id="kpi-activas-sub">En Producción / Detenidas</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-titulo">Lead time promedio</div>
+        <div class="kpi-valor" id="kpi-leadtime">—</div>
+        <div class="kpi-sub" id="kpi-leadtime-sub">Corte → Embalaje Final</div>
+      </div>
+      <div class="kpi" id="kpi-cuello-tarjeta">
+        <div class="kpi-titulo">🚧 Cuello de botella del día</div>
+        <div class="kpi-valor" id="kpi-cuello">—</div>
+        <div class="kpi-sub" id="kpi-cuello-sub">Sector con más horas acumuladas</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-titulo">Índice FTT</div>
+        <div class="kpi-valor" id="kpi-ftt">—</div>
+        <div class="kpi-sub" id="kpi-ftt-sub">Sin reproceso ni error de plano</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CUELLOS DE BOTELLA Y PAUSAS ============ -->
+  <section class="panel ancho-completo">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo">🚧 Carga por sector y pausas</span>
+      <span class="chip chip-gris" id="cuello-dia">Hoy</span>
+    </h2>
+    <div class="dos-columnas">
+      <div>
+        <h3 class="titulo-seccion" style="font-size:.9rem;">Horas acumuladas hoy por sector</h3>
+        <p class="texto-suave" style="margin:2px 0 10px;">En proceso + pausado. El sector en rojo es el cuello de botella del día.</p>
+        <div id="carga-sectores"></div>
+      </div>
+      <div>
+        <h3 class="titulo-seccion" style="font-size:.9rem;">Horas perdidas por motivo de pausa</h3>
+        <p class="texto-suave" style="margin:2px 0 10px;" id="nota-pausas">Período de los últimos 30 días.</p>
+        <div class="tabla-envoltura">
+          <table class="tabla" style="min-width:380px;">
+            <thead>
+              <tr><th>Motivo</th><th class="num">Frecuencia</th><th class="num">Horas perdidas</th></tr>
+            </thead>
+            <tbody id="cuerpo-pausas">
+              <tr><td colspan="3" class="vacio">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SEGUIMIENTO POR SECTOR / AVANCE ============ -->
+  <section class="panel ancho-completo">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo">🔎 Seguimiento de OTs por sector y avance</span>
+      <span class="texto-suave" id="resumen-seguimiento"></span>
+    </h2>
+
+    <div class="fila-flex" style="margin-bottom:12px;">
+      <select id="filtro-sector-seg" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:10px; background:#fff;">
+        <option value="">Todos los sectores</option>
+      </select>
+      <select id="filtro-avance" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:10px; background:#fff;">
+        <option value="">Todo el avance</option>
+        <option value="sin-iniciar">Sin iniciar (0%)</option>
+        <option value="en-curso">En curso (1–99%)</option>
+        <option value="completado">Completado (100%)</option>
+      </select>
+      <span class="espaciador"></span>
+      <span class="texto-suave">Toque una fila para ver el detalle de la OT.</span>
+    </div>
+
+    <div class="tabla-envoltura">
+      <table class="tabla" id="tabla-seguimiento">
+        <thead>
+          <tr>
+            <th>OT</th>
+            <th>Cliente</th>
+            <th>Estado</th>
+            <th>Etapa activa</th>
+            <th>Avance</th>
+            <th class="num">Tiempo</th>
+            <th>Requiere</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo-seguimiento">
+          <tr><td colspan="7" class="vacio">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ FORMULARIO ALTA OT ============ -->
+  <section class="panel">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo"><span class="paso">+</span> Nueva orden de trabajo</span>
+      <span class="chip chip-gris">Oficina técnica</span>
+    </h2>
+
+    <form id="form-ot" novalidate>
+      <div class="form-grid">
+        <label class="campo">
+          <span>Número de OT *</span>
+          <input type="text" id="ot-numero" placeholder="OT-1713" maxlength="40" required autocomplete="off">
+        </label>
+        <label class="campo">
+          <span>Cliente *</span>
+          <input type="text" id="ot-cliente" placeholder="TEX CARE VESTIDOR" maxlength="120" required autocomplete="off">
+        </label>
+        <label class="campo">
+          <span>Modelo</span>
+          <input type="text" id="ot-modelo" placeholder="L.MATE" maxlength="80" autocomplete="off">
+        </label>
+        <label class="campo">
+          <span>Línea / área *</span>
+          <select id="ot-linea" required>
+            <option value="Placares" selected>📦 Placares</option>
+            <option value="Cocinas">🍳 Cocinas</option>
+          </select>
+          <small class="texto-suave" style="font-size:.75rem;">
+            Define qué sectores debe recorrer la OT. No se puede cambiar una vez producida.
+          </small>
+        </label>
+        <label class="campo">
+          <span>Metros lineales *</span>
+          <input type="text" id="ot-metros" placeholder="24,5" inputmode="decimal" autocomplete="off">
+        </label>
+        <label class="campo">
+          <span>Fecha prometida</span>
+          <input type="date" id="ot-prometida">
+        </label>
+
+        <div class="checks" id="checks-especiales">
+          <label class="check"><input type="checkbox" value="requiere_vidrio"> 🪟 Requiere Vidrio</label>
+          <label class="check"><input type="checkbox" value="requiere_lustre"> ✨ Requiere Lustre</label>
+          <label class="check"><input type="checkbox" value="requiere_herreria"> 🔩 Requiere Herrería</label>
+          <label class="check"><input type="checkbox" value="requiere_especiales"> 🛠 Requiere Especiales</label>
+        </div>
+      </div>
+
+      <!-- Materiales / placas requeridas (Fase 3) -->
+      <fieldset class="materiales-bloque" style="margin-top:14px; border:1px solid var(--borde, #d8d4cc); border-radius:10px; padding:12px;">
+        <legend style="font-size:.85rem; font-weight:700; padding:0 6px;">🪵 Materiales / placas requeridas</legend>
+        <div class="materiales-filas" id="materiales-filas"></div>
+        <div class="fila-flex" style="margin-top:8px;">
+          <button type="button" class="btn btn-chico" id="btn-agregar-material">➕ Agregar material</button>
+          <span class="espaciador"></span>
+          <span class="texto-suave" style="font-size:.8rem;">Los campos vacíos se ignoran. Placas consumidas se carga luego en el detalle de la OT.</span>
+        </div>
+      </fieldset>
+
+      <div class="fila-flex" style="margin-top:14px;">
+        <button type="submit" class="btn btn-primario">💾 Guardar OT</button>
+        <button type="reset" class="btn">Limpiar</button>
+        <span class="espaciador"></span>
+        <span class="texto-suave">Los sectores especiales sólo se habilitan en el Terminal si la casilla está marcada.</span>
+      </div>
+    </form>
+  </section>
+
+  <!-- ============ ETAPAS ACTIVAS ============ -->
+  <section class="panel">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo">🕒 Etapas activas ahora</span>
+      <span class="chip chip-verde" id="chip-activas">0</span>
+    </h2>
+    <ul class="lista-etapas" id="lista-activas">
+      <li class="vacio">No hay etapas en curso.</li>
+    </ul>
+    <p class="texto-suave" style="margin-top:10px;">Se actualiza automáticamente cada pocos segundos.</p>
+  </section>
+
+  <!-- ============ LISTA DE OTs ============ -->
+  <section class="panel ancho-completo">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo">📋 Órdenes de trabajo</span>
+      <span class="fila-flex">
+        <a class="btn btn-chico" href="/api/export/registros.csv" download>⬇ CSV (Power BI / Excel)</a>
+        <a class="btn btn-chico" href="/api/export/registros.json" target="_blank" rel="noopener">{"{"} JSON {"}"}</a>
+      </span>
+    </h2>
+
+    <div class="fila-flex" style="margin-bottom:12px;">
+      <input type="search" id="filtro-ot" placeholder="🔍 Filtrar por OT, cliente o modelo…"
+             style="flex:1 1 260px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;">
+      <select id="filtro-estado" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:10px; background:#fff;">
+        <option value="">Todos los estados</option>
+        <option>En Cola</option>
+        <option>En Producción</option>
+        <option>Detenido</option>
+        <option>Finalizado</option>
+      </select>
+      <span class="espaciador"></span>
+      <span class="texto-suave" id="resumen-ot"></span>
+    </div>
+
+    <div class="tabla-envoltura">
+      <table class="tabla" id="tabla-ots">
+        <thead>
+          <tr>
+            <th>OT</th>
+            <th>Cliente</th>
+            <th>Modelo</th>
+            <th class="num">Metros</th>
+            <th>Prometida</th>
+            <th>Requiere</th>
+            <th>Estado</th>
+            <th>Progreso</th>
+            <th class="num">Tiempo</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo-ots">
+          <tr><td colspan="10" class="vacio">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="texto-suave" style="margin-top:10px;">
+      ℹ Exportación para Power BI: <code>GET /api/export/registros.csv</code>
+      (filtros opcionales <code>?desde=AAAA-MM-DD&amp;hasta=AAAA-MM-DD&amp;sector_id=&amp;estado=</code>).
+      Véa <code>docs/POWERBI.md</code>.
+    </p>
+  </section>
+
+  <!-- ============ SECTORES Y FLUJOS ============ -->
+  <section class="panel ancho-completo" id="panel-sectores">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo">🏭 Sectores y Flujos</span>
+      <span class="chip chip-gris" id="chip-sectores">0</span>
+    </h2>
+
+    <div class="fila-flex" style="margin-bottom:12px; flex-wrap: wrap; gap: 8px;">
+      <input type="text" id="sec-nombre" placeholder="Nombre del sector / puesto" maxlength="80"
+             style="flex:1 1 240px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;"
+             autocomplete="off">
+      <select id="sec-linea" style="min-height:48px; padding:8px 12px; border:2px solid var(--borde); border-radius:10px;">
+        <option value="Placares">📦 Placares</option>
+        <option value="Cocinas">🍳 Cocinas</option>
+        <option value="Compartido">🤝 Compartido</option>
+        <option value="General">🌐 General</option>
+      </select>
+      <label class="check" style="min-height:48px;">
+        <input type="checkbox" id="sec-compartido"> Sector compartido
+      </label>
+      <input type="text" id="sec-operarios" placeholder="Operarios sugeridos (ej: Joel, Tiago)" maxlength="300"
+             style="flex:1 1 220px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;"
+             autocomplete="off">
+      <button type="button" class="btn btn-primario" id="btn-agregar-sector">➕ Agregar Sector</button>
+      <span class="espaciador"></span>
+      <label class="check" style="min-height:48px;">
+        <input type="checkbox" id="sec-filtro-inactivos"> Mostrar inactivos
+      </label>
+    </div>
+
+    <div class="tabla-envoltura">
+      <table class="tabla" id="tabla-sectores">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Sector</th>
+            <th>Línea / Área</th>
+            <th>Operarios sugeridos</th>
+            <th class="num">Orden</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo-sectores">
+          <tr><td colspan="7" class="vacio">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="texto-suave" style="margin-top:10px;">
+      ℹ El <b>orden</b> define la secuencia del flujo dentro de cada línea y cómo se muestran los sectores
+      en la Terminal. Desactivar un sector lo oculta de la planta e impide fichar en él, pero conserva su
+      historial. Los <i>operarios sugeridos</i> se muestran como pista en la Terminal (el alta es libre).
+    </p>
+  </section>
+
+  <!-- ============ GESTIÓN DE OPERARIOS ============ -->
+  <section class="panel ancho-completo" id="panel-operarios">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo">👷 Gestión de Operarios</span>
+      <span class="chip chip-gris" id="chip-operarios">0</span>
+    </h2>
+
+    <div class="fila-flex" style="margin-bottom:12px;">
+      <input type="text" id="op-nombre" placeholder="Nombre del operario" maxlength="80"
+             style="flex:1 1 240px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;"
+             autocomplete="off">
+      <button type="button" class="btn btn-primario" id="btn-agregar-operario">➕ Agregar Operario</button>
+      <span class="espaciador"></span>
+      <label class="check" style="min-height:48px;">
+        <input type="checkbox" id="op-filtro-inactivos"> Mostrar inactivos
+      </label>
+    </div>
+
+    <div class="tabla-envoltura">
+      <table class="tabla" id="tabla-operarios">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th class="num">Etapas</th>
+            <th>Última actividad</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo-operarios">
+          <tr><td colspan="6" class="vacio">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="texto-suave" style="margin-top:10px;">
+      ℹ Los operarios se sincronizan con la Terminal: si un operario escribe un nombre
+      nuevo al iniciar una etapa, se registra automáticamente aquí.
+      Desactivar un operario impide que inicie nuevas etapas (pero su historial se conserva).
+    </p>
+  </section>
+
+  <!-- ============ USUARIOS DEL SISTEMA (credenciales de acceso) ============ -->
+  <section class="panel ancho-completo" id="panel-usuarios" hidden>
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo">🔐 Usuarios del sistema</span>
+      <span class="chip chip-gris" id="chip-usuarios">0</span>
+    </h2>
+
+    <p class="texto-suave" style="margin-top:0;">
+      Credenciales para usar la Terminal de fichado y este panel. Cree un usuario
+      por operario (rol <b>operario</b>): cada fichaje quedará vinculado a quien lo hizo.
+    </p>
+
+    <div class="fila-flex" style="margin:12px 0; flex-wrap:wrap; gap:10px;">
+      <input type="text" id="usu-login" placeholder="Usuario (minúsculas)" maxlength="40"
+             autocapitalize="none" spellcheck="false"
+             style="flex:1 1 170px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;"
+             autocomplete="off">
+      <input type="text" id="usu-nombre" placeholder="Nombre visible" maxlength="80"
+             style="flex:1 1 180px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;"
+             autocomplete="off">
+      <input type="password" id="usu-password" placeholder="Contraseña (mín. 6)" maxlength="200"
+             style="flex:1 1 170px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;"
+             autocomplete="new-password">
+      <select id="usu-rol" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:10px; background:#fff;">
+        <option value="operario">Operario (terminal)</option>
+        <option value="encargado">Encargado (gestión)</option>
+        <option value="admin">Administrador</option>
+      </select>
+      <button type="button" class="btn btn-primario" id="btn-agregar-usuario">➕ Crear usuario</button>
+    </div>
+
+    <div class="tabla-envoltura">
+      <table class="tabla" id="tabla-usuarios">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Usuario</th>
+            <th>Nombre</th>
+            <th>Rol</th>
+            <th>Último acceso</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo-usuarios">
+          <tr><td colspan="7" class="vacio">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="texto-suave" style="margin-top:10px;">
+      ℹ Los usuarios autenticados en la Terminal pueden iniciar, pausar, reanudar y
+      finalizar etapas. Sólo los <b>administradores</b> gestionan usuarios y las
+      acciones críticas del panel.
+    </p>
+  </section>
+
+</main>
+
+<!-- ============ MODAL: DETALLE DE OT ============ -->
+<div class="modal-fondo" id="modal-detalle">
+  <div class="modal" style="width:min(900px,100%);" role="dialog" aria-modal="true">
+    <div class="modal-cabecera">
+      <h3 id="detalle-titulo">Detalle de OT</h3>
+      <button class="modal-cerrar" data-cerrar="modal-detalle" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-cuerpo" id="detalle-cuerpo"></div>
+    <div class="modal-pie">
+      <button class="btn" data-cerrar="modal-detalle">Cerrar</button>
+      <button class="btn btn-primario" id="detalle-hoja-ruta" type="button">🖨️ Imprimir Hoja de Ruta</button>
+      <a class="btn btn-chico" id="detalle-csv" href="#" download>⬇ Exportar CSV de esta OT</a>
+    </div>
+  </div>
+</div>
+
+<div id="avisos"></div>
+
+<script src="/js/api.js"></script>
+<script src="/js/admin.js"></script>
+<script>
+  // Registro del Service Worker (PWA · Fase 7). Silencioso si no hay soporte.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>

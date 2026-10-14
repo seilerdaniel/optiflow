@@ -1,0 +1,32 @@
+{
+  "name": "optiflow",
+  "version": "7.0.0",
+  "description": "Optiflow - Plataforma Web de Control de Tiempos y Trazabilidad en Planta (De Otro Tiempo). Fase 7: Supabase + Vercel + PWA.",
+  "private": true,
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "start:win": ".runtime\\node\\node.exe server\\server.js",
+    "dev": "node server/server.js --no-browser",
+    "vercel:dev": "vercel dev",
+    "demo:export": "node server/tools/prueba-api.js",
+    "prueba:ui": "node server/tools/prueba-ui.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "keywords": [
+    "mes",
+    "wms",
+    "trazabilidad",
+    "control-de-tiempos",
+    "planta",
+    "pwa",
+    "supabase",
+    "vercel"
+  ],
+  "license": "UNLICENSED",
+  "dependencies": {
+    "pg": "^8.23.1"
+  }
+}
