@@ -1064,3 +1064,217 @@ a { color: var(--acento); }
   .hoja-cabecera, .hoja-qr-bloque, .hoja-datos, .hoja-tabla { break-inside: avoid; }
   .hoja-firmas tbody tr { height: 30px; }
 }
+
+/* ============================================================
+   SISTEMA DE DISENO INDUSTRIAL -- "De Otro Tiempo"
+   ------------------------------------------------------------
+   Superficie OSCURA para el area de analitica (Dashboard KPIs,
+   graficos y paneles nuevos). La terminal de fichado conserva el
+   tema claro (legibilidad bajo luz de planta) y la Hoja de Ruta
+   conserva el blanco de impresion: ese es el contrato de este bloque.
+
+   Capa de tokens: cualquier componente nuevo se pinta con estas
+   variables y queda alineado sin escribir mas CSS.
+   ============================================================ */
+
+:root {
+  /* Fondos industriales */
+  --bg-dark:      #121416;  /* base profunda: app shell oscura */
+  --bg-card:      #232529;  /* tarjeta / panel elevado */
+  --bg-raised:    #2b2e33;  /* hover y superficie elevada */
+  --border-color: #3F4248;  /* filete de tarjeta */
+
+  /* Acentos por linea de produccion */
+  --linea-placares:    #1D63B8;  /* Azul  - Placares     */
+  --linea-cocinas:     #C82333;  /* Rojo  - Cocinas      */
+  --linea-compartidos: #6F42C1;  /* Purpura - Compartidos */
+
+  /* Estados de proceso */
+  --estado-proceso: #28A745;  /* En proceso / conforme */
+  --estado-pausa:   #FFC107;  /* Pausado / standby     */
+  --estado-alerta:  #DC3545;  /* Detenido / en riesgo  */
+
+  /* Texto sobre superficie oscura */
+  --texto-claro:   #F2F4F7;
+  --texto-dim:     #9AA1AC;
+  --texto-apagado: #6C7480;
+
+  /* Monoespaciadas: codigos de OT, cronometros y contadores.
+     Solo stacks del sistema: cero descargas en planta. */
+  --mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono",
+          Menlo, Consolas, "Liberation Mono", monospace;
+
+  --radio-ind: 12px;
+  --sombra-ind: 0 8px 24px rgba(0, 0, 0, .35);
+}
+
+/* ------------------ Superficie oscura de analitica ------------------ */
+.panel-industrial {
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radio-ind);
+  color: var(--texto-claro);
+  box-shadow: var(--sombra-ind);
+}
+.panel-industrial .panel-titulo,
+.panel-industrial h2,
+.panel-industrial h3 { color: var(--texto-claro); }
+.panel-industrial .texto-suave { color: var(--texto-dim); }
+.panel-industrial .chip-gris {
+  background: var(--bg-raised); color: var(--texto-dim);
+  border: 1px solid var(--border-color);
+}
+
+/* Tarjeta de KPI industrial: tipografia monoespaciada para que los
+   numeros no "bailen" al actualizarse cada 30 s. */
+.kpi-ind {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--linea-placares);
+  border-radius: var(--radio-ind);
+  padding: 16px 18px;
+  min-width: 0;
+  transition: transform .15s ease, border-color .15s ease;
+}
+.kpi-ind:hover { transform: translateY(-2px); border-color: var(--texto-apagado); }
+.kpi-ind .kpi-titulo {
+  color: var(--texto-dim);
+  font-size: .68rem; letter-spacing: 1.2px; text-transform: uppercase;
+  font-weight: 800;
+}
+.kpi-ind .kpi-valor {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 2.05rem; font-weight: 700; line-height: 1.1;
+  color: var(--texto-claro);
+  margin-top: 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.kpi-ind .kpi-sub { color: var(--texto-apagado); font-size: .76rem; margin-top: 6px; }
+
+/* Semaforo de estado sobre la tarjeta oscura. */
+.kpi-ind.acento-placares    { border-left-color: var(--linea-placares); }
+.kpi-ind.acento-cocinas     { border-left-color: var(--linea-cocinas); }
+.kpi-ind.acento-compartidos { border-left-color: var(--linea-compartidos); }
+.kpi-ind.acento-proceso     { border-left-color: var(--estado-proceso); }
+.kpi-ind.acento-pausa       { border-left-color: var(--estado-pausa); }
+.kpi-ind.acento-alerta      { border-left-color: var(--estado-alerta); }
+.kpi-ind.acento-alerta .kpi-valor  { color: #FF8A8A; }
+.kpi-ind.acento-pausa   .kpi-valor { color: #FFD86B; }
+.kpi-ind.acento-proceso .kpi-valor { color: #63D487; }
+
+/* --------------------------- Graficos --------------------------- */
+.grafico-envoltura {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radio-ind);
+  padding: 16px;
+  min-width: 0;
+}
+.grafico-envoltura h3 {
+  margin: 0 0 4px;
+  font-size: .92rem; color: var(--texto-claro); font-weight: 700;
+}
+.grafico-nota { color: var(--texto-apagado); font-size: .76rem; margin: 0 0 12px; }
+.grafico-lienzo { position: relative; width: 100%; height: 300px; }
+.grafico-lienzo canvas { max-width: 100%; }
+
+/* Controles del dashboard sobre fondo oscuro. */
+.panel-industrial select,
+.panel-industrial input[type="search"],
+.panel-industrial input[type="text"] {
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-color);
+  color: var(--texto-claro);
+  border-radius: 10px;
+  min-height: 48px;
+  padding: 10px 12px;
+}
+.panel-industrial select:focus,
+.panel-industrial input:focus { outline: 2px solid var(--linea-placares); outline-offset: 1px; }
+.panel-industrial .btn {
+  background: var(--bg-card); color: var(--texto-claro);
+  border: 1.5px solid var(--border-color);
+}
+.panel-industrial .btn:hover { background: var(--bg-raised); }
+.panel-industrial .btn-primario {
+  background: var(--linea-placares); border-color: var(--linea-placares); color: #fff;
+}
+
+/* Tabla sobre superficie oscura. */
+.panel-industrial .tabla thead th {
+  background: var(--bg-raised); color: var(--texto-dim);
+  border-bottom: 1px solid var(--border-color);
+}
+.panel-industrial .tabla th,
+.panel-industrial .tabla td { border-bottom: 1px solid var(--border-color); color: var(--texto-claro); }
+.panel-industrial .tabla tbody tr:hover { background: var(--bg-raised); }
+.panel-industrial .tabla .vacio { color: var(--texto-apagado); }
+
+/* ---------------- Chips de estado (semaforo de planta) ------------- */
+.chip-estado { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.chip-estado::before {
+  content: ""; width: 9px; height: 9px; border-radius: 50%;
+  background: currentColor; flex: none;
+}
+.chip-proceso { color: var(--estado-proceso); }
+.chip-pausa   { color: var(--estado-pausa); }
+.chip-alerta  { color: var(--estado-alerta); }
+
+/* Codigos de OT y cronometros siempre monoespaciados. */
+.mono, .ot-codigo, .cronometro, .num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   ACCESIBILIDAD TACTIL -- Terminal de fichado (body.terminal)
+   Objetivo WCAG 2.5.5 (AAA industrial): 56px de alto minimo.
+   Se acota a la terminal: en admin el layout es denso y subir
+   todos los botones a 56px romperia el ritmo de las tablas.
+   ============================================================ */
+.terminal .btn, .terminal .btn-chico { min-height: 56px; }
+.terminal .btn { font-size: 1.02rem; }
+.terminal input, .terminal select, .terminal textarea { min-height: 56px; }
+.terminal .btn, .terminal .btn-chico, .terminal .motivo { touch-action: manipulation; }
+/* Los objetivos táctiles del buscador de OT también llegan a 56px. */
+.terminal .buscador-ot > input { min-height: 56px; }
+@media (pointer: coarse) {
+  .terminal .btn, .terminal .btn-chico { min-height: 56px; }
+}
+
+/* ============================================================
+   RESPONSIVE -- Conversion de tablas en tarjetas apiladas
+   ------------------------------------------------------------
+   En movil la tabla no scrollea: cada fila se vuelve una tarjeta
+   con sus etiquetas. Los data-label los estampa admin.js desde el
+   thead, asi anadir una columna no requiere tocar el CSS.
+   ============================================================ */
+@media (max-width: 767px) {
+  .tabla-envoltura { overflow-x: visible; }
+  .tabla, .tabla thead, .tabla tbody, .tabla th, .tabla td, .tabla tr { display: block; }
+  .tabla { min-width: 0; }
+  .tabla thead { display: none; }
+  .tabla tbody tr {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radio-ind);
+    margin-bottom: 12px;
+    padding: 6px 14px 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .08);
+  }
+  .tabla tbody td {
+    display: flex; justify-content: space-between; gap: 14px;
+    text-align: right; padding: 9px 0;
+    border-bottom: 1px dashed var(--borde);
+  }
+  .tabla tbody td:last-child { border-bottom: 0; }
+  .tabla tbody td::before {
+    content: attr(data-label);
+    font-size: .68rem; font-weight: 800; letter-spacing: .6px;
+    text-transform: uppercase; color: var(--texto-suave);
+    text-align: left; flex: none;
+  }
+  .tabla .num { text-align: right; }
+  .fila-acciones { justify-content: flex-end; flex-wrap: wrap; }
+}

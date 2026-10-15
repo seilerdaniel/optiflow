@@ -35,6 +35,7 @@ const registros = require('./routes/registros');
 const operarios = require('./routes/operarios');
 const exportador = require('./routes/export');
 const metricas = require('./routes/metricas');
+const materiales = require('./routes/materiales');
 const authRuta = require('./routes/auth');
 
 const PUERTO = Number(process.env.PORT) || 3000;
@@ -230,6 +231,9 @@ const RUTAS = [
 
   // --- Métricas / cuellos de botella (Fase 2) ---
   ['GET', '/api/metricas', metricas.calcular],
+
+  // Catálogo dinámico de placas (reconstruido desde ot_materiales).
+  ['GET', '/api/materiales/catalogo', materiales.catalogo],
 
   // --- Exportación (Power BI / Excel): sesión o token estático ---
   ['GET', '/api/export/registros', exportador.exportarJSON, { auth: 'export' }],

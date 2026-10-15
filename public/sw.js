@@ -15,7 +15,7 @@
  * bump CACHE_VERSION para descartar los assets viejos.
  * ============================================================ */
 
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v9';
 const CACHE_ESTATICOS = `optiflow-estaticos-${CACHE_VERSION}`;
 const CACHE_PAGINAS = `optiflow-paginas-${CACHE_VERSION}`;
 
@@ -25,6 +25,8 @@ const CACHE_PAGINAS = `optiflow-paginas-${CACHE_VERSION}`;
 // /js/sidebar.js va en el shell porque ambas vistas (terminal y admin)
 // dependen de él: sin precachearlo, la planta quedaría sin menú al operar
 // con red caída.
+// /js/lib/chart.umd.min.js se precachea para que el dashboard de analítica
+// siga renderizando con la tablet sin conexión (vendor local: cero CDN).
 const SHELL = [
   '/',
   '/login.html',
@@ -34,6 +36,7 @@ const SHELL = [
   '/js/sidebar.js',
   '/js/terminal.js',
   '/js/admin.js',
+  '/js/lib/chart.umd.min.js',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',

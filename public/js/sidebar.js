@@ -55,7 +55,7 @@
       texto: 'Cocinas', sub: 'Filtro rápido de la línea', acento: 'cocinas',
     },
     {
-      clave: 'compartidos', href: '/admin?linea=compartidos#panel-ots', ico: '🤝',
+      clave: 'compartidos', href: '/admin#panel-compartidos', ico: '🤝',
       texto: 'Sectores Compartidos', sub: 'Lustre · Herrería · Vidrio · Especiales',
       acento: 'compartidos',
     },
@@ -66,7 +66,7 @@
       texto: 'Operarios', sub: 'Maestro de personal',
     },
     {
-      clave: 'materiales', href: '/admin#materiales-bloque', ico: '🪵',
+      clave: 'materiales', href: '/admin#panel-materiales', ico: '🪵',
       texto: 'Materiales / Placas', sub: 'Melaminas · MDF · Fibroplus',
     },
     {
@@ -85,6 +85,9 @@
     'panel-operarios': 'operarios',
     'panel-sectores': 'sectores',
     'panel-kpis': 'analitica',
+    'panel-materiales': 'materiales',
+    'panel-compartidos': 'compartidos',
+    // Alias heredados (anclas que el menú usaba antes de los paneles dedicados).
     'materiales-bloque': 'materiales',
   };
 

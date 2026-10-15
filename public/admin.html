@@ -41,40 +41,66 @@
 <main class="contenedor">
 
   <!-- ============ DASHBOARD KPIs ============ -->
-  <section class="panel ancho-completo" id="panel-kpis">
+  <section class="panel ancho-completo panel-industrial" id="panel-kpis">
     <h2 class="panel-titulo">
-      <span class="etiqueta-titulo">📊 Dashboard de gestión</span>
+      <span class="etiqueta-titulo">📊 Dashboard de analítica integrada</span>
       <span class="texto-suave" id="kpi-actualizado">Cargando métricas…</span>
     </h2>
+
+    <!-- 4 tarjetas de KPI (Lead Time · Standby · Riesgo · FTT) -->
     <div class="kpis-grid">
-      <div class="kpi">
-        <div class="kpi-titulo">OTs activas</div>
-        <div class="kpi-valor" id="kpi-activas">—</div>
-        <div class="kpi-sub" id="kpi-activas-sub">En Producción / Detenidas</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-titulo">Lead time promedio</div>
+      <div class="kpi-ind acento-placares">
+        <div class="kpi-titulo">Lead Time promedio</div>
         <div class="kpi-valor" id="kpi-leadtime">—</div>
         <div class="kpi-sub" id="kpi-leadtime-sub">Corte → Embalaje Final</div>
       </div>
-      <div class="kpi" id="kpi-cuello-tarjeta">
-        <div class="kpi-titulo">🚧 Cuello de botella del día</div>
-        <div class="kpi-valor" id="kpi-cuello">—</div>
-        <div class="kpi-sub" id="kpi-cuello-sub">Sector con más horas acumuladas</div>
+      <div class="kpi-ind acento-pausa">
+        <div class="kpi-titulo">Standby entre sectores</div>
+        <div class="kpi-valor" id="kpi-standby">—</div>
+        <div class="kpi-sub" id="kpi-standby-sub">Tiempo muerto en traspasos</div>
       </div>
-      <div class="kpi">
+      <div class="kpi-ind acento-alerta">
+        <div class="kpi-titulo">OTs en riesgo</div>
+        <div class="kpi-valor" id="kpi-riesgo">—</div>
+        <div class="kpi-sub" id="kpi-riesgo-sub">Vencidas o detenidas</div>
+      </div>
+      <div class="kpi-ind acento-proceso">
         <div class="kpi-titulo">Índice FTT</div>
         <div class="kpi-valor" id="kpi-ftt">—</div>
-        <div class="kpi-sub" id="kpi-ftt-sub">Sin reproceso ni error de plano</div>
+        <div class="kpi-sub" id="kpi-ftt-sub">First Time Through</div>
+      </div>
+    </div>
+
+    <!-- Gráfico de barras: Tiempo de ciclo por sector (filtrable por línea) -->
+    <div class="dos-columnas" style="margin-top:18px;">
+      <div class="grafico-envoltura">
+        <h3>Tiempo de ciclo por sector</h3>
+        <p class="grafico-nota">Promedio de minutos por etapa cerrada · filtra por línea de producción.</p>
+        <div class="fila-flex" style="margin-bottom:10px;">
+          <select id="filtro-linea-grafico" aria-label="Filtrar el gráfico por línea">
+            <option value="">Ambas líneas</option>
+            <option value="Placares">📦 Placares</option>
+            <option value="Cocinas">🍳 Cocinas</option>
+          </select>
+          <span class="chip chip-gris" id="cuello-dia">Hoy</span>
+        </div>
+        <div class="grafico-lienzo"><canvas id="grafico-ciclo" aria-label="Tiempo de ciclo por sector" role="img"></canvas></div>
+      </div>
+
+      <!-- Gráfico de dona: Causa raíz de pausas y reprocesos -->
+      <div class="grafico-envoltura">
+        <h3>Causa raíz de pausas y reprocesos</h3>
+        <p class="grafico-nota" id="nota-pausas">Período de los últimos 30 días.</p>
+        <div class="grafico-lienzo"><canvas id="grafico-causas" aria-label="Causa raíz de pausas y reprocesos" role="img"></canvas></div>
       </div>
     </div>
   </section>
 
-  <!-- ============ CUELLOS DE BOTELLA Y PAUSAS ============ -->
-  <section class="panel ancho-completo">
+  <!-- ============ CARGA POR SECTOR (desglose del cuello de botella) ============ -->
+  <section class="panel ancho-completo panel-industrial">
     <h2 class="panel-titulo">
       <span class="etiqueta-titulo">🚧 Carga por sector y pausas</span>
-      <span class="chip chip-gris" id="cuello-dia">Hoy</span>
+      <span class="texto-suave" id="kpi-cuello-sub-top"></span>
     </h2>
     <div class="dos-columnas">
       <div>
@@ -84,7 +110,6 @@
       </div>
       <div>
         <h3 class="titulo-seccion" style="font-size:.9rem;">Horas perdidas por motivo de pausa</h3>
-        <p class="texto-suave" style="margin:2px 0 10px;" id="nota-pausas">Período de los últimos 30 días.</p>
         <div class="tabla-envoltura">
           <table class="tabla" style="min-width:380px;">
             <thead>
@@ -281,6 +306,125 @@
     </p>
   </section>
 
+  <!-- ============ CATÁLOGO DE MATERIALES / PLACAS ============ -->
+  <section class="panel ancho-completo panel-industrial" id="panel-materiales">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo">🪵 Materiales / Placas</span>
+      <span class="chip chip-gris" id="chip-materiales">0</span>
+    </h2>
+
+    <p class="texto-suave" style="margin-top:0;">
+      Catálogo dinámico reconstruido desde las OTs: melaminas, MDF y fibroplus
+      con su consumo acumulado. El espesor se deriva del nombre del material.
+    </p>
+
+    <!-- Resumen de tarjetas: familias de placa -->
+    <div class="kpis-grid" id="materiales-resumen" style="margin:12px 0;"></div>
+
+    <div class="fila-flex" style="margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+      <input type="search" id="mat-filtro-nombre" placeholder="🔍 Filtrar por nombre de material…"
+             style="flex:1 1 240px; min-height:48px; padding:10px 14px; border:1.5px solid var(--border-color); border-radius:10px;"
+             autocomplete="off">
+      <select id="mat-filtro-espesor" style="min-height:48px; padding:10px 12px; border:1.5px solid var(--border-color); border-radius:10px;"
+              aria-label="Filtrar por espesor">
+        <option value="">Todos los espesores</option>
+      </select>
+      <select id="mat-filtro-familia" style="min-height:48px; padding:10px 12px; border:1.5px solid var(--border-color); border-radius:10px;"
+              aria-label="Filtrar por familia de material">
+        <option value="">Todas las familias</option>
+        <option value="Melamina">Melamina</option>
+        <option value="MDF">MDF</option>
+        <option value="Fibroplus">Fibroplus</option>
+        <option value="Otro">Otros</option>
+      </select>
+      <span class="espaciador"></span>
+      <span class="texto-suave" id="mat-resumen"></span>
+    </div>
+
+    <div class="tabla-envoltura">
+      <table class="tabla" id="tabla-materiales">
+        <thead>
+          <tr>
+            <th>Material</th>
+            <th>Familia</th>
+            <th class="num">Espesor</th>
+            <th class="num">Requeridas</th>
+            <th class="num">Consumidas</th>
+            <th class="num">% Consumo</th>
+            <th class="num">OTs</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo-materiales">
+          <tr><td colspan="8" class="vacio">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="texto-suave" style="margin-top:10px;">
+      ℹ El catálogo se reconstruye de <code>ot_materiales</code> vía
+      <code>GET /api/materiales/catalogo</code>. El espesor se infiere del nombre
+      (ej: <code>Melamina Blanca 18mm</code> → 18 mm); los materiales sin espesor
+      explícito quedan en la fila "n/d".
+    </p>
+  </section>
+
+  <!-- ============ TALLERES COMPARTIDOS ============ -->
+  <section class="panel ancho-completo panel-industrial" id="panel-compartidos">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo">🤝 Talleres Compartidos</span>
+      <span class="chip chip-gris" id="chip-compartidos">0</span>
+    </h2>
+
+    <p class="texto-suave" style="margin-top:0;">
+      Monitoreo de demanda y tiempos en Lustre, Herrería, Vidrio y Especiales:
+      sectores que atienden ambas líneas y suelen formar cuellos de botella.
+    </p>
+
+    <div class="kpis-grid" id="compartidos-resumen" style="margin:12px 0;"></div>
+
+    <div class="fila-flex" style="margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+      <select id="comp-filtro-sector" style="min-height:48px; padding:10px 12px; border:1.5px solid var(--border-color); border-radius:10px;"
+              aria-label="Filtrar por taller compartido">
+        <option value="">Todos los talleres</option>
+      </select>
+      <select id="comp-filtro-linea" style="min-height:48px; padding:10px 12px; border:1.5px solid var(--border-color); border-radius:10px;"
+              aria-label="Filtrar por línea que demanda">
+        <option value="">Ambas líneas</option>
+        <option value="Placares">📦 Placares</option>
+        <option value="Cocinas">🍳 Cocinas</option>
+      </select>
+      <span class="espaciador"></span>
+      <span class="texto-suave" id="comp-resumen"></span>
+    </div>
+
+    <div class="tabla-envoltura">
+      <table class="tabla" id="tabla-compartidos">
+        <thead>
+          <tr>
+            <th>Taller</th>
+            <th>Línea demandante</th>
+            <th>OT</th>
+            <th>Cliente</th>
+            <th>Etapa</th>
+            <th class="num">Minutos</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo-compartidos">
+          <tr><td colspan="7" class="vacio">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="texto-suave" style="margin-top:10px;">
+      ℹ Fuente: <code>GET /api/export/registros</code> filtrado por
+      <code>linea_area = 'Compartido'</code> del sector. La columna "Minutos" es
+      el tiempo de la etapa en ese taller; los tramos abiertos (en curso o
+      pausado) se marcan en amarillo y su tiempo sigue corriendo.
+    </p>
+  </section>
+
   <!-- ============ SECTORES Y FLUJOS ============ -->
   <section class="panel ancho-completo" id="panel-sectores">
     <h2 class="panel-titulo">
@@ -461,6 +605,9 @@
 
 <script src="/js/api.js"></script>
 <script src="/js/sidebar.js"></script>
+<!-- Chart.js 4.4.1 vendorizado localmente: cero CDN en runtime (la planta
+     opera con red intermitente y el dashboard debe cargar igual). -->
+<script src="/js/lib/chart.umd.min.js"></script>
 <script src="/js/admin.js"></script>
 <script>
   // Registro del Service Worker (PWA · Fase 7). Silencioso si no hay soporte.

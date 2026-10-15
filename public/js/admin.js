@@ -14,6 +14,9 @@ const S = {
   operarios: [],
   usuarios: [],
   usuario: null,   // sesión vigente
+  registrosExport: null, // export de registros (standby + gráfico de ciclo)
+  materiales: null,      // catálogo dinámico de placas
+  compartidos: null,     // etapas en talleres compartidos
 };
 
 const $ = (id) => document.getElementById(id);
@@ -46,6 +49,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     pintarTablaSectores();
     await cargarOrdenes();
     await Promise.all([cargarActivas(), cargarMetricas(), cargarOperarios()]);
+    // Paneles dedicados: catálogo de placas y talleres compartidos.
+    await Promise.all([cargarMateriales(), cargarCompartidos()]);
     if (S.usuario.rol === 'admin') {
       $('panel-usuarios').hidden = false;
       await cargarUsuarios();
@@ -128,6 +133,19 @@ function ligarEventos() {
   document.querySelectorAll('[data-cerrar]').forEach((b) => {
     b.addEventListener('click', () => Modal.cerrar(b.getAttribute('data-cerrar')));
   });
+
+  // Filtros del dashboard de analítica.
+  $('filtro-linea-grafico').addEventListener('change', pintarGraficoCiclo);
+
+  // Filtros del panel de Materiales / Placas.
+  ['mat-filtro-nombre', 'mat-filtro-espesor', 'mat-filtro-familia'].forEach((id) => {
+    $(id).addEventListener(id === 'mat-filtro-nombre' ? 'input' : 'change', pintarTablaMateriales);
+  });
+
+  // Filtros del panel de Talleres Compartidos.
+  ['comp-filtro-sector', 'comp-filtro-linea'].forEach((id) => {
+    $(id).addEventListener('change', pintarTablaCompartidos);
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -151,9 +169,19 @@ function poblarFiltroSectorSeguimiento() {
 
 async function cargarMetricas() {
   try {
+    // El export de registros alimenta el standby y el gráfico de ciclo por
+    // sector. Se pide una sola vez y se reutiliza en los refrescos.
+    if (!S.registrosExport) {
+      try {
+        const exp = await API.get('/api/export/registros?limite=20000');
+        S.registrosExport = exp.registros || [];
+      } catch { S.registrosExport = []; }
+    }
+
     const m = await API.get('/api/metricas');
     S.metricas = m;
     pintarKPIs(m);
+    pintarGraficoCiclo();
     pintarCargaSectores(m);
     pintarPausas(m);
     $('kpi-actualizado').textContent = `Actualizado ${FORMATO.hora(m.generado_en)} · período ${FORMATO.fecha(m.periodo.desde)} → ${FORMATO.fecha(m.periodo.hasta)}`;
@@ -163,36 +191,472 @@ async function cargarMetricas() {
 }
 
 function pintarKPIs(m) {
-  // OTs activas
-  $('kpi-activas').textContent = String(m.ots.activas);
-  $('kpi-activas-sub').textContent =
-    `En Producción: ${m.ots.por_estado['En Producción']} · Detenidas: ${m.ots.por_estado.Detenido} · de ${m.ots.total} totales`;
-
-  // Lead time promedio
+  // 1) Lead time promedio
   $('kpi-leadtime').textContent = m.lead_time.promedio_minutos === null ? '—' : m.lead_time.promedio_legible;
   $('kpi-leadtime-sub').textContent = m.lead_time.ots_medidas
-    ? `Promedio de ${m.lead_time.ots_medidas} OT(s) medidas (Corte → Embalaje Final)`
-    : 'Sin OTs medidas en el período (Corte → Embalaje Final)';
+    ? `Promedio de ${m.lead_time.ots_medidas} OT(s) medidas`
+    : 'Sin OTs medidas en el período';
 
-  // Cuello de botella del día
-  const tarjeta = $('kpi-cuello-tarjeta');
-  if (m.cuello_botella) {
-    tarjeta.classList.add('alerta');
-    $('kpi-cuello').textContent = m.cuello_botella.nombre_corto || m.cuello_botella.nombre_sector;
-    $('kpi-cuello-sub').textContent =
-      `${m.cuello_botella.horas_total} h acumuladas hoy (${m.cuello_botella.horas_en_proceso} h en proceso · ${m.cuello_botella.horas_pausado} h pausado) · ${m.cuello_botella.etapas_abiertas} etapa(s) abierta(s)`;
-  } else {
-    tarjeta.classList.remove('alerta');
-    $('kpi-cuello').textContent = 'Sin carga';
-    $('kpi-cuello-sub').textContent = 'No hay etapas activas ni cerradas hoy.';
-  }
-  $('cuello-dia').textContent = `Hoy: ${FORMATO.fecha(m.periodo.dia_cuello_botella)}`;
-
-  // FTT
+  // 2) FTT
   $('kpi-ftt').textContent = m.ftt.porcentaje === null ? '—' : `${m.ftt.porcentaje}%`;
   $('kpi-ftt-sub').textContent = m.ftt.evaluadas
-    ? `${m.ftt.conformes} de ${m.ftt.evaluadas} OT(s) sin ${m.ftt.motivos_reproceso.join(' / ')}`
+    ? `${m.ftt.conformes} de ${m.ftt.evaluadas} OT(s) sin reproceso`
     : 'Sin OTs avanzadas en el período';
+
+  // 3 y 4) Standby y Riesgo salen del export de registros + la lista de OTs.
+  pintarStandbyYRiesgo();
+  pintarGraficoCausas(m);
+
+  $('cuello-dia').textContent = m.cuello_botella
+    ? `🚧 ${m.cuello_botella.nombre_corto || m.cuello_botella.nombre_sector}`
+    : 'Sin carga hoy';
+  $('kpi-cuello-sub-top').textContent = m.periodo.dia_cuello_botella
+    ? `Cuello de botella del ${FORMATO.fecha(m.periodo.dia_cuello_botella)}`
+    : '';
+}
+
+/** OTs en riesgo: vencidas (fecha prometida pasada) o detenidas. */
+function calcularRiesgo() {
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  return S.ordenes.filter((ot) => {
+    if (ot.estado_general === 'Finalizado') return false;
+    const vencida = ot.fecha_prometida
+      && new Date(ot.fecha_prometida + 'T00:00:00') < hoy;
+    return vencida || ot.estado_general === 'Detenido';
+  });
+}
+
+/**
+ * Standby entre sectores: tiempo muerto entre el cierre de una etapa y el
+ * arranque de la siguiente dentro de la MISMA OT (el traspaso entre sectores).
+ * Se calcula sobre el export de registros ordenado por OT + inicio.
+ */
+function calcularStandby(registros) {
+  const porOT = new Map();
+  for (const r of registros) {
+    // El JSON del export expone los campos crudos (sin sufijo `_utc`: ese
+    // renombrado es sólo del CSV para Power BI).
+    if (!r.fecha_hora_inicio) continue;
+    if (!porOT.has(r.numero_ot)) porOT.set(r.numero_ot, []);
+    porOT.get(r.numero_ot).push(r);
+  }
+
+  let totalMin = 0;
+  let traspasos = 0;
+  let otsConTraspaso = 0;
+
+  for (const lista of porOT.values()) {
+    lista.sort((a, b) => Date.parse(a.fecha_hora_inicio) - Date.parse(b.fecha_hora_inicio));
+    let minutoOT = 0;
+    for (let i = 0; i < lista.length - 1; i += 1) {
+      const fin = lista[i].fecha_hora_fin;
+      const sigInicio = lista[i + 1].fecha_hora_inicio;
+      if (!fin || !sigInicio) continue; // etapa abierta: no se mide el traspaso
+      const gap = (Date.parse(sigInicio) - Date.parse(fin)) / 60000;
+      if (gap > 0 && gap <= 1440) { // tope de 24 h: ignora pausas de fin de semana
+        minutoOT += gap;
+        traspasos += 1;
+      }
+    }
+    if (minutoOT > 0) { totalMin += minutoOT; otsConTraspaso += 1; }
+  }
+
+  return {
+    total_minutos: totalMin,
+    traspasos,
+    ots_con_traspaso: otsConTraspaso,
+    promedio_minutos: otsConTraspaso ? Math.round(totalMin / otsConTraspaso) : null,
+  };
+}
+
+function pintarStandbyYRiesgo() {
+  const riesgo = calcularRiesgo();
+  const tarjRiesgo = $('kpi-riesgo').closest('.kpi-ind');
+  $('kpi-riesgo').textContent = String(riesgo.length);
+  const vencidas = riesgo.filter((o) => o.fecha_prometida
+    && new Date(o.fecha_prometida + 'T00:00:00') < new Date().setHours(0, 0, 0, 0)).length;
+  $('kpi-riesgo-sub').textContent = riesgo.length
+    ? `${vencidas} vencida(s) · ${riesgo.length - vencidas} detenida(s)`
+    : 'Ninguna OT vencida ni detenida';
+  tarjRiesgo.classList.toggle('acento-alerta', riesgo.length > 0);
+  tarjRiesgo.classList.toggle('acento-proceso', riesgo.length === 0);
+
+  if (!S.registrosExport) {
+    $('kpi-standby').textContent = '…';
+    return;
+  }
+  const st = calcularStandby(S.registrosExport);
+  $('kpi-standby').textContent = st.promedio_minutos === null ? '—' : FORMATO.duracion(st.promedio_minutos);
+  $('kpi-standby-sub').textContent = st.traspasos
+    ? `${st.traspasos} traspaso(s) en ${st.ots_con_traspaso} OT(s)`
+    : 'Sin traspasos medidos en el período';
+}
+
+/* ---------------------- Gráficos (Chart.js) ---------------------- */
+
+/** Paleta del sistema de diseño industrial, leída de las variables CSS. */
+function paletaIndustrial() {
+  const css = getComputedStyle(document.documentElement);
+  const v = (n, fallback) => (css.getPropertyValue(n) || fallback).trim();
+  return {
+    placares: v('--linea-placares', '#1D63B8'),
+    cocinas: v('--linea-cocinas', '#C82333'),
+    compartidos: v('--linea-compartidos', '#6F42C1'),
+    proceso: v('--estado-proceso', '#28A745'),
+    pausa: v('--estado-pausa', '#FFC107'),
+    alerta: v('--estado-alerta', '#DC3545'),
+    borde: v('--border-color', '#3F4248'),
+    texto: v('--texto-dim', '#9AA1AC'),
+    tarjeta: v('--bg-card', '#232529'),
+  };
+}
+
+const GRAFICOS = { ciclo: null, causas: null };
+
+/** Tiempo de ciclo promedio por sector, filtrable por línea. */
+function pintarGraficoCiclo() {
+  if (typeof Chart === 'undefined' || !S.registrosExport) return;
+  const linea = $('filtro-linea-grafico').value;
+  const filas = S.registrosExport.filter((r) =>
+    r.estado_etapa === 'Finalizado'
+    && r.duracion_minutos !== null && r.duracion_minutos > 0
+    && (!linea || r.linea_ot === linea));
+
+  const porSector = new Map();
+  for (const r of filas) {
+    const clave = r.nombre_sector || '—';
+    if (!porSector.has(clave)) porSector.set(clave, { suma: 0, n: 0 });
+    const s = porSector.get(clave);
+    s.suma += Number(r.duracion_minutos);
+    s.n += 1;
+  }
+
+  const orden = [...porSector.entries()]
+    .map(([sector, s]) => ({ sector, prom: Math.round((s.suma / s.n) * 10) / 10, n: s.n }))
+    .sort((a, b) => b.prom - a.prom);
+
+  const p = paletaIndustrial();
+  const colorLinea = linea === 'Cocinas' ? p.cocinas : p.placares;
+
+  const datos = {
+    labels: orden.map((o) => o.sector),
+    datasets: [{
+      label: 'Minutos promedio por etapa',
+      data: orden.map((o) => o.prom),
+      backgroundColor: orden.map((o, i) => (i === 0 ? p.pausa : colorLinea)),
+      borderRadius: 6,
+      maxBarThickness: 46,
+    }],
+  };
+
+  const opciones = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          afterLabel: (ctx) => `${orden[ctx.dataIndex].n} etapa(s) cerrada(s)`,
+        },
+      },
+    },
+    scales: {
+      x: { ticks: { color: p.texto, maxRotation: 60, minRotation: 45, font: { size: 10 } }, grid: { display: false } },
+      y: { ticks: { color: p.texto }, grid: { color: p.borde }, title: { display: true, text: 'min', color: p.texto } },
+    },
+  };
+
+  if (GRAFICOS.ciclo) { GRAFICOS.ciclo.data = datos; GRAFICOS.ciclo.update(); return; }
+  GRAFICOS.ciclo = new Chart($('grafico-ciclo'), { type: 'bar', data: datos, options: opciones });
+}
+
+/** Causa raíz de pausas y reprocesos (dona) sobre el catálogo real. */
+function pintarGraficoCausas(m) {
+  if (typeof Chart === 'undefined') return;
+  const lista = (m.pausas_por_motivo || []).filter((p) => p.frecuencia > 0);
+  const p = paletaIndustrial();
+  // Paleta CATEGÓRICA: no reutiliza los acentos de línea porque éstos codifican
+  // Placares/Cocinas, no categorías. Aquí hace falta que ningún par se confunda:
+  // por eso el rojo de `--estado-alerta` y el de `--linea-cocinas` (que en la
+  // rueda son casi el mismo tono) no conviven; el hue 200 (cian) separa ambos.
+  const colores = [
+    p.alerta,      // rojo
+    p.pausa,       // amarillo
+    p.compartidos, // púrpura
+    '#22B8CF',     // cian — el único hue sin contraparte en la paleta de estados
+    p.placares,    // azul
+    p.proceso,     // verde
+  ];
+
+  const datos = {
+    labels: lista.map((x) => x.motivo),
+    datasets: [{
+      data: lista.map((x) => x.frecuencia),
+      backgroundColor: lista.map((_, i) => colores[i % colores.length]),
+      borderColor: p.tarjeta,
+      borderWidth: 3,
+      hoverOffset: 10,
+    }],
+  };
+
+  const opciones = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '58%',
+    plugins: {
+      legend: { position: 'bottom', labels: { color: p.texto, boxWidth: 12, padding: 10, font: { size: 11 } } },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const x = lista[ctx.dataIndex];
+            const total = lista.reduce((a, b) => a + b.frecuencia, 0);
+            const pct = total ? Math.round((x.frecuencia / total) * 100) : 0;
+            return ` ${x.motivo}: ${x.frecuencia} (${pct}%) · ${x.horas_perdidas} h`;
+          },
+        },
+      },
+    },
+  };
+
+  if (GRAFICOS.causas) { GRAFICOS.causas.data = datos; GRAFICOS.causas.update(); return; }
+  GRAFICOS.causas = new Chart($('grafico-causas'), { type: 'doughnut', data: datos, options: opciones });
+}
+
+/* ------------------------------------------------------------------ */
+/* Etiquetas de columna para el layout de tarjetas (móvil)             */
+/* ------------------------------------------------------------------ */
+/**
+ * Estampa data-label en cada <td> a partir del <thead>, para que la
+ * conversión tarjetas-apiladas de app.css pueda mostrar el nombre de
+ * columna. Se llama después de repintar cualquier tabla: así añadir una
+ * columna no exige tocar el CSS ni este helper.
+ */
+function estamparEtiquetas(idTabla) {
+  const tabla = typeof idTabla === 'string' ? $(idTabla) : idTabla;
+  if (!tabla || !tabla.tHead) return;
+  const cabeceras = [...tabla.tHead.rows[0].cells].map((th) => th.textContent.trim());
+  for (const fila of tabla.tBodies[0] ? tabla.tBodies[0].rows : []) {
+    [...fila.cells].forEach((td, i) => {
+      if (cabeceras[i]) td.setAttribute('data-label', cabeceras[i]);
+    });
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Panel dedicado: Materiales / Placas                                 */
+/* ------------------------------------------------------------------ */
+
+/** Clasifica una fila del catálogo para pintar su chip de estado. */
+function chipEstadoConsumo(m) {
+  if (m.pct_consumo >= 100) return 'chip chip-verde';
+  if (m.pct_consumo >= 60) return 'chip chip-azul';
+  if (m.pct_consumo > 0) return 'chip chip-amarillo';
+  return 'chip chip-gris';
+}
+
+async function cargarMateriales() {
+  try {
+    const d = await API.get('/api/materiales/catalogo');
+    S.materiales = d;
+    poblarFiltroEspesor(d);
+    pintarResumenMateriales(d);
+    pintarTablaMateriales();
+  } catch (e) {
+    manejarError(e, 'Cargar catálogo de materiales');
+  }
+}
+
+function poblarFiltroEspesor(d) {
+  const sel = $('mat-filtro-espesor');
+  const previo = sel.value;
+  sel.innerHTML = '';
+  sel.append(h('option', { value: '', text: 'Todos los espesores' }));
+  for (const mm of d.espesores_disponibles) {
+    sel.append(h('option', { value: String(mm), text: `${mm} mm` }));
+  }
+  sel.append(h('option', { value: 'n/d', text: 'Sin espesor (n/d)' }));
+  if (previo) sel.value = previo;
+}
+
+function pintarResumenMateriales(d) {
+  const cont = $('materiales-resumen');
+  cont.innerHTML = '';
+  const tarjeta = (titulo, valor, sub, acento) => h('div', { class: `kpi-ind ${acento}` },
+    h('div', { class: 'kpi-titulo', text: titulo }),
+    h('div', { class: 'kpi-valor', text: valor }),
+    h('div', { class: 'kpi-sub', text: sub }));
+
+  const totalReq = d.resumen_familias.reduce((a, f) => a + f.requeridas, 0);
+  const totalCons = d.resumen_familias.reduce((a, f) => a + f.consumidas, 0);
+  const pct = totalReq > 0 ? Math.round((totalCons / totalReq) * 100) : 0;
+
+  cont.append(tarjeta('Placas requeridas', String(Math.round(totalReq)),
+    `${d.total} material(es) en catálogo`, 'acento-placares'));
+  cont.append(tarjeta('Placas consumidas', String(Math.round(totalCons)),
+    `${pct}% del requerido`, 'acento-proceso'));
+  cont.append(tarjeta('Espesores activos', String(d.espesores_disponibles.length),
+    'Distintos espesores en uso', 'acento-compartidos'));
+
+  // Una tarjeta por familia de placa (Melamina / MDF / Fibroplus). Rota sobre
+  // los acentos de LÍNEA (identidad), no sobre los de estado: `acento-pausa`
+  // significa "standby" en este sistema de diseño y una familia de placa no
+  // es un estado de proceso.
+  const acentosFamilia = ['acento-placares', 'acento-cocinas', 'acento-compartidos'];
+  d.resumen_familias.slice(0, 4).forEach((f, i) => {
+    cont.append(tarjeta(f.familia, String(f.materiales),
+      `${Math.round(f.requeridas)} placas`, acentosFamilia[i % acentosFamilia.length]));
+  });
+}
+
+function pintarTablaMateriales() {
+  const d = S.materiales;
+  if (!d) return;
+  const q = FORMATO.normalizar($('mat-filtro-nombre').value.trim());
+  const espesor = $('mat-filtro-espesor').value;
+  const familia = $('mat-filtro-familia').value;
+  const cuerpo = $('cuerpo-materiales');
+  cuerpo.innerHTML = '';
+
+  const filas = d.catalogo.filter((m) => {
+    if (familia && m.familia !== familia) return false;
+    if (espesor === 'n/d' && m.espesor_mm !== null) return false;
+    if (espesor && espesor !== 'n/d' && String(m.espesor_mm) !== espesor) return false;
+    if (q && !FORMATO.normalizar(m.material_nombre).includes(q)) return false;
+    return true;
+  });
+
+  $('mat-resumen').textContent = `${filas.length} de ${d.total} materiales`;
+  $('chip-materiales').textContent = String(d.total);
+
+  if (!filas.length) {
+    cuerpo.append(h('tr', {}, h('td', { colspan: '8', class: 'vacio', text: 'Sin materiales que coincidan.' })));
+    estamparEtiquetas('tabla-materiales');
+    return;
+  }
+
+  for (const m of filas) {
+    cuerpo.append(h('tr', {},
+      h('td', {}, h('b', { text: m.material_nombre })),
+      h('td', { text: m.familia }),
+      h('td', { class: 'num', text: m.espesor_mm === null ? 'n/d' : `${m.espesor_mm} mm` }),
+      h('td', { class: 'num', text: m.placas_requeridas.toFixed(1) }),
+      h('td', { class: 'num', text: m.placas_consumidas.toFixed(1) }),
+      h('td', { class: 'num', text: `${m.pct_consumo}%` }),
+      h('td', { class: 'num', text: String(m.ots_usan) }),
+      h('td', {}, h('span', { class: chipEstadoConsumo(m), text: m.pct_consumo >= 100 ? 'Completo' : 'En curso' }))
+    ));
+  }
+  estamparEtiquetas('tabla-materiales');
+}
+
+/* ------------------------------------------------------------------ */
+/* Panel dedicado: Talleres Compartidos                                */
+/* ------------------------------------------------------------------ */
+
+async function cargarCompartidos() {
+  try {
+    if (!S.registrosExport) {
+      const exp = await API.get('/api/export/registros?limite=20000');
+      S.registrosExport = exp.registros || [];
+    }
+    // Talleres compartidos: los sectores cuya `linea_area` es 'Compartido'
+    // (Lustre, Herrería, Vidrio, Especiales). NO se filtra por `es_compartido`:
+    // ese flag es más amplio y en el maestro lo comparten sectores del flujo
+    // propio de Placares (Cajoneras, Herrajes, Control de Calidad, Embalaje),
+    // lo que mezclaría talleres dedicados con los realmente compartidos.
+    S.compartidos = S.registrosExport.filter((r) => r.linea_area === 'Compartido');
+    poblarFiltroSectorCompartido();
+    pintarResumenCompartidos();
+    pintarTablaCompartidos();
+    // El gráfico de ciclo también depende del export: ya puede dibujarse.
+    pintarGraficoCiclo();
+    pintarStandbyYRiesgo();
+  } catch (e) {
+    manejarError(e, 'Cargar talleres compartidos');
+  }
+}
+
+function poblarFiltroSectorCompartido() {
+  const sel = $('comp-filtro-sector');
+  const previo = sel.value;
+  const sectores = [...new Set((S.compartidos || []).map((r) => r.nombre_sector))].sort();
+  sel.innerHTML = '';
+  sel.append(h('option', { value: '', text: 'Todos los talleres' }));
+  for (const s of sectores) sel.append(h('option', { value: s, text: s }));
+  if (previo) sel.value = previo;
+}
+
+function pintarResumenCompartidos() {
+  const cont = $('compartidos-resumen');
+  cont.innerHTML = '';
+  const filas = S.compartidos || [];
+
+  const cerradas = filas.filter((r) => r.estado_etapa === 'Finalizado');
+  const abiertas = filas.filter((r) => r.estado_etapa !== 'Finalizado');
+  const minutos = cerradas.reduce((a, r) => a + Number(r.duracion_minutos || 0), 0);
+  const ots = new Set(filas.map((r) => r.numero_ot)).size;
+
+  const tarjeta = (titulo, valor, sub, acento) => h('div', { class: `kpi-ind ${acento}` },
+    h('div', { class: 'kpi-titulo', text: titulo }),
+    h('div', { class: 'kpi-valor', text: valor }),
+    h('div', { class: 'kpi-sub', text: sub }));
+
+  cont.append(tarjeta('OTs que pasan por compartidos', String(ots),
+    'Demandan talleres de ambas líneas', 'acento-compartidos'));
+  cont.append(tarjeta('Horas en taller', FORMATO.duracion(Math.round(minutos)),
+    `${cerradas.length} etapa(s) cerrada(s)`, 'acento-placares'));
+  cont.append(tarjeta('Etapas abiertas', String(abiertas.length),
+    'En curso o pausadas ahora', abiertas.length ? 'acento-pausa' : 'acento-proceso'));
+
+  const talleres = new Set(filas.map((r) => r.nombre_sector));
+  cont.append(tarjeta('Talleres activos', String(talleres.size),
+    [...talleres].join(' · ') || 'Sin actividad', 'acento-compartidos'));
+}
+
+function pintarTablaCompartidos() {
+  if (!S.compartidos) return;
+  const sector = $('comp-filtro-sector').value;
+  const linea = $('comp-filtro-linea').value;
+  const cuerpo = $('cuerpo-compartidos');
+  cuerpo.innerHTML = '';
+
+  const filas = S.compartidos
+    .filter((r) => {
+      if (sector && r.nombre_sector !== sector) return false;
+      if (linea && r.linea_ot !== linea) return false;
+      return true;
+    })
+    .sort((a, b) => Date.parse(b.fecha_hora_inicio || 0) - Date.parse(a.fecha_hora_inicio || 0))
+    .slice(0, 300);
+
+  $('comp-resumen').textContent = `${filas.length} etapa(s) en talleres compartidos`;
+  $('chip-compartidos').textContent = String(new Set((S.compartidos || []).map((r) => r.numero_ot)).size);
+
+  if (!filas.length) {
+    cuerpo.append(h('tr', {}, h('td', { colspan: '7', class: 'vacio', text: 'Sin etapas en talleres compartidos.' })));
+    estamparEtiquetas('tabla-compartidos');
+    return;
+  }
+
+  for (const r of filas) {
+    const abierta = r.estado_etapa !== 'Finalizado';
+    const chip = abierta
+      ? (r.estado_etapa === 'Pausado' ? 'chip chip-amarillo' : 'chip chip-verde')
+      : 'chip chip-gris';
+    cuerpo.append(h('tr', {},
+      h('td', {}, h('b', { text: r.nombre_sector })),
+      h('td', {}, h('span', {
+        class: `chip ${r.linea_ot === 'Cocinas' ? 'chip-rojo' : 'chip-azul'}`,
+        text: r.linea_ot || '—',
+      })),
+      h('td', {}, h('span', { class: 'mono', text: r.numero_ot })),
+      h('td', { text: r.cliente || '—' }),
+      h('td', { text: r.estado_etapa }),
+      h('td', { class: 'num', text: r.duracion_minutos === null ? 'En curso' : FORMATO.duracion(r.duracion_minutos) }),
+      h('td', {}, h('span', { class: chip, text: r.estado_etapa }))
+    ));
+  }
+  estamparEtiquetas('tabla-compartidos');
 }
 
 function pintarCargaSectores(m) {
@@ -232,6 +696,7 @@ function pintarPausas(m) {
       h('td', { class: 'num', text: `${p.horas_perdidas} h` })
     ));
   }
+  estamparEtiquetas(cuerpo.closest('table'));
 }
 
 /* ------------------------------------------------------------------ */
@@ -278,6 +743,7 @@ function pintarSeguimiento() {
     );
     cuerpo.append(fila);
   }
+  estamparEtiquetas('tabla-seguimiento');
 }
 
 /** Chip de estado reutilizable (igual que el Terminal). */
@@ -526,6 +992,7 @@ function pintarTabla() {
           h('button', { class: 'btn btn-chico btn-peligro', type: 'button', text: '🗑', title: 'Eliminar OT', onclick: () => eliminarOT(ot) })))
     ));
   }
+  estamparEtiquetas('tabla-ots');
 }
 
 async function eliminarOT(ot) {
@@ -997,6 +1464,7 @@ function pintarTablaSectores() {
           })))
     ));
   }
+  estamparEtiquetas('tabla-sectores');
 }
 
 async function agregarSector() {
@@ -1163,6 +1631,7 @@ function pintarTablaOperarios() {
         h('div', { class: 'fila-acciones' }, btnEditar, btnEstado))
     ));
   }
+  estamparEtiquetas('tabla-operarios');
 }
 
 async function agregarOperario() {
@@ -1272,6 +1741,7 @@ function pintarTablaUsuarios() {
       acciones
     ));
   }
+  estamparEtiquetas('tabla-usuarios');
 }
 
 async function agregarUsuario() {
