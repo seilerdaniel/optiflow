@@ -22,8 +22,19 @@
   --rojo-osc:    #b11d1d;
   --gris:        #64748b;
 
-  --radio: 14px;
+  /* Jerarquía de radios unificada (píldoras ↔ contenedores rectangulares). */
+  --radio: 14px;      /* contenedores: paneles, tarjetas, acciones */
+  --radio-md: 10px;   /* campos de formulario y botones .btn */
+  --radio-sm: 8px;    /* elementos sutiles: nav, reloj, cabeceras */
+  --radio-pill: 999px;/* píldoras: chips, badges, barras de progreso */
   --sombra: 0 2px 10px rgba(15, 47, 79, .08);
+
+  /* Accesibilidad: anillo de foco visible (WCAG 2.4.7), alto contraste. */
+  --estado-cian: #22B8CF;
+
+  /* Tipografía de interfaz. Pila 100% local (cero descargas en planta):
+     usa 'Inter' si está instalada en el equipo; si no, cae en system-ui. */
+  --fuente: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -36,7 +47,7 @@ html, body {
   padding: 0;
   background: var(--fondo);
   color: var(--texto);
-  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  font-family: var(--fuente);
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
@@ -52,7 +63,8 @@ a { color: var(--acento); }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  flex-wrap: wrap;          /* en pantallas chicas la nav pasa a segunda fila */
+  gap: 10px 16px;
   padding: 10px 18px;
   position: sticky;
   top: 0;
@@ -60,25 +72,33 @@ a { color: var(--acento); }
   box-shadow: 0 2px 8px rgba(0, 0, 0, .18);
 }
 
-.marca { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.marca { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 220px; }
 .marca .escudo {
   width: 44px; height: 44px;
-  border-radius: 10px;
+  border-radius: var(--radio-sm);
   background: var(--acento);
   display: grid; place-items: center;
   font-weight: 800; font-size: 1.05rem; letter-spacing: .5px;
   flex: none;
 }
-.marca h1 { margin: 0; font-size: 1.25rem; letter-spacing: 2px; line-height: 1.1; }
-.marca p { margin: 0; font-size: .74rem; opacity: .82; letter-spacing: .4px; }
+.marca > div:not(.escudo) { min-width: 0; }   /* permite elipsis del texto largo */
+.marca h1 {
+  margin: 0; font-size: 1.25rem; letter-spacing: 2px; line-height: 1.1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.marca p {
+  margin: 0; font-size: .74rem; opacity: .82; letter-spacing: .4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
-.topbar-dcha { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.topbar-dcha { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
 
 .reloj {
   background: rgba(255, 255, 255, .12);
   border: 1px solid rgba(255, 255, 255, .25);
-  border-radius: 8px;
+  border-radius: var(--radio-sm);
   padding: 6px 12px;
+  font-family: var(--mono);       /* dígitos estables: no "bailan" al cambiar */
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: 1.05rem;
@@ -86,13 +106,19 @@ a { color: var(--acento); }
 }
 .reloj small { display: block; font-size: .6rem; font-weight: 500; opacity: .75; text-align: center; }
 
-.nav { display: flex; gap: 8px; }
+/* Navegación superior: icono lineal SVG + texto. En móvil el texto se
+   oculta (title= conserva el tooltip nativo y aria-label la a11y). */
+.nav { display: flex; gap: 8px; flex-wrap: wrap; }
 .nav a {
   color: #fff; text-decoration: none; font-weight: 600; font-size: .88rem;
-  padding: 9px 14px; border-radius: 8px; border: 1px solid transparent;
+  padding: 9px 14px; border-radius: var(--radio-sm); border: 1px solid transparent;
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px;                 /* objetivo táctil cómodo también en nav */
+  touch-action: manipulation;
 }
 .nav a:hover { background: rgba(255, 255, 255, .14); }
 .nav a.activo { background: #fff; color: var(--azul); }
+.nav .ico-nav { flex: none; width: 18px; height: 18px; display: block; }
 
 /* ------------------------------ Layout ------------------------------- */
 .contenedor {
@@ -140,7 +166,7 @@ a { color: var(--acento); }
 .chip {
   display: inline-block;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--radio-pill);
   font-size: .7rem;
   font-weight: 700;
   letter-spacing: .4px;
@@ -162,8 +188,9 @@ a { color: var(--acento); }
   font-size: 1.15rem;
   font-weight: 600;
   border: 2px solid var(--borde);
-  border-radius: 10px;
+  border-radius: var(--radio-md);
   background: #fbfdff;
+  touch-action: manipulation;
 }
 .buscador-ot input[type="search"]:focus {
   outline: none;
@@ -178,7 +205,7 @@ a { color: var(--acento); }
   left: 0; right: 0;
   background: #fff;
   border: 1px solid var(--borde);
-  border-radius: 10px;
+  border-radius: var(--radio-md);
   box-shadow: 0 10px 30px rgba(15, 47, 79, .18);
   max-height: 320px;
   overflow-y: auto;
@@ -195,6 +222,7 @@ a { color: var(--acento); }
   border-bottom: 1px solid #eef2f6;
   text-align: left;
   cursor: pointer;
+  touch-action: manipulation;
 }
 .resultado-ot:last-child { border-bottom: 0; }
 .resultado-ot:hover, .resultado-ot:focus { background: #eef6ff; outline: none; }
@@ -207,12 +235,16 @@ a { color: var(--acento); }
   margin-top: 12px;
   border: 2px solid var(--acento);
   background: #f5faff;
-  border-radius: 10px;
+  border-radius: var(--radio-md);
   padding: 12px 14px;
 }
 .ficha-ot.cargando { border-color: var(--borde); background: #f7f9fb; }
 .ficha-ot-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.ficha-ot-num { font-size: 1.35rem; font-weight: 800; color: var(--azul); }
+.ficha-ot-num {
+  font-family: var(--mono);        /* identificador de OT: sin saltos visuales */
+  font-size: 1.35rem; font-weight: 800; color: var(--azul);
+  font-variant-numeric: tabular-nums;
+}
 .ficha-ot-cli { font-weight: 700; }
 .ficha-ot-datos {
   display: flex; flex-wrap: wrap; gap: 6px 18px;
@@ -238,7 +270,7 @@ a { color: var(--acento); }
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   margin-top: 6px;
   padding: 7px 10px;
-  border-radius: 9px;
+  border-radius: var(--radio-sm);
   background: #f1f5f9;
   border: 1px solid var(--borde);
 }
@@ -261,7 +293,7 @@ a { color: var(--acento); }
   position: relative;
   min-height: 92px;
   padding: 12px 10px;
-  border-radius: 12px;
+  border-radius: var(--radio-md);
   border: 2px solid var(--borde);
   background: #f8fafc;
   cursor: pointer;
@@ -271,6 +303,7 @@ a { color: var(--acento); }
   line-height: 1.15;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
   transition: transform .06s, background .15s, border-color .15s;
+  touch-action: manipulation;
 }
 .sector:hover:not(:disabled) { border-color: var(--acento); background: #eef6ff; }
 .sector:active:not(:disabled) { transform: scale(.98); }
@@ -309,9 +342,10 @@ a { color: var(--acento); }
   min-height: 56px;
   padding: 12px 14px;
   border: 2px solid var(--borde);
-  border-radius: 10px;
+  border-radius: var(--radio-md);
   background: #fbfdff;
   font-size: 1.05rem;
+  touch-action: manipulation;
 }
 .campo textarea { min-height: 84px; resize: vertical; font-size: .95rem; }
 .campo input:focus, .campo select:focus, .campo textarea:focus {
@@ -320,7 +354,7 @@ a { color: var(--acento); }
 
 /* --------------------------- Estado en vivo -------------------------- */
 .estado-vivo {
-  border-radius: 12px;
+  border-radius: var(--radio);
   border: 2px solid var(--borde);
   background: #f8fafc;
   padding: 14px;
@@ -335,6 +369,7 @@ a { color: var(--acento); }
   color: var(--texto-suave);
 }
 .cronometro {
+  font-family: var(--mono);        /* dígitos monoespaciados: sin temblor */
   font-size: clamp(2.6rem, 7vw, 3.6rem);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -351,7 +386,7 @@ a { color: var(--acento); }
 .lista-etapas li {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   background: #f8fafc; border: 1px solid var(--borde);
-  border-radius: 10px; padding: 8px 10px; font-size: .86rem;
+  border-radius: var(--radio-md); padding: 8px 10px; font-size: .86rem;
 }
 .lista-etapas .et-sector { font-weight: 700; }
 .lista-etapas .et-ops { margin-left: auto; display: flex; gap: 6px; }
@@ -365,9 +400,10 @@ a { color: var(--acento); }
 @media (max-width: 760px) { .acciones { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 .accion {
-  min-height: 96px;
+  min-height: 96px;                /* >> 56px: objetivo ergonómico de planta */
+  touch-action: manipulation;      /* sin zoom accidental de doble tap */
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--radio);     /* unificado con .panel y contenedores */
   color: #fff;
   font-size: clamp(.95rem, 2.4vw, 1.15rem);
   font-weight: 800;
@@ -411,12 +447,13 @@ a { color: var(--acento); }
 .btn {
   min-height: 48px;
   padding: 10px 18px;
-  border-radius: 10px;
+  border-radius: var(--radio-md);
   border: 1.5px solid var(--borde);
   background: #fff;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+  touch-action: manipulation;
 }
 .btn:hover { background: #f3f7fb; }
 .btn-primario { background: var(--acento); border-color: var(--acento); color: #fff; }
@@ -444,9 +481,10 @@ a { color: var(--acento); }
 .fila-material .mat-obs { flex: 2 1 140px; }
 .check {
   display: flex; align-items: center; gap: 9px;
-  border: 2px solid var(--borde); border-radius: 10px;
+  border: 2px solid var(--borde); border-radius: var(--radio-md);
   padding: 12px 14px; cursor: pointer; background: #fbfdff;
   font-weight: 600; font-size: .92rem; min-height: 56px;
+  touch-action: manipulation;
 }
 .check:hover { border-color: var(--acento); }
 .check input { width: 22px; height: 22px; accent-color: var(--acento); }
@@ -464,7 +502,7 @@ a { color: var(--acento); }
 .modal-fondo.abierto { display: flex; }
 .modal {
   background: #fff;
-  border-radius: 16px;
+  border-radius: var(--radio);
   width: min(560px, 100%);
   max-height: 92vh;
   overflow-y: auto;
@@ -477,8 +515,9 @@ a { color: var(--acento); }
 }
 .modal-cabecera h3 { margin: 0; font-size: 1.1rem; }
 .modal-cerrar {
-  border: 0; background: #eef2f6; border-radius: 8px;
+  border: 0; background: #eef2f6; border-radius: var(--radio-sm);
   width: 40px; height: 40px; font-size: 1.2rem; cursor: pointer;
+  touch-action: manipulation;
 }
 .modal-cuerpo { padding: 18px 20px; }
 .modal-pie {
@@ -490,19 +529,23 @@ a { color: var(--acento); }
 .motivos { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-bottom: 14px; }
 .motivo {
   display: flex; align-items: center; gap: 10px;
-  border: 2px solid var(--borde); border-radius: 10px;
+  border: 2px solid var(--borde); border-radius: var(--radio-md);
   padding: 14px; cursor: pointer; background: #fbfdff;
   font-weight: 600; min-height: 60px;
+  touch-action: manipulation;
 }
 .motivo input { width: 22px; height: 22px; accent-color: var(--amarillo-osc); }
 .motivo:hover { border-color: var(--amarillo); }
 .motivo.marcado { background: #fffbeb; border-color: var(--amarillo); }
 
 .resumen-modal {
-  background: #f5f8fb; border: 1px solid var(--borde); border-radius: 10px;
+  background: #f5f8fb; border: 1px solid var(--borde); border-radius: var(--radio-md);
   padding: 14px; margin-bottom: 14px; display: grid; gap: 6px; font-size: .93rem;
 }
-.resumen-modal .grande { font-size: 1.6rem; font-weight: 800; color: var(--azul); font-variant-numeric: tabular-nums; }
+.resumen-modal .grande {
+  font-family: var(--mono);        /* duración en vivo: sin temblor de píxel */
+  font-size: 1.6rem; font-weight: 800; color: var(--azul); font-variant-numeric: tabular-nums;
+}
 
 /* --------------------------- Avisos (toast) -------------------------- */
 #avisos {
@@ -538,7 +581,7 @@ a { color: var(--acento); }
 }
 .kpi {
   border: 1px solid var(--borde);
-  border-radius: 12px;
+  border-radius: var(--radio-md);
   background: #f8fafc;
   padding: 14px;
 }
@@ -547,6 +590,7 @@ a { color: var(--acento); }
   text-transform: uppercase; color: var(--texto-suave);
 }
 .kpi-valor {
+  font-family: var(--mono);        /* métricas: ancho fijo, sin "baile" */
   font-size: 1.9rem; font-weight: 800; color: var(--azul);
   font-variant-numeric: tabular-nums; line-height: 1.15; margin-top: 4px;
 }
@@ -672,6 +716,35 @@ a { color: var(--acento); }
 @media (max-width: 700px) {
   .marca p { display: none; }
   .tabla { min-width: 640px; }
+}
+
+/* ============================================================
+   BREAKPOINT MÓVIL · Topbar compacta (<768px)
+   ------------------------------------------------------------
+   · El logo se encoge y el subtítulo ya está oculto (regla de arriba).
+   · El reloj se reduce para no empujar a la nav fuera de la pantalla.
+   · La nav colapsa a SOLO ICONOS: el texto pasa a title= (tooltip
+     nativo) y aria-label (lectores de pantalla), así nunca se
+     desborda ni se encoge hasta cortarse.
+   · El botón ☰ (drawer) lo inyecta sidebar.js en la topbar.
+   ============================================================ */
+@media (max-width: 767px) {
+  .topbar { padding: 8px 10px; gap: 8px 10px; }
+  .marca { flex: 1 1 auto; gap: 8px; }
+  .marca .escudo { width: 36px; height: 36px; font-size: .9rem; }
+  .marca h1 { font-size: 1.02rem; letter-spacing: 1.2px; }
+  .topbar-dcha { gap: 8px; }
+  .reloj { padding: 4px 8px; font-size: .9rem; letter-spacing: .5px; }
+  .reloj small { display: none; }
+  .nav { gap: 6px; }
+  .nav a {
+    padding: 10px;                 /* objetivo cuadrado ≥44px */
+    min-width: 44px;
+    justify-content: center;
+    border-radius: var(--radio-sm);
+  }
+  .nav .nav-txt { display: none; } /* sólo icono + tooltip (title) */
+  .nav .ico-nav { width: 20px; height: 20px; }
 }
 
 /* ============================================================
@@ -900,7 +973,15 @@ a { color: var(--acento); }
   transition: background .12s ease, border-color .12s ease;
 }
 .sb-item:hover { background: var(--ind-hover); }
-.sb-item .sb-ico { flex: none; width: 22px; text-align: center; font-size: 1.05rem; line-height: 1.2; }
+.sb-item .sb-ico {
+  flex: none; width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  text-align: center; font-size: 1.05rem; line-height: 1.2;
+}
+/* Iconografía SVG normalizada: trazo lineal 2px, escala al contenedor. */
+.sb-ico svg { width: 20px; height: 20px; display: block; }
+.sb-salir .sb-ico { width: 20px; height: 20px; }
+.sb-salir .sb-ico svg { width: 18px; height: 18px; }
 .sb-txt { display: flex; flex-direction: column; min-width: 0; }
 .sb-sub {
   font-size: .64rem; font-weight: 500; color: var(--ind-suave);
@@ -1080,7 +1161,7 @@ a { color: var(--acento); }
 :root {
   /* Fondos industriales */
   --bg-dark:      #121416;  /* base profunda: app shell oscura */
-  --bg-card:      #232529;  /* tarjeta / panel elevado */
+  --bg-card:      #1E2124;  /* tarjeta / panel elevado */
   --bg-raised:    #2b2e33;  /* hover y superficie elevada */
   --border-color: #3F4248;  /* filete de tarjeta */
 
@@ -1100,9 +1181,10 @@ a { color: var(--acento); }
   --texto-apagado: #6C7480;
 
   /* Monoespaciadas: codigos de OT, cronometros y contadores.
-     Solo stacks del sistema: cero descargas en planta. */
-  --mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono",
-          Menlo, Consolas, "Liberation Mono", monospace;
+     Solo stacks del sistema + fuentes locales si existen:
+     cero descargas en planta. */
+  --mono: 'JetBrains Mono', 'Roboto Mono', ui-monospace, "Cascadia Mono",
+          "Segoe UI Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
   --radio-ind: 12px;
   --sombra-ind: 0 8px 24px rgba(0, 0, 0, .35);
@@ -1243,6 +1325,32 @@ a { color: var(--acento); }
   .terminal .btn, .terminal .btn-chico { min-height: 56px; }
 }
 
+/* ---------------------------------------------------------------
+   ACCESIBILIDAD DE FOCO (WCAG 2.4.7) — anillo de alto contraste.
+   :focus-visible sólo pinta el anillo con teclado/tabulación, nunca
+   con clic táctil, así no se "ensucia" la UI de planta.
+   --------------------------------------------------------------- */
+:focus-visible {
+  outline: 3px solid var(--estado-cian);
+  outline-offset: 2px;
+}
+/* Sobre la topbar azul el cian destaca; se refuerza con borde blanco. */
+.topbar :focus-visible,
+.sidebar :focus-visible {
+  outline-color: var(--estado-cian);
+  box-shadow: 0 0 0 2px #fff;
+}
+/* Botones de acción grandes: el anillo se separa del borde redondeado. */
+.accion:focus-visible { outline-offset: 3px; }
+/* Se respeta la preferencia de movimiento reducido del usuario. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}
+
 /* ============================================================
    RESPONSIVE -- Conversion de tablas en tarjetas apiladas
    ------------------------------------------------------------
@@ -1256,9 +1364,9 @@ a { color: var(--acento); }
   .tabla { min-width: 0; }
   .tabla thead { display: none; }
   .tabla tbody tr {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radio-ind);
+    background: var(--tarjeta, #fff);
+    border: 1px solid var(--borde, #d7e0e9);
+    border-radius: var(--radio-md);
     margin-bottom: 12px;
     padding: 6px 14px 12px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, .08);
@@ -1275,6 +1383,22 @@ a { color: var(--acento); }
     text-transform: uppercase; color: var(--texto-suave);
     text-align: left; flex: none;
   }
+  /* Las tarjetas vacías (colspan) no llevan etiqueta de columna. */
+  .tabla tbody td[colspan]::before { content: none; }
   .tabla .num { text-align: right; }
   .fila-acciones { justify-content: flex-end; flex-wrap: wrap; }
+  /* Los objetivos táctiles crecen en la tarjeta-móvil. */
+  .tabla select.estado-select,
+  .tabla .btn,
+  .tabla .btn-chico { min-height: 48px; width: 100%; }
+  .tabla .fila-acciones .btn,
+  .tabla .fila-acciones .btn-chico { width: auto; flex: 1 1 140px; }
+
+  /* Sobre superficie industrial (admin oscuro) la tarjeta usa tokens dark. */
+  .panel-industrial .tabla tbody tr {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+  }
+  .panel-industrial .tabla tbody td { border-bottom-color: var(--border-color); }
+  .panel-industrial .tabla tbody td::before { color: var(--texto-dim); }
 }

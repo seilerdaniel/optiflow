@@ -30,10 +30,29 @@
   <div class="topbar-dcha">
     <div class="reloj"><span id="reloj-hora">--:--:--</span><small id="reloj-fecha">&nbsp;</small></div>
     <span class="chip chip-gris" id="sesion-chip" hidden>👤 —</span>
-    <nav class="nav">
-      <a href="/" class="activo">⏱ Terminal</a>
-      <a href="/admin">📋 Administración</a>
-      <a href="#" id="sesion-salir" hidden style="opacity:.8;">⏻ Salir</a>
+    <nav class="nav" aria-label="Navegación principal">
+      <a href="/" class="activo" title="Terminal de Fichado" aria-label="Terminal de Fichado">
+        <svg class="ico-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/>
+        </svg>
+        <span class="nav-txt">Terminal</span>
+      </a>
+      <a href="/admin" title="Administración" aria-label="Administración">
+        <svg class="ico-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+          <path d="M9 12h6"/><path d="M9 16h4"/>
+        </svg>
+        <span class="nav-txt">Administración</span>
+      </a>
+      <a href="#" id="sesion-salir" hidden title="Salir" aria-label="Cerrar sesión" style="opacity:.8;">
+        <svg class="ico-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M12 3v9"/><path d="M7.5 6.5a7 7 0 1 0 9 0"/>
+        </svg>
+        <span class="nav-txt">Salir</span>
+      </a>
     </nav>
   </div>
 </header>

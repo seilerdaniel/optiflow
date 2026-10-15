@@ -37,47 +37,89 @@
   const MENU = [
     { seccion: 'Planta / Operativa' },
     {
-      clave: 'terminal', href: '/', ico: '⏱', titulo: 'Terminal de Fichado',
+      clave: 'terminal', href: '/', ico: 'terminal', titulo: 'Terminal de Fichado',
       texto: 'Terminal de Fichado', sub: 'Lectura de QR · marcado de etapas',
     },
     {
-      clave: 'ots', href: '/admin#panel-ots', ico: '📋', titulo: 'Órdenes de Trabajo',
+      clave: 'ots', href: '/admin#panel-ots', ico: 'clipboard', titulo: 'Órdenes de Trabajo',
       texto: 'Órdenes de Trabajo', sub: 'Listado · alta · Hoja de Ruta',
     },
 
     { seccion: 'Líneas de producción' },
     {
-      clave: 'placares', href: '/admin?linea=Placares#panel-ots', ico: '📦',
+      clave: 'placares', href: '/admin?linea=Placares#panel-ots', ico: 'caja',
       texto: 'Placares', sub: 'Filtro rápido de la línea', acento: 'placares',
     },
     {
-      clave: 'cocinas', href: '/admin?linea=Cocinas#panel-ots', ico: '🍳',
+      clave: 'cocinas', href: '/admin?linea=Cocinas#panel-ots', ico: 'flama',
       texto: 'Cocinas', sub: 'Filtro rápido de la línea', acento: 'cocinas',
     },
     {
-      clave: 'compartidos', href: '/admin#panel-compartidos', ico: '🤝',
+      clave: 'compartidos', href: '/admin#panel-compartidos', ico: 'usuarios',
       texto: 'Sectores Compartidos', sub: 'Lustre · Herrería · Vidrio · Especiales',
       acento: 'compartidos',
     },
 
     { seccion: 'Administración y métricas' },
     {
-      clave: 'operarios', href: '/admin#panel-operarios', ico: '👷',
+      clave: 'operarios', href: '/admin#panel-operarios', ico: 'casco',
       texto: 'Operarios', sub: 'Maestro de personal',
     },
     {
-      clave: 'materiales', href: '/admin#panel-materiales', ico: '🪵',
+      clave: 'materiales', href: '/admin#panel-materiales', ico: 'capas',
       texto: 'Materiales / Placas', sub: 'Melaminas · MDF · Fibroplus',
     },
     {
-      clave: 'sectores', href: '/admin#panel-sectores', ico: '🏭',
+      clave: 'sectores', href: '/admin#panel-sectores', ico: 'fabrica',
       texto: 'Sectores y Flujos', sub: 'Etapas por línea de producción',
     },
     {
-      clave: 'analitica', href: '/admin#panel-kpis', ico: '📊',
+      clave: 'analitica', href: '/admin#panel-kpis', ico: 'grafico',
       texto: 'Analítica & Power BI', sub: 'Cuellos de botella · Lead Time · Export',
     },
   ];
+
+  /* ------------------------------------------------------------------
+     Iconografía normalizada (auditoría UX).
+     · SVG inline escalable, trazo uniforme stroke-width:2, viewBox 24.
+     · Se generan con createElementNS (nodo SVG real, sin innerHTML y
+       sin emojis del SO que fallen al renderizar en Windows/Linux).
+     · color: currentColor -> hereda el texto del ítem (light/dark).
+     ------------------------------------------------------------------ */
+  const ICONOS = {
+    reloj:     '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    clipboard:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h4"/>',
+    caja:     '<path d="M21 8v8a2 2 0 0 1-1 1.73l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 16V8a2 2 0 0 1 1-1.73l7-4a2 2 0 0 1 2 0l7 4A2 2 0 0 1 21 8z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+    flama:    '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3 1.072-1.062 2.5-2.4 2.5-4.5a4.5 4.5 0 0 0-9 0c0 2.1 1.4 3.4 2.5 4.5-.5 1-1 1.6-1 3a2.5 2.5 0 0 0 2.5 2.5z"/><path d="M16 16a4 4 0 0 0 0-8"/>',
+    usuarios: '<path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    casco:    '<path d="M2 17h20"/><path d="M4 17v-4a8 8 0 0 1 16 0v4"/><path d="M10 5h4"/><path d="M12 5v8"/>',
+    capas:    '<path d="m12 2 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
+    fabrica:  '<path d="M2 20h20"/><path d="M4 20V9l6 4V9l6 4V6h4v14"/><path d="M8 20v-4h4v4"/>',
+    grafico:  '<path d="M3 3v18h18"/><path d="M8 17v-5"/><path d="M13 17V8"/><path d="M18 17v-8"/>',
+    salir:    '<path d="M12 3v9"/><path d="M7.5 6.5a7 7 0 1 0 9 0"/>',
+  };
+
+  /**
+   * Construye un <svg> real (SVG namespace) con trazo lineal uniforme.
+   * Devuelve un <span.sb-ico> envolvente para conservar la interfaz CSS.
+   */
+  function iconoSvg(nombre) {
+    const cont = document.createElement('span');
+    cont.className = 'sb-ico';
+    cont.setAttribute('aria-hidden', 'true');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    // innerHTML sobre un <svg> recién creado y vacío: sólo marca de trazos
+    // estática y constante (sin datos de usuario), seguro por diseño.
+    svg.innerHTML = ICONOS[nombre] || ICONOS.reloj;
+    cont.append(svg);
+    return cont;
+  }
 
   /** Anclas de admin -> clave de ítem activo. */
   const ANCLAS = {
@@ -273,7 +315,7 @@
       title: d.sub ? `${d.texto} — ${d.sub}` : d.texto,
       'aria-label': d.texto,
     },
-      el('span', { class: 'sb-ico', 'aria-hidden': 'true', text: d.ico }),
+      iconoSvg(d.ico),
       el('span', { class: 'sb-txt' },
         el('span', { text: d.texto }),
         d.sub ? el('span', { class: 'sb-sub', text: d.sub }) : null)
@@ -331,7 +373,7 @@
           'data-modo': 'login', 'aria-label': 'Cerrar sesión',
           onclick: accionSesion,
         },
-          el('span', { 'aria-hidden': 'true', text: '⏻' }),
+          iconoSvg('salir'),
           el('span', { class: 'sb-salir-txt', text: 'Iniciar sesión' }))));
 
     const fondo = el('div', { class: 'sb-fondo', id: 'sb-fondo', hidden: true, onclick: cerrar });

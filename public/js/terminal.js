@@ -978,14 +978,16 @@ async function cargarRegistros() {
     for (const g of r.registros) {
       const chip = g.estado_etapa === 'Finalizado' ? 'chip-gris'
         : g.estado_etapa === 'Pausado' ? 'chip-amarillo' : 'chip-verde';
+      // data-label alimenta la conversión a tarjetas apiladas en móvil
+      // (ver app.css: .tabla tbody td::before { content: attr(data-label) }).
       tbody.append(h('tr', {},
-        h('td', { text: g.nombre_sector }),
-        h('td', { text: g.operario_nombre }),
-        h('td', { text: FORMATO.hora(g.fecha_hora_inicio) }),
-        h('td', { text: g.fecha_hora_fin ? FORMATO.hora(g.fecha_hora_fin) : '—' }),
-        h('td', { class: 'num', text: g.estado_etapa === 'Finalizado' ? FORMATO.duracion(g.duracion_minutos) : 'En curso…' }),
-        h('td', {}, h('span', { class: `chip ${chip}`, text: g.estado_etapa })),
-        h('td', { text: [g.motivo_pausa, g.observacion].filter(Boolean).join(' · ') || '—' })
+        h('td', { 'data-label': 'Sector', text: g.nombre_sector }),
+        h('td', { 'data-label': 'Operario', text: g.operario_nombre }),
+        h('td', { 'data-label': 'Inicio', text: FORMATO.hora(g.fecha_hora_inicio) }),
+        h('td', { 'data-label': 'Fin', text: g.fecha_hora_fin ? FORMATO.hora(g.fecha_hora_fin) : '—' }),
+        h('td', { 'data-label': 'Duración', class: 'num', text: g.estado_etapa === 'Finalizado' ? FORMATO.duracion(g.duracion_minutos) : 'En curso…' }),
+        h('td', { 'data-label': 'Estado' }, h('span', { class: `chip ${chip}`, text: g.estado_etapa })),
+        h('td', { 'data-label': 'Motivo / Observación', text: [g.motivo_pausa, g.observacion].filter(Boolean).join(' · ') || '—' })
       ));
     }
   } catch (e) {
