@@ -729,22 +729,37 @@ a { color: var(--acento); }
    · El botón ☰ (drawer) lo inyecta sidebar.js en la topbar.
    ============================================================ */
 @media (max-width: 767px) {
-  .topbar { padding: 8px 10px; gap: 8px 10px; }
-  .marca { flex: 1 1 auto; gap: 8px; }
+  .topbar { padding: 8px 10px; gap: 8px 10px; align-items: center; }
+  .marca { flex: 1 1 auto; gap: 8px; min-width: 0; }
   .marca .escudo { width: 36px; height: 36px; font-size: .9rem; }
   .marca h1 { font-size: 1.02rem; letter-spacing: 1.2px; }
-  .topbar-dcha { gap: 8px; }
-  .reloj { padding: 4px 8px; font-size: .9rem; letter-spacing: .5px; }
-  .reloj small { display: none; }
-  .nav { gap: 6px; }
+
+  /* La columna derecha nunca empuja a la marca: puede encoger y envolver. */
+  .topbar-dcha { flex: 0 1 auto; gap: 8px; min-width: 0; }
+  .reloj { padding: 4px 8px; font-size: .9rem; letter-spacing: .5px; min-width: 0; }
+  .reloj small { display: none; }              /* oculta la FECHA: gana espacio */
+  #sesion-chip { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Nav a SOLO iconos: el texto (nav-txt) se oculta y el icono queda centrado.
+     Cada ítem es un cuadrado táctil contenido que no invade a los vecinos. */
+  .nav { gap: 8px; flex: none; }
   .nav a {
-    padding: 10px;                 /* objetivo cuadrado ≥44px */
-    min-width: 44px;
+    flex: none;
+    padding: 10px;
+    min-width: 44px; min-height: 44px;         /* objetivo cuadrado ≥44px */
     justify-content: center;
     border-radius: var(--radio-sm);
   }
-  .nav .nav-txt { display: none; } /* sólo icono + tooltip (title) */
+  .nav .nav-txt { display: none; }             /* sólo icono + tooltip (title) */
   .nav .ico-nav { width: 20px; height: 20px; }
+  /* Estado activo CONTENIDO: fondo ajustado al icono, sin desbordar vecinos. */
+  .nav a.activo {
+    background: rgba(255, 255, 255, .16);
+    color: #fff;
+    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .55);
+  }
+  /* El botón ☰ (drawer) mantiene objetivo táctil cómodo. */
+  .topbar-menu { width: 44px; height: 44px; }
 }
 
 /* ============================================================
@@ -935,8 +950,9 @@ a { color: var(--acento); }
 
 .sb-btn {
   flex: none;
-  width: 40px; height: 40px;
-  border-radius: 9px;
+  width: 44px; height: 44px;        /* objetivo táctil (WCAG 2.5.5) */
+  touch-action: manipulation;
+  border-radius: var(--radio-sm);
   border: 1px solid var(--ind-borde);
   background: transparent;
   color: var(--ind-texto);
