@@ -66,6 +66,10 @@
       texto: 'Operarios', sub: 'Maestro de personal',
     },
     {
+      clave: 'tpm', href: '/admin#panel-tpm', ico: 'herramienta',
+      texto: 'Mantenimiento TPM', sub: 'Preventivo por horas netas de máquina',
+    },
+    {
       clave: 'materiales', href: '/admin#panel-materiales', ico: 'capas',
       texto: 'Materiales / Placas', sub: 'Melaminas · MDF · Fibroplus',
     },
@@ -97,6 +101,7 @@
     fabrica:  '<path d="M2 20h20"/><path d="M4 20V9l6 4V9l6 4V6h4v14"/><path d="M8 20v-4h4v4"/>',
     grafico:  '<path d="M3 3v18h18"/><path d="M8 17v-5"/><path d="M13 17V8"/><path d="M18 17v-8"/>',
     salir:    '<path d="M12 3v9"/><path d="M7.5 6.5a7 7 0 1 0 9 0"/>',
+    herramienta: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
   };
 
   /**
@@ -126,6 +131,7 @@
     'panel-ots': 'ots',
     'panel-operarios': 'operarios',
     'panel-sectores': 'sectores',
+    'panel-tpm': 'tpm',
     'panel-kpis': 'analitica',
     'panel-materiales': 'materiales',
     'panel-compartidos': 'compartidos',

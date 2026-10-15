@@ -500,6 +500,61 @@
     </p>
   </section>
 
+  <!-- ============ MANTENIMIENTO PREVENTIVO (TPM) ============ -->
+  <section class="panel ancho-completo panel-industrial" id="panel-tpm">
+    <h2 class="panel-titulo">
+      <span class="etiqueta-titulo">🛠️ Mantenimiento Preventivo (TPM)</span>
+      <span class="chip chip-gris" id="chip-tpm">0</span>
+    </h2>
+
+    <p class="texto-suave" style="margin-top:0;">
+      El mantenimiento se programa por <b>horas netas de uso real</b> de máquina (trabajo
+      productivo, sin pausas), no por fecha de calendario. El contador se calcula en vivo
+      sumando las etapas finalizadas de cada sector, de modo que una máquina parada no
+      envejece.
+    </p>
+
+    <div class="fila-flex" style="margin:12px 0; flex-wrap:wrap; gap:8px;">
+      <button type="button" class="btn btn-primario" id="btn-tpm-nueva">➕ Nueva máquina TPM</button>
+      <span class="espaciador"></span>
+      <span class="texto-suave" id="tpm-resumen" style="margin:0;">—</span>
+    </div>
+
+    <div class="tpm-grid" id="tpm-grid">
+      <div class="vacio">Cargando mantenimientos…</div>
+    </div>
+
+    <h3 class="titulo-seccion" style="font-size:.86rem; margin:20px 0 8px;">
+      📋 Histórico de mantenimientos realizados
+    </h3>
+
+    <div class="tabla-envoltura">
+      <table class="tabla" id="tabla-tpm-historial">
+        <thead>
+          <tr>
+            <th>Fecha / Hora</th>
+            <th>Máquina</th>
+            <th>Sector</th>
+            <th>Técnico / Operario</th>
+            <th class="num">Horas acumuladas</th>
+            <th>Observaciones</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo-tpm-historial">
+          <tr><td colspan="6" class="vacio">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="texto-suave" style="margin-top:10px;">
+      ℹ Estados: <b class="tpm-txt-ok">OK</b> (menos del 80 % del intervalo),
+      <b class="tpm-txt-advertencia">PRÓXIMO</b> (80–99 %) y
+      <b class="tpm-txt-critico">VENCIDO</b> (100 % o más). Al registrar un service el
+      contador vuelve a cero desde ese momento y el registro queda en el histórico.
+      Las máquinas dadas de baja no generan alertas en la Terminal.
+    </p>
+  </section>
+
   <!-- ============ GESTIÓN DE OPERARIOS ============ -->
   <section class="panel ancho-completo" id="panel-operarios">
     <h2 class="panel-titulo">
@@ -615,6 +670,102 @@
       <button class="btn btn-primario" id="detalle-hoja-ruta" type="button">🖨️ Imprimir Hoja de Ruta</button>
       <a class="btn btn-chico" id="detalle-csv" href="#" download>⬇ Exportar CSV de esta OT</a>
     </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: REGISTRAR SERVICE TPM ============ -->
+<div class="modal-fondo" id="modal-tpm-service">
+  <div class="modal" style="width:min(540px,100%);" role="dialog" aria-modal="true" aria-labelledby="tpm-service-titulo">
+    <div class="modal-cabecera">
+      <h3 id="tpm-service-titulo">🛠️ Registrar service</h3>
+      <button class="modal-cerrar" data-cerrar="modal-tpm-service" aria-label="Cerrar">✕</button>
+    </div>
+    <form id="form-tpm-service" novalidate>
+      <div class="modal-cuerpo">
+        <input type="hidden" id="tpm-service-id">
+        <p class="texto-suave" id="tpm-service-resumen" style="margin:0 0 12px;">—</p>
+
+        <label class="campo">
+          <span>Técnico / Operario responsable *</span>
+          <input type="text" id="tpm-service-tecnico" maxlength="120" required
+                 placeholder="Ej.: Mario Ríos" autocomplete="off">
+        </label>
+
+        <label class="campo">
+          <span>Observaciones</span>
+          <textarea id="tpm-service-obs" maxlength="1000" rows="3"
+                    placeholder="Qué se hizo, repuestos cambiados, ajustes realizados…"></textarea>
+        </label>
+
+        <p class="texto-suave" style="margin:4px 0 0;">
+          ℹ El contador de horas desde el último service vuelve a <b>0</b>. El acumulado
+          histórico de horas de la máquina se conserva íntegro y el service queda en el
+          histórico.
+        </p>
+      </div>
+      <div class="modal-pie">
+        <button type="button" class="btn" data-cerrar="modal-tpm-service">Cancelar</button>
+        <button type="submit" class="btn btn-primario" id="tpm-service-guardar">✅ Registrar service</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ MODAL: CONFIGURAR MÁQUINA TPM ============ -->
+<div class="modal-fondo" id="modal-tpm-config">
+  <div class="modal" style="width:min(560px,100%);" role="dialog" aria-modal="true" aria-labelledby="tpm-config-titulo">
+    <div class="modal-cabecera">
+      <h3 id="tpm-config-titulo">⚙️ Configurar máquina TPM</h3>
+      <button class="modal-cerrar" data-cerrar="modal-tpm-config" aria-label="Cerrar">✕</button>
+    </div>
+    <form id="form-tpm-config" novalidate>
+      <div class="modal-cuerpo">
+        <input type="hidden" id="tpm-config-id">
+
+        <div class="form-grid">
+          <label class="campo" style="grid-column:1/-1;">
+            <span>Sector de producción *</span>
+            <select id="tpm-config-sector" required></select>
+          </label>
+
+          <label class="campo" style="grid-column:1/-1;">
+            <span>Nombre de la máquina *</span>
+            <input type="text" id="tpm-config-nombre" maxlength="160" required
+                   placeholder="Ej.: Seccionadora A" autocomplete="off">
+          </label>
+
+          <label class="campo" style="grid-column:1/-1;">
+            <span>Tarea preventiva requerida *</span>
+            <input type="text" id="tpm-config-tarea" maxlength="300" required
+                   placeholder="Ej.: Afilado / cambio de disco de sierra" autocomplete="off">
+          </label>
+
+          <label class="campo">
+            <span>Intervalo objetivo (horas netas) *</span>
+            <input type="number" id="tpm-config-intervalo" min="1" max="100000" step="0.5"
+                   value="100" required inputmode="decimal">
+          </label>
+
+          <label class="campo">
+            <span>Horas acumuladas al último service</span>
+            <input type="number" id="tpm-config-base" min="0" max="10000000" step="0.01"
+                   placeholder="0" inputmode="decimal">
+            <small class="texto-suave" style="font-size:.75rem;">
+              Línea de base: el contador arranca desde aquí. Déjelo vacío para 0.
+            </small>
+          </label>
+        </div>
+
+        <label class="check" style="min-height:48px; margin-top:4px;">
+          <input type="checkbox" id="tpm-config-activo" checked>
+          Máquina activa (genera alertas en la Terminal)
+        </label>
+      </div>
+      <div class="modal-pie">
+        <button type="button" class="btn" data-cerrar="modal-tpm-config">Cancelar</button>
+        <button type="submit" class="btn btn-primario" id="tpm-config-guardar">💾 Guardar máquina</button>
+      </div>
+    </form>
   </div>
 </div>
 

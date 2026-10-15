@@ -1429,3 +1429,184 @@ a { color: var(--acento); }
   .panel-industrial .tabla tbody td { border-bottom-color: var(--border-color); }
   .panel-industrial .tabla tbody td::before { color: var(--texto-dim); }
 }
+
+/* ============================================================
+   MANTENIMIENTO PREVENTIVO (TPM)
+   Tarjetas de máquina, barra de horas netas y cartel de alerta
+   en planta. Esta sección SÓLO LEE variables existentes: no se
+   crea, renombra ni elimina ningún token de :root.
+   ============================================================ */
+
+.tpm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 14px;
+  margin: 4px 0 8px;
+}
+
+.tpm-carta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  /* El filete izquierdo es el SEMÁFORO de la máquina: verde/ámbar/rojo. */
+  border-left: 4px solid var(--estado-proceso);
+  border-radius: var(--radio-ind);
+  color: var(--texto-claro);
+}
+
+.tpm-carta.tpm-advertencia { border-left-color: var(--estado-pausa); }
+.tpm-carta.tpm-critico     { border-left-color: var(--estado-alerta); }
+
+/* VENCIDO: pulso lento de alta visibilidad. Es decorativo y no captura el
+   foco ni bloquea el click en los botones de la tarjeta. */
+.tpm-carta.tpm-critico { animation: tpm-pulso 1.4s ease-in-out infinite; }
+
+@keyframes tpm-pulso {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+  50%      { box-shadow: 0 0 0 5px rgba(220, 53, 69, .30); }
+}
+
+/* Accesibilidad: respeta la preferencia de movimiento reducido. */
+@media (prefers-reduced-motion: reduce) {
+  .tpm-carta.tpm-critico {
+    animation: none;
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, .55);
+  }
+}
+
+.tpm-carta.tpm-inactiva { opacity: .62; }
+
+.tpm-cab { display: flex; align-items: flex-start; gap: 10px; }
+.tpm-titulos { flex: 1 1 auto; min-width: 0; }
+.tpm-nombre {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.25;
+  color: var(--texto-claro);
+  overflow-wrap: anywhere;
+}
+.tpm-sector {
+  display: block;
+  margin-top: 3px;
+  font-size: .7rem;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: var(--texto-dim);
+}
+.tpm-cab .chip { flex: 0 0 auto; }
+
+.tpm-tarea {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: .88rem;
+  line-height: 1.4;
+  color: var(--texto-dim);
+}
+.tpm-tarea-ico { flex: 0 0 auto; }
+
+/* --- Barra de progreso del uso de horas netas --- */
+.tpm-barra {
+  height: 10px;
+  border-radius: var(--radio-pill);
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+.tpm-barra > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radio-pill);
+  transition: width .45s ease;
+}
+
+.tpm-numeros {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+/* Contador en mono: los dígitos no "bailan" al refrescar cada minuto. */
+.tpm-horas { font-family: var(--mono); font-size: 1rem; color: var(--texto-claro); }
+.tpm-horas b { font-weight: 700; }
+.tpm-horas-de { color: var(--texto-dim); font-size: .84rem; }
+.tpm-pct {
+  font-family: var(--mono);
+  font-size: .9rem;
+  font-weight: 700;
+  padding: 2px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radio-pill);
+  background: var(--bg-raised);
+  color: var(--texto-claro);
+}
+.tpm-carta.tpm-advertencia .tpm-pct { color: var(--estado-pausa);   border-color: var(--estado-pausa); }
+.tpm-carta.tpm-critico     .tpm-pct { color: var(--estado-alerta);  border-color: var(--estado-alerta); }
+
+.tpm-datos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: .78rem;
+  color: var(--texto-dim);
+}
+.tpm-vencidas { color: var(--estado-alerta); font-weight: 700; }
+
+.tpm-acciones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+.tpm-btn { flex: 1 1 140px; min-height: 44px; }
+
+/* Leyenda de estados del pie del panel (sobre superficie industrial). */
+.tpm-txt-ok          { color: var(--verde-osc); }
+.tpm-txt-advertencia { color: var(--amarillo-osc); }
+.tpm-txt-critico     { color: var(--rojo-osc); }
+
+/* ---------------- Cartel de alerta en planta ---------------- */
+/* No bloqueante: queda fijo bajo la barra superior, se cierra con ✕ y nunca
+   captura el foco ni interrumpe el fichado del operario. */
+.alerta-tpm {
+  position: fixed;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;                 /* por debajo del topbar (50), sobre el contenido */
+  width: min(620px, calc(100% - 24px));
+  padding: 12px 14px;
+  background: var(--estado-alerta);
+  color: #fff;
+  border-radius: var(--radio);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .32);
+  font-size: .92rem;
+  line-height: 1.45;
+}
+.alerta-tpm-cab { display: flex; align-items: center; gap: 10px; }
+.alerta-tpm-tit { font-size: .82rem; letter-spacing: .8px; text-transform: uppercase; }
+.alerta-tpm-cerrar {
+  flex: 0 0 auto;
+  margin-left: auto;
+  min-width: 40px;
+  min-height: 40px;
+  border: 0;
+  border-radius: var(--radio-sm);
+  background: rgba(255, 255, 255, .16);
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.alerta-tpm-cerrar:hover { background: rgba(255, 255, 255, .28); }
+.alerta-tpm-txt { margin: 6px 0 0; font-weight: 600; }
+
+@media (max-width: 767px) {
+  /* En móvil el topbar puede ocupar dos filas: se baja y se usa el ancho útil. */
+  .alerta-tpm {
+    top: 118px;
+    left: 10px;
+    right: 10px;
+    transform: none;
+    width: auto;
+  }
+}

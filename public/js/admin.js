@@ -17,6 +17,7 @@ const S = {
   registrosExport: null, // export de registros (standby + gráfico de ciclo)
   materiales: null,      // catálogo dinámico de placas
   compartidos: null,     // etapas en talleres compartidos
+  tpm: null,             // mantenimiento preventivo: máquinas + historial
 };
 
 const $ = (id) => document.getElementById(id);
@@ -49,8 +50,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     pintarTablaSectores();
     await cargarOrdenes();
     await Promise.all([cargarActivas(), cargarMetricas(), cargarOperarios()]);
-    // Paneles dedicados: catálogo de placas y talleres compartidos.
-    await Promise.all([cargarMateriales(), cargarCompartidos()]);
+    // Paneles dedicados: catálogo de placas, talleres compartidos y TPM.
+    await Promise.all([cargarMateriales(), cargarCompartidos(), cargarTPM()]);
     if (S.usuario.rol === 'admin') {
       $('panel-usuarios').hidden = false;
       await cargarUsuarios();
@@ -64,6 +65,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setInterval(cargarOrdenes, 30000); // mantiene sincronizada la tabla con la planta
   setInterval(cargarMetricas, 30000);
   setInterval(cargarSectores, 60000); // refleja cambios de sectores hechos en otra sesión
+  setInterval(cargarTPM, 60000);      // las horas netas avanzan con el fichado de planta
 });
 
 /* ------------------------------------------------------------------ */
@@ -145,6 +147,14 @@ function ligarEventos() {
   // Filtros del panel de Talleres Compartidos.
   ['comp-filtro-sector', 'comp-filtro-linea'].forEach((id) => {
     $(id).addEventListener('change', pintarTablaCompartidos);
+  });
+
+  // Mantenimiento Preventivo (TPM): altas/configuración y registro de services.
+  $('btn-tpm-nueva').addEventListener('click', () => abrirConfigTPM(null));
+  $('form-tpm-service').addEventListener('submit', guardarServiceTPM);
+  $('form-tpm-config').addEventListener('submit', guardarConfigTPM);
+  $('tpm-config-activo').addEventListener('change', (ev) => {
+    ev.target.closest('.check').classList.toggle('marcado', ev.target.checked);
   });
 }
 
@@ -1802,5 +1812,262 @@ async function cambiarEstadoUsuario(u) {
     await cargarUsuarios();
   } catch (e) {
     manejarError(e, 'Cambiar estado de usuario');
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Panel dedicado: Mantenimiento Preventivo (TPM)                      */
+/* ------------------------------------------------------------------ */
+
+/** Etiquetas visibles del estado de uso (mismos umbrales que el backend). */
+const ETIQUETA_TPM = { ok: 'OK', advertencia: 'PRÓXIMO', critico: 'VENCIDO' };
+
+/** Horas netas con formato estable de la UI: "123,5 hs". */
+function hsTPM(v) {
+  return `${Number(v || 0).toLocaleString('es-AR', { maximumFractionDigits: 1 })} hs`;
+}
+
+function chipEstadoTPM(estado) {
+  if (estado === 'critico') return 'chip chip-rojo';
+  if (estado === 'advertencia') return 'chip chip-amarillo';
+  return 'chip chip-verde';
+}
+
+async function cargarTPM() {
+  try {
+    S.tpm = await API.get('/api/tpm');
+    pintarTPM();
+    pintarHistorialTPM();
+  } catch (e) {
+    manejarError(e, 'Cargar mantenimiento TPM');
+  }
+}
+
+function pintarTPM() {
+  const grid = $('tpm-grid');
+  if (!S.tpm || !grid) return;
+
+  const maqs = S.tpm.maquinas || [];
+  const r = S.tpm.resumen || {};
+
+  const chip = $('chip-tpm');
+  chip.textContent = String(maqs.length);
+  chip.className = maqs.some((m) => m.activo && m.estado === 'critico')
+    ? 'chip chip-rojo'
+    : (maqs.some((m) => m.activo && m.estado === 'advertencia') ? 'chip chip-amarillo' : 'chip chip-gris');
+
+  $('tpm-resumen').textContent = maqs.length
+    ? `${r.ok || 0} OK · ${r.advertencia || 0} PRÓXIMO · ${r.critico || 0} VENCIDO · ${r.inactivas || 0} inactiva(s)`
+    : 'Sin máquinas cargadas';
+
+  grid.innerHTML = '';
+  if (!maqs.length) {
+    grid.append(h('div', {
+      class: 'vacio',
+      text: 'Todavía no hay máquinas TPM. Presione "➕ Nueva máquina TPM" para dar de alta la primera.',
+    }));
+    return;
+  }
+  for (const m of maqs) grid.append(cartaTPM(m));
+}
+
+function cartaTPM(m) {
+  const pct = Math.max(0, Math.min(100, Number(m.pct_uso || 0)));
+  const exceso = Number(m.horas_desde_ultimo_mantenimiento || 0) - Number(m.intervalo_horas_target || 0);
+  const colorBarra = m.estado === 'critico'
+    ? 'var(--estado-alerta, #DC3545)'
+    : (m.estado === 'advertencia' ? 'var(--estado-pausa, #FFC107)' : 'var(--estado-proceso, #28A745)');
+
+  return h('article', { class: `tpm-carta tpm-${m.estado}${m.activo ? '' : ' tpm-inactiva'}` },
+    h('header', { class: 'tpm-cab' },
+      h('div', { class: 'tpm-titulos' },
+        h('h3', { class: 'tpm-nombre', text: m.nombre_maquina }),
+        h('span', { class: 'tpm-sector', text: `${m.linea_area || ''} · ${m.nombre_sector || ''}` })
+      ),
+      h('span', { class: chipEstadoTPM(m.estado), text: m.activo ? ETIQUETA_TPM[m.estado] : 'INACTIVA' })
+    ),
+
+    h('p', { class: 'tpm-tarea' },
+      h('span', { class: 'tpm-tarea-ico', 'aria-hidden': 'true', text: '🛠️' }),
+      h('span', { text: m.tarea_mantenimiento })
+    ),
+
+    h('div', { class: 'tpm-barra-envoltura' },
+      h('div', {
+        class: 'tpm-barra', role: 'progressbar',
+        'aria-valuemin': '0',
+        'aria-valuemax': String(m.intervalo_horas_target),
+        'aria-valuenow': String(m.horas_desde_ultimo_mantenimiento),
+        'aria-label': `Uso de horas netas de ${m.nombre_maquina}`,
+      }, h('span', { style: `width:${pct}%; background:${colorBarra};` }))
+    ),
+
+    h('div', { class: 'tpm-numeros' },
+      h('span', { class: 'tpm-horas' },
+        h('b', { text: hsTPM(m.horas_desde_ultimo_mantenimiento) }),
+        h('span', { class: 'tpm-horas-de', text: ` / ${hsTPM(m.intervalo_horas_target)}` })
+      ),
+      h('span', {
+        class: 'tpm-pct',
+        text: `${Number(m.pct_uso || 0).toLocaleString('es-AR', { maximumFractionDigits: 0 })} %`,
+      })
+    ),
+
+    h('div', { class: 'tpm-datos' },
+      h('span', { text: `Acumulado histórico: ${hsTPM(m.horas_acumuladas_sector)}` }),
+      exceso > 0
+        ? h('span', { class: 'tpm-vencidas', text: `Vencida hace ${hsTPM(exceso)}` })
+        : h('span', { text: `Faltan ${hsTPM(-exceso)} para el vencimiento` })
+    ),
+
+    h('footer', { class: 'tpm-acciones' },
+      h('button', {
+        class: 'btn btn-primario tpm-btn', type: 'button',
+        'aria-label': `Registrar service de ${m.nombre_maquina}`,
+        onclick: () => abrirServiceTPM(m),
+      }, '🛠️ Registrar Service'),
+      h('button', {
+        class: 'btn tpm-btn', type: 'button',
+        'aria-label': `Configurar ${m.nombre_maquina}`,
+        onclick: () => abrirConfigTPM(m),
+      }, '⚙️ Configurar')
+    )
+  );
+}
+
+function pintarHistorialTPM() {
+  const cuerpo = $('cuerpo-tpm-historial');
+  if (!cuerpo) return;
+
+  const filas = (S.tpm && S.tpm.historial) || [];
+  cuerpo.innerHTML = '';
+
+  if (!filas.length) {
+    cuerpo.append(h('tr', {},
+      h('td', { colspan: '6', class: 'vacio', text: 'Sin services registrados todavía.' })));
+    estamparEtiquetas('tabla-tpm-historial');
+    return;
+  }
+
+  for (const x of filas) {
+    cuerpo.append(h('tr', {},
+      h('td', { text: FORMATO.fechaHora(x.fecha_hora) }),
+      h('td', { text: x.nombre_maquina || `#${x.maquina_tpm_id}` }),
+      h('td', { text: x.nombre_sector || '—' }),
+      h('td', { text: x.tecnico_operario }),
+      h('td', { class: 'num', text: hsTPM(x.horas_acumuladas_al_service) }),
+      h('td', { text: x.observaciones || '—' })
+    ));
+  }
+  estamparEtiquetas('tabla-tpm-historial');
+}
+
+/* ---------------- Modal: registrar service ------------------------- */
+
+function abrirServiceTPM(m) {
+  $('tpm-service-id').value = String(m.id);
+  $('tpm-service-titulo').textContent = `🛠️ Registrar service · ${m.nombre_maquina}`;
+  $('tpm-service-resumen').textContent =
+    `${m.nombre_sector || ''} — ${m.tarea_mantenimiento}\n` +
+    `Lleva ${hsTPM(m.horas_desde_ultimo_mantenimiento)} de ${hsTPM(m.intervalo_horas_target)} ` +
+    `(${ETIQUETA_TPM[m.estado]}). Al confirmar el contador vuelve a 0.`;
+  $('tpm-service-tecnico').value = '';
+  $('tpm-service-obs').value = '';
+  Modal.abrir('modal-tpm-service');
+  setTimeout(() => $('tpm-service-tecnico').focus(), 60);
+}
+
+async function guardarServiceTPM(ev) {
+  ev.preventDefault();
+  const id = Number($('tpm-service-id').value);
+  const tecnico = $('tpm-service-tecnico').value.trim();
+  const observaciones = $('tpm-service-obs').value.trim();
+
+  if (!tecnico) {
+    Avisos.error('Indique el técnico / operario responsable del service.');
+    $('tpm-service-tecnico').focus();
+    return;
+  }
+
+  const btn = $('tpm-service-guardar');
+  btn.disabled = true;
+  try {
+    const r = await API.post('/api/tpm/mantenimiento', {
+      maquina_tpm_id: id,
+      tecnico_operario: tecnico,
+      observaciones: observaciones || undefined,
+    });
+    Avisos.ok('Service registrado. Contador de horas reiniciado.',
+      `Horas acumuladas al service: ${hsTPM(r.horas_acumuladas_al_service)}`);
+    Modal.cerrar('modal-tpm-service');
+    await cargarTPM();
+  } catch (e) {
+    manejarError(e, 'Registrar service TPM');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ---------------- Modal: configurar máquina ------------------------ */
+
+function abrirConfigTPM(m) {
+  const sel = $('tpm-config-sector');
+  if (!sel.options.length) {
+    const sectores = S.sectores.filter((s) => s.activo !== false);
+    for (const s of sectores) {
+      sel.append(h('option', {
+        value: String(s.id),
+        text: `${s.linea_area || ''} · ${s.nombre_sector}`,
+      }));
+    }
+  }
+
+  $('tpm-config-id').value = m ? String(m.id) : '';
+  $('tpm-config-titulo').textContent = m ? `⚙️ ${m.nombre_maquina}` : '⚙️ Nueva máquina TPM';
+  if (m) sel.value = String(m.sector_id);
+  $('tpm-config-nombre').value = m ? m.nombre_maquina : '';
+  $('tpm-config-tarea').value = m ? m.tarea_mantenimiento : '';
+  $('tpm-config-intervalo').value = m ? String(m.intervalo_horas_target) : '100';
+  $('tpm-config-base').value = m ? String(m.horas_ultimo_mantenimiento) : '';
+
+  const activo = $('tpm-config-activo');
+  activo.checked = m ? !!m.activo : true;
+  activo.closest('.check').classList.toggle('marcado', activo.checked);
+
+  Modal.abrir('modal-tpm-config');
+}
+
+async function guardarConfigTPM(ev) {
+  ev.preventDefault();
+  const id = $('tpm-config-id').value;
+  const cuerpo = {
+    sector_id: Number($('tpm-config-sector').value),
+    nombre_maquina: $('tpm-config-nombre').value.trim(),
+    tarea_mantenimiento: $('tpm-config-tarea').value.trim(),
+    intervalo_horas_target: Number($('tpm-config-intervalo').value),
+    activo: $('tpm-config-activo').checked,
+  };
+
+  // El baseline sólo se envía si el usuario lo completó: vacío = 0 en alta
+  // y "conservar el vigente" en edición (regla T del backend).
+  const base = $('tpm-config-base').value.trim();
+  if (base !== '') cuerpo.horas_ultimo_mantenimiento = Number(base);
+
+  if (!cuerpo.nombre_maquina) { Avisos.error('Indique el nombre de la máquina.'); return; }
+  if (!cuerpo.tarea_mantenimiento) { Avisos.error('Indique la tarea preventiva requerida.'); return; }
+  if (!(cuerpo.intervalo_horas_target > 0)) { Avisos.error('El intervalo debe ser mayor a 0 horas.'); return; }
+  if (id) cuerpo.id = Number(id);
+
+  const btn = $('tpm-config-guardar');
+  btn.disabled = true;
+  try {
+    await API.post('/api/tpm/configurar', cuerpo);
+    Avisos.ok(id ? 'Máquina TPM actualizada.' : 'Máquina TPM dada de alta.', cuerpo.nombre_maquina);
+    Modal.cerrar('modal-tpm-config');
+    await cargarTPM();
+  } catch (e) {
+    manejarError(e, 'Configurar máquina TPM');
+  } finally {
+    btn.disabled = false;
   }
 }

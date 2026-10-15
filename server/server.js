@@ -36,6 +36,7 @@ const operarios = require('./routes/operarios');
 const exportador = require('./routes/export');
 const metricas = require('./routes/metricas');
 const materiales = require('./routes/materiales');
+const tpm = require('./routes/tpm');
 const authRuta = require('./routes/auth');
 
 const PUERTO = Number(process.env.PORT) || 3000;
@@ -234,6 +235,16 @@ const RUTAS = [
 
   // Catálogo dinámico de placas (reconstruido desde ot_materiales).
   ['GET', '/api/materiales/catalogo', materiales.catalogo],
+
+  // --- Mantenimiento Preventivo (TPM) por horas netas de uso real ---
+  // Lecturas abiertas (igual que /api/estado y /api/sectores, que consume la
+  // terminal de planta para avisar de un mantenimiento vencido).
+  ['GET', '/api/tpm/estado', tpm.estado],
+  ['GET', '/api/tpm', tpm.listar],
+  // Escrituras de gestión: registrar un service o cambiar las metas es tarea
+  // de encargado/admin, no del operario que fiche en la terminal.
+  ['POST', '/api/tpm/mantenimiento', tpm.registrarMantenimiento, { auth: 'gestion' }],
+  ['POST', '/api/tpm/configurar', tpm.configurar, { auth: 'gestion' }],
 
   // --- Exportación (Power BI / Excel): sesión o token estático ---
   ['GET', '/api/export/registros', exportador.exportarJSON, { auth: 'export' }],

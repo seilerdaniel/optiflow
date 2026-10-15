@@ -17,6 +17,8 @@ const S = {
   registros: [],         // últimos registros de la OT seleccionada
   refrescos: 0,
   escaneo: false,        // true cuando la OT llegó por QR (?ot=…) y el busq. está bloqueado
+  tpm: [],               // máquinas activas + estado de mantenimiento (/api/tpm/estado)
+  tpmDescartadas: new Set(), // ids de máquinas cuya alerta descartó el operario
 };
 
 /** Etiquetas visibles de las líneas de área. */
@@ -76,6 +78,7 @@ async function arrancar() {
   construirMotivosPausa();
   renderizarTodo();
   await refrescar();
+  await cargarAlertasTPM(); // alertas de mantenimiento preventivo del sector elegido
 
   // Modo escaneo QR (Fase 7): ?ot=1710 precarga y bloquea la OT.
   await aplicarEscaneoQR();
@@ -83,6 +86,7 @@ async function arrancar() {
   setInterval(refrescar, 3000);   // estado en vivo
   setInterval(tick, 250);         // cronómetro
   setInterval(refrescarSectores, 30000); // maestro de sectores (altas/bajas del Admin)
+  setInterval(cargarAlertasTPM, 30000);  // horas netas del TPM (avanzan con el fichado)
 }
 
 /* ------------------------------------------------------------------ */
@@ -1010,10 +1014,78 @@ async function actualizarFichaOT() {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Alertas de Mantenimiento Preventivo (TPM)                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Carga el estado de mantenimiento de las máquinas activas. Es una lectura
+ * barata y tolerante a fallos: si el endpoint falla (versión vieja del
+ * servidor, red), la terminal sigue operando sin alertas.
+ */
+async function cargarAlertasTPM() {
+  try {
+    const r = await API.get('/api/tpm/estado');
+    const nuevas = r.maquinas || [];
+    // Si una máquina salió de estado crítico, se olvida su descarte para que,
+    // si vuelve a vencer, el operario vuelva a ser avisado.
+    const criticas = new Set(nuevas.filter((m) => m.estado === 'critico').map((m) => m.id));
+    for (const id of [...S.tpmDescartadas]) {
+      if (!criticas.has(id)) S.tpmDescartadas.delete(id);
+    }
+    S.tpm = nuevas;
+    pintarAlertaTPM();
+  } catch (e) {
+    console.warn('TPM', e);
+  }
+}
+
+/**
+ * Muestra el cartel flotante NO bloqueante cuando el SECTOR seleccionado tiene
+ * una máquina con el mantenimiento VENCIDO (>= 100 % del intervalo de horas
+ * netas). El operario puede descartarlo sin bloquear el fichado.
+ */
+function pintarAlertaTPM() {
+  const cont = $('alerta-tpm');
+  if (!cont) return;
+
+  const vencidas = S.sectorId
+    ? S.tpm.filter((m) => m.sector_id === S.sectorId
+        && m.estado === 'critico'
+        && !S.tpmDescartadas.has(m.id))
+    : [];
+
+  if (!vencidas.length) {
+    cont.hidden = true;
+    cont.innerHTML = '';
+    return;
+  }
+
+  cont.innerHTML = '';
+  cont.hidden = false;
+  cont.append(
+    h('div', { class: 'alerta-tpm-cab' },
+      h('strong', { class: 'alerta-tpm-tit', text: '⚠️ ALERTA TPM' }),
+      h('button', {
+        class: 'alerta-tpm-cerrar', type: 'button',
+        'aria-label': 'Descartar alerta de mantenimiento',
+        onclick: () => {
+          for (const m of vencidas) S.tpmDescartadas.add(m.id);
+          pintarAlertaTPM();
+        },
+      }, '✕')
+    ),
+    ...vencidas.map((m) => h('p', { class: 'alerta-tpm-txt' },
+      `La máquina ${m.nombre_maquina} superó las ${Math.round(m.horas_desde_ultimo_mantenimiento)} hs de uso. ` +
+      'Notifique a Mario / Mantenimiento para ' + m.tarea_mantenimiento + '.'))
+  );
+}
+
 function renderizarTodo() {
   pintarFichaOT();
   pintarSectores();
   pintarEstadoVivo();
   pintarListaEtapas();
   renderBotones();
+  pintarAlertaTPM(); // el cartel depende del sector elegido
 }
