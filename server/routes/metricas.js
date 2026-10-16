@@ -313,18 +313,35 @@ function diasEntre(desde, hasta) {
 const r2 = (v) => (Number.isFinite(v) ? Math.round(v * 100) / 100 : 0);
 
 /**
- * Devuelve la meta de `periodo`, creándola con los defaults del esquema si
- * todavía no existe (cambio de mes, base recién montada, o un POST que
- * precargó un mes futuro).
- *
- * Sin esto, el tablero respondería 404 durante todo un mes nuevo: el objetivo
- * es una meta configurable, no un dato que la planta deba "cargar".
+ * Metas por defecto del esquema (mismas cifras que el DDL de ambas fuentes).
+ * Sólo se usan como red de seguridad para el mes en curso: ver `leerObjetivo`.
  */
-async function asegurarObjetivo(periodo) {
+const META_DEFECTO = Object.freeze({
+  meta_metros_totales: 1200,
+  meta_metros_placares: 800,
+  meta_metros_cocinas: 400,
+});
+
+/**
+ * Lee la meta de `periodo`.
+ *
+ * `crearSiFalta = true` (por defecto) la siembra con los defaults si todavía
+ * no existe. Ese es el comportamiento correcto para el MES EN CURSO —el
+ * tablero no puede quedar sin meta el día 1— y para el POST, que es quien
+ * crea el registro del mes que la planta decide configurar.
+ *
+ * `crearSiFalta = false` es el de HISTÓRICO: con el selector de meses de la
+ * Analítica ahora se puede recorrer el año, y un GET no debe dejar filas
+ * inventadas en la base ni fabricar un contrafactual con los defaults. Un mes
+ * que nunca se configuró devuelve `null` y el endpoint lo marca con
+ * `meta_configurada: false`, para que la UI diga "sin meta" en vez de
+ * evaluarlo contra un objetivo que la planta nunca fijó.
+ */
+async function leerObjetivo(periodo, crearSiFalta = true) {
   const fila = await db.get(
     'SELECT * FROM objetivos_produccion WHERE periodo = ?;', periodo
   );
-  if (fila) return fila;
+  if (fila || !crearSiFalta) return fila || null;
 
   await db.run(
     'INSERT INTO objetivos_produccion (periodo) VALUES (?) ON CONFLICT (periodo) DO NOTHING;',
@@ -387,6 +404,15 @@ function diaAcreditado(inicioCorte, mesInicio, ultimoDia) {
  *
  *  · PROYECCIÓN: `ritmo_diario_promedio × días_del_mes`. El ritmo es
  *    metros ÷ días transcurridos, es decir el promedio real de lo corrido.
+ *    En un mes CERRADO los días transcurridos son todos, así que la
+ *    proyección coincide con el resultado final: por eso la UI la presenta
+ *    como "resultado" y no como "proyección" cuando el mes ya terminó.
+ *
+ *  · PERÍODOS HISTÓRICOS: `?periodo=` sólo AUTO-CREA la fila del mes en
+ *    curso. Un mes viejo sin meta responde `meta_configurada: false` con
+ *    porcentaje/diferencia/ideales anulados, en vez de inventar un objetivo
+ *    con los defaults; así recorrer el selector no ensucia la base ni miente
+ *    sobre la historia. Quien quiera configurarlo lo hace vía POST.
  */
 async function objetivoCorte({ query }) {
   const periodo = query && query.periodo !== undefined && query.periodo !== ''
@@ -396,10 +422,18 @@ async function objetivoCorte({ query }) {
     throw new ApiError(400, 'El campo "periodo" debe tener el formato YYYY-MM.');
   }
 
-  const meta = await asegurarObjetivo(periodo);
-  const metaTotales = Number(meta.meta_metros_totales || 0);
-  const metaPlacares = Number(meta.meta_metros_placares || 0);
-  const metaCocinas = Number(meta.meta_metros_cocinas || 0);
+  const esMesEnCurso = periodo === periodoActual();
+
+  // Sólo el mes en curso se auto-crea. Un mes histórico sin registro se
+  // reporta como NO configurado en lugar de inventarle un objetivo.
+  const meta = await leerObjetivo(periodo, esMesEnCurso);
+  // Red de seguridad: el mes en curso SIEMPRE tiene meta, aunque la fila no
+  // haya llegado a creerse (carrera entre dos invocaciones en frío).
+  const configurada = esMesEnCurso || !!meta;
+  const fuente = meta || (esMesEnCurso ? META_DEFECTO : null);
+  const metaTotales = Number((fuente && fuente.meta_metros_totales) || 0);
+  const metaPlacares = Number((fuente && fuente.meta_metros_placares) || 0);
+  const metaCocinas = Number((fuente && fuente.meta_metros_cocinas) || 0);
 
   const mesInicio = `${periodo}-01`;
   const mesFin = inicioMesSiguiente(periodo);
@@ -461,7 +495,9 @@ async function objetivoCorte({ query }) {
   }
 
   const ritmoDiario = diasTranscurridos > 0 ? total / diasTranscurridos : 0;
-  const idealDiario = metaTotales / diasTotales;
+  // Sin meta configurada no hay "ideal" que trazar: se envía null para que el
+  // gráfico NO pinte una recta en cero disfrazada de objetivo real.
+  const idealDiario = configurada && metaTotales > 0 ? metaTotales / diasTotales : null;
 
   // Serie día a día de los días TRANSCURRIDOS (los futuros no se inventan).
   const serie = [];
@@ -474,12 +510,14 @@ async function objetivoCorte({ query }) {
       fecha: dia,
       metros: m,
       acumulado: r2(acumulado),
-      ideal: r2(idealDiario),
-      ideal_acumulado: r2(idealDiario * (i + 1)),
+      ideal: idealDiario === null ? null : r2(idealDiario),
+      ideal_acumulado: idealDiario === null ? null : r2(idealDiario * (i + 1)),
     });
   }
 
-  const porcentaje = metaTotales > 0 ? r2((total / metaTotales) * 100) : null;
+  const porcentaje = configurada && metaTotales > 0
+    ? r2((total / metaTotales) * 100)
+    : null;
   const proyeccion = r2(ritmoDiario * diasTotales);
   const porLinea = [
     {
@@ -500,7 +538,10 @@ async function objetivoCorte({ query }) {
     status: 200,
     data: {
       periodo,
-      es_mes_en_curso: periodo === periodoActual(),
+      es_mes_en_curso: esMesEnCurso,
+      // false en meses históricos que la planta nunca configuró: el resto de
+      // campos (porcentaje, diferencia, ideales del gráfico) vienen anulados.
+      meta_configurada: configurada,
       meta: { totales: metaTotales, placares: metaPlacares, cocinas: metaCocinas },
       cortados: r2(total),
       porcentaje,
@@ -515,7 +556,9 @@ async function objetivoCorte({ query }) {
         ? r2((metaTotales - total) / diasRestantes)
         : 0,
       proyeccion_cierre: proyeccion,
-      diferencia_proyeccion: r2(proyeccion - metaTotales),
+      diferencia_proyeccion: configurada && metaTotales > 0
+        ? r2(proyeccion - metaTotales)
+        : null,
       por_linea: porLinea,
       serie,
       ots_contadas: filas.length,
@@ -545,7 +588,10 @@ async function guardarObjetivoCorte({ body }) {
     throw new ApiError(400, 'El campo "periodo" debe tener el formato YYYY-MM.');
   }
 
-  const actual = await asegurarObjetivo(periodo);
+  // El POST SIEMPRE crea si falta: así se da de alta la meta de un mes
+  // histórico o del que viene, sin tocar el registro de ningún otro período
+  // (el UPDATE de más abajo filtra exactamente por este `periodo`).
+  const actual = await leerObjetivo(periodo, true);
 
   const rango = { min: 0, max: 99999999.99, requerido: false, porDefecto: null };
   const recibidas = {
@@ -638,5 +684,5 @@ module.exports = {
   guardarObjetivoCorte,
   // Utilidades del módulo exportadas para poder testear el cómputo de fechas
   // (bisiestos, cierre de mes, cambio de período) sin necesidad de base.
-  _pruebas: { periodoActual, inicioMesSiguiente, diasEntre, diaAcreditado, r2 },
+  _pruebas: { periodoActual, inicioMesSiguiente, diasEntre, diaAcreditado, r2, META_DEFECTO },
 };

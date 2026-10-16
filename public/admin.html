@@ -118,7 +118,21 @@
          Tarjeta de alto impacto + avance diario vs. tendencia ideal. -->
     <div class="dos-columnas" style="margin-top:18px;">
       <div class="kpi-ind acento-corte" id="tarjeta-corte">
-        <div class="kpi-titulo">🎯 Objetivo de corte · <span id="corte-periodo">—</span></div>
+        <div class="corte-cabecera">
+          <div class="kpi-titulo">🎯 Objetivo de corte</div>
+
+          <!-- Selector de mes: se llena en JS con el mes en curso + los 12
+               anteriores. `‹ ›` recorren la misma lista que el desplegable. -->
+          <div class="corte-nav" role="group" aria-label="Elegir mes del objetivo">
+            <button type="button" class="corte-nav-btn" id="btnPeriodoAnterior"
+                    aria-label="Mes anterior">‹</button>
+            <select id="selectPeriodoObjetivo" aria-label="Mes del objetivo a consultar"></select>
+            <button type="button" class="corte-nav-btn" id="btnPeriodoSiguiente"
+                    aria-label="Mes siguiente">›</button>
+          </div>
+        </div>
+
+        <p class="corte-estado" id="corte-estado">Cargando…</p>
 
         <div class="corte-avance">
           <div class="corte-valor" id="corte-cortados">—</div>
@@ -832,7 +846,7 @@
       <div class="modal-cuerpo">
         <p class="texto-suave" style="margin-top:0;">
           Periodo <b id="meta-corte-periodo">—</b> · valores en metros lineales.
-          Si se deja un campo vacío, conserva el valor actual.
+          <span id="meta-corte-nota">Si se deja un campo vacío, conserva el valor actual.</span>
         </p>
 
         <div class="form-grid">

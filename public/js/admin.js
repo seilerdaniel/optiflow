@@ -18,7 +18,9 @@ const S = {
   materiales: null,      // catálogo dinámico de placas
   compartidos: null,     // etapas en talleres compartidos
   tpm: null,             // mantenimiento preventivo: máquinas + historial
-  objetivo: null,        // meta mensual de corte (metros lineales)
+  objetivo: null,        // meta del MES consultado (última respuesta válida)
+  objetivoPeriodo: null, // mes elegido en el selector; null = mes en curso
+  periodosBase: null,    // mes a partir del cual se armó el desplegable
 };
 
 const $ = (id) => document.getElementById(id);
@@ -166,6 +168,15 @@ function ligarEventos() {
   if (S.usuario && !['admin', 'encargado'].includes(S.usuario.rol)) {
     $('btn-meta-corte').hidden = true;
   }
+
+  // Selector de período: el desplegable y las flechas son dos formas de
+  // llegar al mismo sitio, así que comparten la misma función de cambio.
+  $('selectPeriodoObjetivo').addEventListener('change', (ev) => {
+    S.objetivoPeriodo = ev.target.value;
+    cargarObjetivoCorte();
+  });
+  $('btnPeriodoAnterior').addEventListener('click', () => moverPeriodoObjetivo(1));
+  $('btnPeriodoSiguiente').addEventListener('click', () => moverPeriodoObjetivo(-1));
 }
 
 /* ------------------------------------------------------------------ */
@@ -453,8 +464,115 @@ function metrosDia(v) {
   return `${Number(v || 0).toLocaleString('es-AR', { maximumFractionDigits: 1 })} m/día`;
 }
 
+/* --- Selector de período: mes en curso + los 12 anteriores ------------ */
+
+/** Meses cortos del desplegable (sin dependencias: todo es JS nativo). */
+const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+  'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+/** Meses largos, para los textos de la tarjeta y del modal. */
+const MESES_LARGOS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
 /**
- * Carga meta + avance del mes.
+ * Los `n + 1` períodos que arrancan en `desde` ('YYYY-MM') y retroceden uno
+ * por vuelta.
+ *
+ * Se hace aritmética sobre el string y NO con `new Date()` del navegador: la
+ * ventana tiene que ser la del MES DE PLANTA que devuelve el servidor, no la
+ * del reloj de quien abre la pantalla (y menos en el borde de mes, justo
+ * cuando el dato importa). Con `desde='2026-10'` y n=12 da 13 opciones.
+ */
+function ultimosPeriodos(desde, n) {
+  const anio0 = Number(desde.slice(0, 4));
+  const mes0 = Number(desde.slice(5, 7));
+  const salida = [];
+  for (let i = 0; i <= n; i += 1) {
+    const bruto = mes0 - i;
+    const anio = anio0 + Math.floor((bruto - 1) / 12);
+    const mes = (((bruto - 1) % 12) + 12) % 12 + 1;
+    salida.push(`${anio}-${String(mes).padStart(2, '0')}`);
+  }
+  return salida;
+}
+
+/** '2026-10' -> 'Oct 2026' (y 'Oct 2026 · en curso' cuando corresponde). */
+function etiquetaPeriodo(p, periodoVigente) {
+  const nombre = MESES_CORTOS[Number(p.slice(5, 7)) - 1] || p.slice(5, 7);
+  const marca = periodoVigente && p === periodoVigente ? ' · en curso' : '';
+  return `${nombre} ${p.slice(0, 4)}${marca}`;
+}
+
+/** '2026-10' -> 'Octubre 2026'. */
+function etiquetaPeriodoLargo(p) {
+  return `${MESES_LARGOS[Number(p.slice(5, 7)) - 1] || p.slice(5, 7)} ${p.slice(0, 4)}`;
+}
+
+/**
+ * Llena el desplegable con el mes en curso + los 12 anteriores.
+ *
+ * Se construye UNA sola vez, a partir de la primera respuesta, que siempre es
+ * el mes en curso (el arranque pide sin parámetro). Reconstruirlo en cada
+ * refresco de 30 s devolvería el selector a su valor inicial cada medio
+ * minuto y tiraría la selección que el usuario estuviera mirando.
+ *
+ * La única excepción es un CAMBIO DE MES durante la sesión: ahí sí se vuelve
+ * a armar para que aparezca el mes nuevo.
+ */
+function pintarSelectorPeriodo(d) {
+  const sel = $('selectPeriodoObjetivo');
+  if (!sel || !d || !d.periodo) return;
+
+  const cambioDeMes = d.es_mes_en_curso === true && d.periodo !== S.periodosBase;
+  if (S.periodosBase && !cambioDeMes) {
+    // La lista ya existe: sólo se reafirma el valor elegido si sigue dentro
+    // de la ventana, para que un refresco no mueva la selección.
+    const vigente = S.objetivoPeriodo || d.periodo;
+    if ([...sel.options].some((o) => o.value === vigente)) sel.value = vigente;
+    return;
+  }
+
+  const periodos = ultimosPeriodos(d.periodo, 12);
+  S.periodosBase = d.periodo;
+  sel.innerHTML = '';
+  for (const p of periodos) {
+    sel.append(h('option', { value: p, text: etiquetaPeriodo(p, d.periodo) }));
+  }
+
+  // Si la ventana dejó afuera al mes elegido (se superó el año de historial),
+  // se vuelve al mes en curso: hay que dejar el value del <select> y
+  // `S.objetivoPeriodo` DÍCENTES, o el siguiente refresco pediría un período
+  // que el desplegable ni siquiera ofrece.
+  const elegido = S.objetivoPeriodo && periodos.includes(S.objetivoPeriodo)
+    ? S.objetivoPeriodo
+    : d.periodo;
+  if (elegido !== S.objetivoPeriodo) S.objetivoPeriodo = null;
+  sel.value = elegido;
+}
+
+/** `paso` > 0 retrocede (‹, meses anteriores); `paso` < 0 avanza (›). */
+function moverPeriodoObjetivo(paso) {
+  const sel = $('selectPeriodoObjetivo');
+  if (!sel || sel.options.length === 0) return;
+  const i = [...sel.options].findIndex((o) => o.value === sel.value);
+  const destino = i + paso;
+  if (destino < 0 || destino >= sel.options.length) return;
+  S.objetivoPeriodo = sel.options[destino].value;
+  sel.value = S.objetivoPeriodo;
+  cargarObjetivoCorte();
+}
+
+/** Deshabilita la flecha que ya no tiene adónde ir. */
+function actualizarFlechasPeriodo() {
+  const sel = $('selectPeriodoObjetivo');
+  if (!sel || sel.options.length === 0) return;
+  const i = [...sel.options].findIndex((o) => o.value === sel.value);
+  $('btnPeriodoAnterior').disabled = i < 0 || i >= sel.options.length - 1;
+  $('btnPeriodoSiguiente').disabled = i <= 0;
+}
+
+/**
+ * Carga meta + avance del PERÍODO consultado (mes en curso por defecto).
  *
  * Está AISLADA del resto del dashboard: tiene su propio try/catch y sólo
  * avisa por consola. Si el endpoint falla, el Lead Time, el FTT y los
@@ -463,31 +581,145 @@ function metrosDia(v) {
  */
 async function cargarObjetivoCorte() {
   try {
-    const d = await API.get('/api/metricas/objetivo-corte');
+    // Sin selección explícita se pide el mes en curso SIN parámetro: es
+    // literalmente la misma petición de la ronda anterior, así la carga por
+    // defecto no depende del reloj del navegador ni de ningún estado previo.
+    const ruta = S.objetivoPeriodo
+      ? `/api/metricas/objetivo-corte?periodo=${encodeURIComponent(S.objetivoPeriodo)}`
+      : '/api/metricas/objetivo-corte';
+    const d = await API.get(ruta);
     S.objetivo = d;
+    pintarSelectorPeriodo(d);
     pintarObjetivoCorte(d);
     pintarGraficoAvance(d);
+    actualizarFlechasPeriodo();
   } catch (e) {
     console.warn('Objetivo de corte no disponible:', e.message);
   }
 }
 
-/** Tarjeta: avance total, desglose por línea y proyección de cierre. */
+/**
+ * Estado del período consultado. El selector permite ver tres situaciones
+ * distintas y la tarjeta tiene que decir la verdad en cada una:
+ *
+ *  · en curso -> todavía se puede PROYECTAR el cierre;
+ *  · cerrado  -> ya no hay proyección, hay un RESULTADO;
+ *  · sin meta -> no hay nada que comparar, sólo metros cortados.
+ */
+function estadoPeriodo(d) {
+  const configurada = d.meta_configurada !== false;
+  const enCurso = d.es_mes_en_curso === true;
+  // Un mes cerrado siempre tiene todos los días transcurridos; cero sólo
+  // puede ser un período que todavía no empezó.
+  const futuro = !enCurso && !!d.dias && d.dias.transcurridos === 0;
+  return { configurada, enCurso, futuro, cerrado: !enCurso && !futuro };
+}
+
+/** Chip de estado bajo el selector. */
+function pintarEstadoPeriodo(d, est) {
+  const el = $('corte-estado');
+  if (!el) return;
+  el.classList.remove('ok', 'faltante', 'aviso');
+
+  if (est.futuro) { el.textContent = 'Periodo futuro · aún sin datos'; return; }
+  if (!est.configurada) {
+    el.textContent = '⚠ Sin meta configurada para este mes';
+    el.classList.add('aviso');
+    return;
+  }
+  if (est.enCurso) { el.textContent = 'Mes en curso · en seguimiento'; return; }
+
+  const cumplida = d.cortados >= d.meta.totales;
+  el.textContent = cumplida ? 'Mes cerrado · ✔ meta cumplida' : 'Mes cerrado · meta no alcanzada';
+  el.classList.add(cumplida ? 'ok' : 'faltante');
+}
+
+/**
+ * Línea de proyección / resultado. Es el texto que más cambia según el mes:
+ * en uno abierto se predice, en uno cerrado se informa, y sin meta sólo se
+ * declara el dato.
+ */
+function textoProyeccion(d, est) {
+  const metros = FORMATO.metros;
+  const ritmo = metrosDia(d.ritmo_diario);
+
+  if (est.futuro) return 'Periodo futuro · aún no hay metros que proyectar.';
+
+  if (!est.configurada) {
+    return est.enCurso
+      ? `Sin meta configurada · ${metros(d.cortados)} cortados · ritmo ${ritmo}`
+        + ' · cargala con ⚙️ Ajustar Meta Mensual'
+      : `Sin meta configurada · ${metros(d.cortados)} cortados · promedio ${ritmo}`;
+  }
+
+  if (est.enCurso) {
+    const dif = d.diferencia_proyeccion;
+    const contraMeta = (dif === null || dif === undefined) ? ''
+      : ` · ${Number(dif) >= 0 ? '+' : '−'}${metros(Math.abs(Number(dif)))} frente a la meta`;
+    return `Proyección de cierre a fin de mes: ${metros(d.proyeccion_cierre)}`
+      + contraMeta
+      + ` · ritmo actual ${ritmo}`;
+  }
+
+  if (est.cerrado) {
+    const cumplida = d.cortados >= d.meta.totales;
+    const veredicto = cumplida
+      ? `✔ superó la meta en ${metros(d.cortados - d.meta.totales)}`
+      : `faltaron ${metros(d.meta.totales - d.cortados)}`;
+    return `Resultado final del mes: ${metros(d.cortados)} · ${veredicto}`
+      + ` · promedio ${ritmo}`;
+  }
+
+  return '';
+}
+
+/** Nota bajo el gráfico: días, ritmo e ideal cuando hay meta. */
+function textoNotaGrafico(d, est) {
+  const ritmo = metrosDia(d.ritmo_diario);
+  const ideal = est.configurada && d.dias.totales > 0
+    ? ` · ideal ${metrosDia(d.meta.totales / d.dias.totales)}`
+    : '';
+
+  if (est.futuro) return 'Periodo futuro: todavía no hay metros que graficar.';
+
+  if (est.cerrado) {
+    return `${etiquetaPeriodoLargo(d.periodo)} cerrado · ${d.dias.totales} días`
+      + ` · promedio ${ritmo}${ideal}`;
+  }
+
+  if (!est.configurada) {
+    return `${d.dias.transcurridos} de ${d.dias.totales} días · ritmo ${ritmo}`;
+  }
+
+  const cumplida = d.cortados >= d.meta.totales;
+  return cumplida
+    ? `✔ Meta cumplida con ${d.dias.transcurridos} de ${d.dias.totales} días · ${ritmo}`
+    : `${d.dias.transcurridos} de ${d.dias.totales} días · ritmo ${ritmo}`
+      + (d.dias.restantes > 0 && d.ritmo_necesario > 0
+        ? ` · hacen falta ${metrosDia(d.ritmo_necesario)} el resto del mes`
+        : '');
+}
+
+/** Tarjeta: avance, desglose por línea y proyección/resultado del período. */
 function pintarObjetivoCorte(d) {
   if (!d || !d.meta) return;
 
-  $('corte-periodo').textContent = d.periodo ? d.periodo.replace('-', ' / ') : '—';
-  $('meta-corte-periodo').textContent = d.periodo;
+  const est = estadoPeriodo(d);
+  pintarEstadoPeriodo(d, est);
+  $('meta-corte-periodo').textContent = etiquetaPeriodoLargo(d.periodo);
 
   $('corte-cortados').textContent = FORMATO.metros(d.cortados);
-  $('corte-meta').textContent = `/ ${FORMATO.metros(d.meta.totales)} meta del mes`;
+  $('corte-meta').textContent = est.configurada
+    ? `/ ${FORMATO.metros(d.meta.totales)} meta del mes`
+    : '/ sin meta configurada';
 
   const pct = (d.porcentaje === null || d.porcentaje === undefined) ? null : Number(d.porcentaje);
   $('corte-pct').textContent = pct === null ? '—' : `${pct}%`;
 
   // La barra es una magnitud acotada 0..100: lo que se pasa del 100 % se
   // dibuja llena y en verde, para que "meta superada" se lea de un vistazo
-  // en lugar de ver una barra con el texto 132 % desbordado.
+  // en lugar de ver una barra con el texto 132 % desbordado. Sin meta no hay
+  // porcentaje y la barra queda en cero, sin señal falsa de avance.
   const llenado = pct === null ? 0 : Math.max(0, Math.min(100, pct));
   const fill = $('corte-barra-fill');
   fill.style.width = `${llenado}%`;
@@ -495,27 +727,16 @@ function pintarObjetivoCorte(d) {
   $('corte-barra').setAttribute('aria-valuenow', String(Math.round(llenado)));
 
   for (const l of (d.por_linea || [])) {
-    const esPlacares = l.linea === 'Placares';
-    const idTxt = esPlacares ? 'corte-placares' : 'corte-cocinas';
-    $(idTxt).textContent = `${FORMATO.metros(l.cortados)} / ${FORMATO.metros(l.meta)}`;
+    const idTxt = l.linea === 'Placares' ? 'corte-placares' : 'corte-cocinas';
+    $(idTxt).textContent = est.configurada && l.meta > 0
+      ? `${FORMATO.metros(l.cortados)} / ${FORMATO.metros(l.meta)}`
+      : `${FORMATO.metros(l.cortados)} / —`;
     const p = l.meta > 0 ? Math.max(0, Math.min(100, (l.cortados / l.meta) * 100)) : 0;
     $(`${idTxt}-fill`).style.width = `${p}%`;
   }
 
-  const dif = Number(d.diferencia_proyeccion || 0);
-  const signo = dif >= 0 ? '+' : '−';
-  $('corte-proyeccion').textContent =
-    `Proyección de cierre a fin de mes: ${FORMATO.metros(d.proyeccion_cierre)}`
-    + ` · ${signo}${FORMATO.metros(Math.abs(dif))} frente a la meta`
-    + ` · ritmo actual ${metrosDia(d.ritmo_diario)}`;
-
-  const cumplida = d.meta.totales > 0 && d.cortados >= d.meta.totales;
-  $('nota-corte').textContent = cumplida
-    ? `✔ Meta cumplida con ${d.dias.transcurridos} de ${d.dias.totales} días · ${metrosDia(d.ritmo_diario)}`
-    : `${d.dias.transcurridos} de ${d.dias.totales} días · ritmo ${metrosDia(d.ritmo_diario)}`
-      + (d.dias.restantes > 0 && d.ritmo_necesario > 0
-        ? ` · hacen falta ${metrosDia(d.ritmo_necesario)} el resto del mes`
-        : '');
+  $('corte-proyeccion').textContent = textoProyeccion(d, est);
+  $('nota-corte').textContent = textoNotaGrafico(d, est);
 }
 
 /**
@@ -525,62 +746,76 @@ function pintarObjetivoCorte(d) {
  * Hacen falta dos ejes porque las magnitudes no conviven: un día puede ser
  * 60 m mientras el acumulado va en 700. Sin el eje derecho, las barras
  * quedarían aplastadas contra el cero y el gráfico no diría nada.
+ *
+ * Las dos rectas IDEALES sólo se grafican si el mes tiene meta (`ideal` viene
+ * en null cuando `meta_configurada` es false): en un mes histórico sin
+ * objetivo trazar una línea en cero sería presentar un falso objetivo real.
  */
 function pintarGraficoAvance(d) {
   if (typeof Chart === 'undefined' || !d || !Array.isArray(d.serie)) return;
   const p = paletaIndustrial();
   const cian = '#22B8CF';
 
+  const hayIdeal = d.serie.some((x) => x.ideal !== null && x.ideal !== undefined);
+
+  // Se arma en orden de leyenda (mismo orden visual que la versión original)
+  // y con `order` decreciente para que las barras queden debajo de las líneas.
+  const datasets = [
+    {
+      type: 'bar',
+      label: 'Metros del día',
+      data: d.serie.map((x) => x.metros),
+      backgroundColor: cian,
+      borderRadius: 4,
+      maxBarThickness: 26,
+      order: 3,
+    },
+  ];
+  if (hayIdeal) {
+    datasets.push({
+      type: 'line',
+      label: 'Ideal diario',
+      data: d.serie.map((x) => x.ideal),
+      borderColor: p.texto,
+      borderDash: [6, 5],
+      borderWidth: 1.5,
+      pointRadius: 0,
+      tension: 0,
+      fill: false,
+      order: 2,
+    });
+  }
+  datasets.push({
+    type: 'line',
+    label: 'Acumulado',
+    data: d.serie.map((x) => x.acumulado),
+    borderColor: p.placares,
+    borderWidth: 2,
+    pointRadius: 0,
+    tension: 0.25,
+    fill: false,
+    yAxisID: 'y2',
+    order: 1,
+  });
+  if (hayIdeal) {
+    datasets.push({
+      type: 'line',
+      label: 'Acumulado ideal',
+      data: d.serie.map((x) => x.ideal_acumulado),
+      borderColor: p.proceso,
+      borderDash: [3, 4],
+      borderWidth: 1.5,
+      pointRadius: 0,
+      tension: 0,
+      fill: false,
+      yAxisID: 'y2',
+      order: 0,
+    });
+  }
+
   const datos = {
     labels: d.serie.map((x) => `${x.fecha.slice(8)}/${x.fecha.slice(5, 7)}`),
-    datasets: [
-      {
-        type: 'bar',
-        label: 'Metros del día',
-        data: d.serie.map((x) => x.metros),
-        backgroundColor: cian,
-        borderRadius: 4,
-        maxBarThickness: 26,
-        order: 3,
-      },
-      {
-        type: 'line',
-        label: 'Ideal diario',
-        data: d.serie.map((x) => x.ideal),
-        borderColor: p.texto,
-        borderDash: [6, 5],
-        borderWidth: 1.5,
-        pointRadius: 0,
-        tension: 0,
-        fill: false,
-        order: 2,
-      },
-      {
-        type: 'line',
-        label: 'Acumulado',
-        data: d.serie.map((x) => x.acumulado),
-        borderColor: p.placares,
-        borderWidth: 2,
-        pointRadius: 0,
-        tension: 0.25,
-        fill: false,
-        yAxisID: 'y2',
-        order: 1,
-      },
-      {
-        type: 'line',
-        label: 'Acumulado ideal',
-        data: d.serie.map((x) => x.ideal_acumulado),
-        borderColor: p.proceso,
-        borderDash: [3, 4],
-        borderWidth: 1.5,
-        pointRadius: 0,
-        tension: 0,
-        fill: false,
-        yAxisID: 'y2',
-        order: 0,
-      },
-    ],
+    datasets,
   };
 
   const opciones = {
@@ -620,25 +855,50 @@ function pintarGraficoAvance(d) {
   GRAFICOS.avance = new Chart($('grafico-avance'), { type: 'bar', data: datos, options: opciones });
 }
 
-/** Abre el modal de ajuste ya precargado con las metas vigentes. */
+/**
+ * Abre el modal de ajuste para el PERÍODO que se está mirando, ya precargado
+ * con las metas vigentes de ese mes.
+ */
 function abrirAjusteMetaCorte() {
   const d = S.objetivo;
-  if (!d) { Avisos.aviso('Todavía no se cargó la meta del mes.'); return; }
-  $('meta-corte-periodo').textContent = d.periodo;
-  $('meta-corte-total').value = d.meta.totales;
-  $('meta-corte-placares').value = d.meta.placares;
-  $('meta-corte-cocinas').value = d.meta.cocinas;
+  if (!d) { Avisos.aviso('Todavía no se cargó el período a configurar.'); return; }
+
+  const configurada = d.meta_configurada !== false;
+  $('meta-corte-periodo').textContent = etiquetaPeriodoLargo(d.periodo);
+  $('meta-corte-nota').textContent = configurada
+    ? 'Si se deja un campo vacío, conserva el valor actual.'
+    : 'Este mes todavía no tiene registro de meta: se creará con lo que guardes'
+      + ' y los campos vacíos tomarán el valor por defecto del esquema.';
+
+  // Con meta vigente se precargan los valores. Sin meta se dejan VACÍOS, para
+  // que los placeholders (1200 / 800 / 400) funcionen como guía de carga y
+  // nadie "guarde" por accidente un cero que no es ninguna meta.
+  $('meta-corte-total').value = configurada ? d.meta.totales : '';
+  $('meta-corte-placares').value = configurada ? d.meta.placares : '';
+  $('meta-corte-cocinas').value = configurada ? d.meta.cocinas : '';
+
   Modal.abrir('modal-meta-corte');
 }
 
 /**
- * Guarda las metas. Un campo vacío viaja como '' y el servidor lo trata como
- * "no enviado": conserva el valor actual, así mover sólo la meta total no
- * obliga a reenviar las dos líneas.
+ * Guarda las metas del período seleccionado.
+ *
+ * `periodo` viaja SIEMPRE en el cuerpo: sin él el servidor cae en el mes en
+ * curso, y se pisaría la meta de hoy al querer guardar la de un mes que se
+ * está revisando. El UPDATE del backend filtra exactamente por ese período,
+ * así que un mes nunca toca a otro.
+ *
+ * Un campo vacío viaja como '' y el servidor lo trata como "no enviado":
+ * conserva el valor actual (o el del esquema, si el mes se acaba de crear).
  */
 async function guardarMetaCorte(ev) {
   ev.preventDefault();
+
+  const periodo = S.objetivo && S.objetivo.periodo;
+  if (!periodo) { Avisos.aviso('No hay período seleccionado para guardar.'); return; }
+
   const cuerpo = {
+    periodo,
     meta_metros_totales: $('meta-corte-total').value,
     meta_metros_placares: $('meta-corte-placares').value,
     meta_metros_cocinas: $('meta-corte-cocinas').value,
@@ -648,8 +908,10 @@ async function guardarMetaCorte(ev) {
   try {
     const r = await API.post('/api/metricas/objetivo-corte', cuerpo);
     Avisos.ok('✔ Meta mensual de corte actualizada.',
-      `${r.periodo} · ${FORMATO.metros(r.meta.totales)} en total`);
+      `${etiquetaPeriodoLargo(r.periodo)} · ${FORMATO.metros(r.meta.totales)} en total`);
     Modal.cerrar('modal-meta-corte');
+    // Sigue mirando el mismo mes: si se guardó un período histórico, el
+    // refresco debe volver sobre ÉL y no saltar al mes en curso.
     await cargarObjetivoCorte();
   } catch (e) {
     manejarError(e, 'Guardar meta de corte');
