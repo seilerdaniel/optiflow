@@ -38,6 +38,7 @@ const db = require('../db');
 const {
   ApiError, textoRequerido, textoOpcional, entero, enumOpcion,
 } = require('../lib/http');
+const notificaciones = require('../lib/notificaciones');
 const operariosRuta = require('./operarios');
 const ordenesRuta = require('./ordenes');
 
@@ -60,6 +61,45 @@ function conMinutos(row) {
     ? reg.duracion_minutos
     : minutosTranscurridos(row);
   return reg;
+}
+
+/* ------------------------- Notificaciones -------------------------- */
+/*
+ * Los envíos se hacen FUERA de la transacción y en modo fire-and-forget:
+ * el cierre/pausa de una etapa ya está confirmado en base y un gateway de
+ * mensajería caído (o sin internet en la planta) no debe poder revertirlo
+ * ni sumar latencia al fichado. Sólo se consulta la fila cuando las
+ * notificaciones están activas, así con el módulo apagado no hay queries extra.
+ */
+
+/** Datos comunes (OT, cliente, sector, operario) para las plantillas. */
+async function datosDeNotificacion(registroId) {
+  const f = await db.get(`
+    SELECT r.operario_nombre, s.nombre_sector, o.numero_ot, o.cliente
+      FROM registros_tiempos r
+      JOIN sectores s       ON s.id = r.sector_id
+      JOIN ordenes_trabajo o ON o.id = r.ot_id
+     WHERE r.id = ?;`, registroId);
+  if (!f) return null;
+  return {
+    numero_ot: f.numero_ot,
+    cliente: f.cliente,
+    nombre_sector: f.nombre_sector,
+    operario_nombre: f.operario_nombre,
+  };
+}
+
+/**
+ * Próximo sector del flujo de la OT (o 'Fin de línea' si no queda ninguno).
+ * Reutiliza la MISMA función que el auto-cierre de la OT, así el "próximo
+ * sector" del mensaje coincide con lo que la terminal va a mostrar.
+ */
+async function sectorSiguienteDe(ot) {
+  const todos = (await db.all('SELECT * FROM sectores ORDER BY id;')).map(db.mapSector);
+  const requeridos = ordenesRuta.sectoresRequeridos(ot, todos);
+  const finalizados = await db.sectoresFinalizadosIds(ot.id);
+  const sig = requeridos.find((s) => !finalizados.has(s.id));
+  return sig ? sig.nombre_sector : 'Fin de línea / Embalaje';
 }
 
 /* ------------------------- Estado en vivo ------------------------- */
@@ -376,6 +416,20 @@ async function pausar({ params, body }) {
   ]);
 
   if (!r) throw new ApiError(409, 'No se pudo pausar la etapa.');
+
+  // ALERTA DE DETENCIÓN: sólo para los motivos que paran la línea de verdad
+  // (Rotura de placa / Error de plano / Ajuste de herramienta).
+  if (notificaciones.activas() && notificaciones.esMotivoCritico(motivo)) {
+    const base = await datosDeNotificacion(id);
+    if (base) {
+      notificaciones.dispararNotificacion('pausa_critica', {
+        ...base,
+        motivo_pausa: motivo,
+        observacion: obs,
+      });
+    }
+  }
+
   return { status: 200, data: { registro: conMinutos(await db.get('SELECT * FROM registros_tiempos WHERE id = ?;', id)) } };
 }
 
@@ -524,6 +578,20 @@ async function finalizar({ params, body }) {
       JOIN ordenes_trabajo o ON o.id = r.ot_id
      WHERE r.id = ?;`, id);
   const ot = db.mapOT(await db.get('SELECT * FROM ordenes_trabajo WHERE id = ?;', row.ot_id));
+
+  // PASE DE ESTACIÓN: avisa a jefatura/oficina que la OT dejó un sector y
+  // hacia dónde sigue. El cierre ya está confirmado, así que el envío va
+  // aparte y jamás puede afectar la respuesta del fichado.
+  if (notificaciones.activas() && registro) {
+    notificaciones.dispararNotificacion('avance_estacion', {
+      numero_ot: registro.numero_ot,
+      cliente: registro.cliente,
+      sector_anterior: registro.nombre_sector,
+      operario_nombre: registro.operario_nombre,
+      duracion_formateada: notificaciones.minutosLegibles(registro.duracion_minutos),
+      siguiente_sector: await sectorSiguienteDe(ot).catch(() => null),
+    });
+  }
 
   return { status: 200, data: { registro: conMinutos(registro), ot, ot_auto_cerrada: otAutoCerrada } };
 }

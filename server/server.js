@@ -37,6 +37,8 @@ const exportador = require('./routes/export');
 const metricas = require('./routes/metricas');
 const materiales = require('./routes/materiales');
 const tpm = require('./routes/tpm');
+const cronRuta = require('./routes/cron');
+const notificaciones = require('./lib/notificaciones');
 const authRuta = require('./routes/auth');
 
 const PUERTO = Number(process.env.PORT) || 3000;
@@ -59,6 +61,8 @@ const ORIGENES_PERMITIDOS = (process.env.OPTIFLOW_CORS_ORIGINS || '')
 
 /** Token estático para consumidores sin sesión (Power BI / scripts de BI). */
 const TOKEN_EXPORT = process.env.OPTIFLOW_EXPORT_TOKEN || '';
+/** Token estático para el disparador externo de /api/cron/* (sin sesión). */
+const TOKEN_CRON = (process.env.OPTIFLOW_CRON_TOKEN || '').trim();
 
 function mismoOrigen(req, origin) {
   try {
@@ -94,10 +98,10 @@ const HEADERS_SEGURIDAD = Object.freeze({
 });
 
 /** Compara dos tokens en tiempo constante vía su SHA-256. */
-function tokenCoincide(enviado) {
-  if (!TOKEN_EXPORT || !enviado) return false;
+function tokenCoincide(enviado, esperado = TOKEN_EXPORT) {
+  if (!esperado || !enviado) return false;
   const a = crypto.createHash('sha256').update(String(enviado)).digest();
-  const b = crypto.createHash('sha256').update(TOKEN_EXPORT).digest();
+  const b = crypto.createHash('sha256').update(esperado).digest();
   return crypto.timingSafeEqual(a, b);
 }
 
@@ -121,6 +125,16 @@ async function exigirAcceso(req, url, modo) {
     if (tokenCoincide(enviado)) return null;
     throw new ApiError(401, 'La exportación requiere iniciar sesión o un token de acceso válido.',
       { accion: 'Inicie sesión en /admin o configure el parámetro ?token=… (OPTIFLOW_EXPORT_TOKEN).' });
+  }
+
+  // Tareas programadas (Vercel Cron / GitHub Actions / schedule del SO): no
+  // tienen cookie de sesión, así que se autentican con OPTIFLOW_CRON_TOKEN.
+  if (modo === 'cron') {
+    if (sesion && ROLES_GESTION.has(sesion.usuario.rol)) return sesion;
+    const enviado = req.headers['x-optiflow-token'] || url.searchParams.get('token');
+    if (tokenCoincide(enviado, TOKEN_CRON)) return null;
+    throw new ApiError(401, 'La tarea programada requiere sesión de gestión o un token válido.',
+      { accion: 'Configure OPTIFLOW_CRON_TOKEN y envíelo como header X-Optiflow-Token o ?token=…' });
   }
 
   if (!sesion) {
@@ -166,7 +180,12 @@ const RUTAS = [
   // --- Sistema --- (públicos)
   ['GET', '/api/salud', () => ({
     status: 200,
-    data: { ok: true, version: VERSION, servidor: 'Optiflow', hora_servidor: db.ahoraUTC() },
+    data: {
+      ok: true, version: VERSION, servidor: 'Optiflow', hora_servidor: db.ahoraUTC(),
+      // Diagnóstico de canales: permite verificar la configuración sin
+      // tener que enviar un mensaje real de prueba.
+      notificaciones: notificaciones.estado(),
+    },
   })],
 
   ['GET', '/api/meta', () => ({
@@ -245,6 +264,12 @@ const RUTAS = [
   // de encargado/admin, no del operario que fiche en la terminal.
   ['POST', '/api/tpm/mantenimiento', tpm.registrarMantenimiento, { auth: 'gestion' }],
   ['POST', '/api/tpm/configurar', tpm.configurar, { auth: 'gestion' }],
+
+  // --- Tareas programadas de notificación (disparador externo) ---
+  // Modo 'cron': sesión de gestión O token estático OPTIFLOW_CRON_TOKEN.
+  ['GET', '/api/cron/estado', cronRuta.estadoCron, { auth: 'cron' }],
+  ['POST', '/api/cron/alertas-excedidas', cronRuta.alertasExcedidas, { auth: 'cron' }],
+  ['POST', '/api/cron/resumen-diario', cronRuta.resumenDiario, { auth: 'cron' }],
 
   // --- Exportación (Power BI / Excel): sesión o token estático ---
   ['GET', '/api/export/registros', exportador.exportarJSON, { auth: 'export' }],
