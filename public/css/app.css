@@ -977,7 +977,41 @@ a { color: var(--acento); }
 .sb-salir:focus-visible { outline: 2px solid var(--ind-placares); outline-offset: 2px; }
 
 /* --------------------------- Menú ------------------------------- */
-.sb-menu { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; padding: 8px; }
+/*
+ * Éste es el ÚNICO contenedor scrolleable del lateral: `.sidebar` es
+ * `overflow: hidden` y nunca muestra barra. Por eso el scrollbar se estiliza
+ * acá (el pedido mencionaba `.sidebar-nav`/`.optiflow-sidebar`, que no
+ * existen en este proyecto).
+ *
+ * Scrollbar industrial: 6px, track transparente y thumb gris que se enciende
+ * en cian al pasar el mouse. CERO dependencias — selectores nativos.
+ *   · `::-webkit-scrollbar`  -> Chrome, Edge, Opera, Safari.
+ *   · `scrollbar-width` /
+ *     `scrollbar-color`      -> Firefox (no entiende los webkit).
+ * Las dos familias van juntas para que el navegador viejo que sólo entienda
+ * una quede con un resultado aceptable en lugar de la barra por defecto.
+ */
+.sb-menu {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px;
+
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color, #3F4248) transparent;
+}
+
+/* Chrome / Edge / Safari / Opera */
+.sb-menu::-webkit-scrollbar { width: 6px; }
+.sb-menu::-webkit-scrollbar-track { background: transparent; }
+.sb-menu::-webkit-scrollbar-thumb {
+  background: var(--border-color, #3F4248);
+  border-radius: 999px;
+}
+.sb-menu::-webkit-scrollbar-thumb:hover {
+  background: var(--estado-cian, #22B8CF);
+}
 
 .sb-seccion {
   margin: 16px 8px 7px;
@@ -990,14 +1024,20 @@ a { color: var(--acento); }
 
 .sb-item {
   display: flex; align-items: center; gap: 11px;
-  padding: 10px 11px;
-  margin-bottom: 3px;
-  border-radius: 10px;
-  border-left: 3px solid transparent;
+  padding: 10px 14px;
+  min-height: 44px;                  /* objetivo táctil (WCAG 2.5.5) */
+  margin-bottom: 4px;                /* separación entre tarjetas */
+  border-radius: var(--radio-md, 10px);
+  /* SIN `border-left`. Antes había `3px solid transparent` + un color por
+     acento al activarse; al curvarse contra `border-radius: 10px` la barra
+     se despegaba de la esquina y se leía como un "borde blanco desconectado".
+     El indicador ahora es un box-shadow inset (ver `.sb-item.activo`), que
+     sí queda soldado al canto. El padding izquierdo sube de 11 a 14 px para
+     absorber exactamente esos 3 px: el texto no se mueve ni un píxel. */
   color: var(--ind-texto);
   text-decoration: none;
   font-weight: 600; font-size: .9rem;
-  transition: background .12s ease, border-color .12s ease;
+  transition: background .12s ease, box-shadow .12s ease;
 }
 .sb-item:hover { background: var(--ind-hover); }
 .sb-item .sb-ico {
@@ -1015,12 +1055,26 @@ a { color: var(--acento); }
   letter-spacing: .2px; line-height: 1.25; margin-top: 1px;
 }
 
-/* Activo: barra de acento según identidad de línea. */
-.sb-item.activo { background: var(--ind-hover); }
-.sb-item:not([data-acento]).activo          { border-left-color: #b9bcc6; }
-.sb-item[data-acento="placares"].activo     { border-left-color: var(--ind-placares); }
-.sb-item[data-acento="cocinas"].activo      { border-left-color: var(--ind-cocinas); }
-.sb-item[data-acento="compartidos"].activo  { border-left-color: var(--amarillo, #f0b429); }
+/* ------------------ Activo ------------------
+ * Fondo translúcido cian + indicador vertical INTERNO pegado al canto
+ * izquierdo, y texto/icono en alto contraste.
+ *
+ * Antes había una barra por identidad de línea (`border-left-color` azul /
+ * rojo / violeta, y `#b9bcc6` —casi blanca— para los ítems sin acento). Esa
+ * barra, al curvarse contra `border-radius: 10px`, se despegaba de la esquina
+ * y se leía como un borde blanco grueso desconectado: ya no existe.
+ *
+ * El `inset` se pinta dentro del padding-box y sigue el radio del borde, de
+ * modo que el marcador queda soldado a la tarjeta en los cuatro vértices.
+ */
+.sb-item.activo {
+  background: rgba(34, 184, 207, .12);
+  box-shadow: inset 3px 0 0 var(--estado-cian, #22B8CF);
+  color: #F8F9FA;
+}
+/* El hover no debe pisar el fondo del activo (mismo peso: gana el último),
+   pero sí dar señal de que es clicable. */
+.sb-item.activo:hover { background: rgba(34, 184, 207, .18); }
 
 /* --------------------------- Pie -------------------------------- */
 .sb-pie {
