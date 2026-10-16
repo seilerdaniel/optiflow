@@ -608,6 +608,8 @@
     <p class="texto-suave" style="margin-top:0;">
       Credenciales para usar la Terminal de fichado y este panel. Cree un usuario
       por operario (rol <b>operario</b>): cada fichaje quedará vinculado a quien lo hizo.
+      El <b>WhatsApp</b> (formato internacional sin signos, ej. 5491123456789) queda en el
+      maestro de teléfonos para las alertas de planta; puede editarlo con 📱 en la tabla.
     </p>
 
     <div class="fila-flex" style="margin:12px 0; flex-wrap:wrap; gap:10px;">
@@ -621,6 +623,10 @@
       <input type="password" id="usu-password" placeholder="Contraseña (mín. 6)" maxlength="200"
              style="flex:1 1 170px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;"
              autocomplete="new-password">
+      <input type="text" id="usu-whatsapp" placeholder="WhatsApp (ej. 5491123456789)" maxlength="32"
+             inputmode="tel" autocapitalize="none" spellcheck="false"
+             style="flex:1 1 200px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;"
+             autocomplete="off">
       <select id="usu-rol" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:10px; background:#fff;">
         <option value="operario">Operario (terminal)</option>
         <option value="encargado">Encargado (gestión)</option>
@@ -637,13 +643,14 @@
             <th>Usuario</th>
             <th>Nombre</th>
             <th>Rol</th>
+            <th>WhatsApp</th>
             <th>Último acceso</th>
             <th>Estado</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody id="cuerpo-usuarios">
-          <tr><td colspan="7" class="vacio">Cargando…</td></tr>
+          <tr><td colspan="8" class="vacio">Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -775,6 +782,7 @@
 
 <script src="/js/api.js"></script>
 <script src="/js/sidebar.js"></script>
+<script src="/js/soporte.js"></script>
 <!-- Chart.js 4.4.1 vendorizado localmente: cero CDN en runtime (la planta
      opera con red intermitente y el dashboard debe cargar igual). -->
 <script src="/js/lib/chart.umd.min.js"></script>

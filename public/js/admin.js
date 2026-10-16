@@ -1723,7 +1723,7 @@ function pintarTablaUsuarios() {
   cuerpo.innerHTML = '';
 
   if (!S.usuarios.length) {
-    cuerpo.append(h('tr', {}, h('td', { class: 'vacio', colspan: '7', text: 'Sin usuarios cargados.' })));
+    cuerpo.append(h('tr', {}, h('td', { class: 'vacio', colspan: '8', text: 'Sin usuarios cargados.' })));
     return;
   }
 
@@ -1736,6 +1736,10 @@ function pintarTablaUsuarios() {
       }, '🔑 Cambiar clave'),
       h('button', {
         class: 'btn btn-chico', type: 'button',
+        onclick: () => cambiarWhatsAppUsuario(u),
+      }, '📱 WhatsApp'),
+      h('button', {
+        class: 'btn btn-chico', type: 'button',
         onclick: () => cambiarEstadoUsuario(u),
       }, u.activo ? '⏸ Desactivar' : '▶ Activar'),
       esYo ? h('span', { class: 'texto-suave', text: '(usted)' }) : null
@@ -1746,6 +1750,12 @@ function pintarTablaUsuarios() {
       h('td', {}, h('b', { text: u.usuario })),
       h('td', { text: u.nombre }),
       h('td', { text: ETIQUETAS_ROL[u.rol] || u.rol }),
+      h('td', {}, u.telefono_whatsapp
+        ? h('a', {
+            href: `https://wa.me/${u.telefono_whatsapp}`, target: '_blank', rel: 'noopener',
+            text: `📱 ${u.telefono_whatsapp}`, 'aria-label': `WhatsApp de ${u.nombre}`,
+          })
+        : h('span', { class: 'texto-suave', text: '—' })),
       h('td', { text: u.ultimo_acceso ? FORMATO.fechaHora(u.ultimo_acceso) : '—' }),
       h('td', {}, h('span', { class: `chip ${u.activo ? 'chip-verde' : 'chip-rojo'}`, text: u.activo ? 'Activo' : 'Inactivo' })),
       acciones
@@ -1758,6 +1768,7 @@ async function agregarUsuario() {
   const usuario = $('usu-login').value.trim().toLowerCase();
   const nombre = $('usu-nombre').value.trim();
   const password = $('usu-password').value;
+  const telefono_whatsapp = $('usu-whatsapp').value.trim();
   const rol = $('usu-rol').value;
 
   if (!usuario || !nombre || !password) {
@@ -1768,16 +1779,53 @@ async function agregarUsuario() {
     Avisos.aviso('La contraseña debe tener al menos 6 caracteres.');
     return;
   }
+  if (telefono_whatsapp && !/^\+?[\d\s().-]{8,24}$/.test(telefono_whatsapp)) {
+    Avisos.aviso('El WhatsApp debe ser un número internacional, ej.: 5491123456789.');
+    return;
+  }
 
   try {
-    await API.post('/api/usuarios', { usuario, nombre, password, rol });
+    await API.post('/api/usuarios', { usuario, nombre, password, rol, telefono_whatsapp });
     Avisos.ok(`✔ Usuario "${usuario}" creado`, `Ya puede usar la Terminal de fichado.`);
     $('usu-login').value = '';
     $('usu-nombre').value = '';
     $('usu-password').value = '';
+    $('usu-whatsapp').value = '';
     await cargarUsuarios();
   } catch (e) {
     manejarError(e, 'Crear usuario');
+  }
+}
+
+/**
+ * Editar el WhatsApp de un encargado (maestro de teléfonos).
+ * Usa el mismo `prompt` que "Cambiar clave": es la única edición puntual que
+ * queda y así funciona igual de bien en escritorio y en las tarjetas móviles
+ * de esta tabla, sin meter un modal más que mantener.
+ */
+async function cambiarWhatsAppUsuario(u) {
+  const actual = u.telefono_whatsapp || '';
+  const entrada = window.prompt(
+    `WhatsApp de "${u.usuario}" — ${u.nombre}\n\n` +
+    'Formato internacional SIN signo ni espacios.\n' +
+    'Ej.: 5491123456789\n' +
+    'Deje vacío para quitar el número.',
+    actual
+  );
+  if (entrada === null) return; // cancelado
+
+  const limpio = entrada.trim();
+  if (limpio && !/^\+?[\d\s().-]{8,24}$/.test(limpio)) {
+    Avisos.aviso('El número debe ser internacional (8 a 15 dígitos), ej.: 5491123456789.');
+    return;
+  }
+
+  try {
+    await API.put(`/api/usuarios/${u.id}`, { telefono_whatsapp: limpio });
+    Avisos.ok('✔ WhatsApp actualizado', limpio ? `+${limpio.replace(/^\+/, '')}` : 'número eliminado');
+    await cargarUsuarios();
+  } catch (e) {
+    manejarError(e, 'Actualizar WhatsApp');
   }
 }
 

@@ -339,6 +339,10 @@ async function asegurarEsquema(p) {
   // fuera del if/else, para que bases ya en producción y bases recién
   // creadas reciban las tablas sin necesidad de tocar el esquema a mano.
   await p.query(TABLAS_TPM);
+
+  // Maestro de teléfonos (WhatsApp de los encargados): mismo criterio que el
+  // TPM — idempotente y sin depender de si la base vino con la columna.
+  await p.query(COLUMNA_USUARIO_WHATSAPP);
 }
 
 /**
@@ -365,6 +369,7 @@ const TABLAS_AUTH = `
     nombre         text   not null,
     nombre_norm    text   not null unique,
     email          text,
+    telefono_whatsapp text,
     password_hash  text   not null,
     password_salt  text   not null,
     rol            text   not null default 'operario',
@@ -386,6 +391,21 @@ const TABLAS_AUTH = `
   );
   create index if not exists idx_ses_usuario on public.sesiones (usuario_id, cerrada_en);
   create index if not exists idx_ses_expira  on public.sesiones (expira_en);
+`;
+
+/**
+ * Columna del MAESTRO DE TELÉFONOS: WhatsApp de cada encargado/operario.
+ *
+ * Formato texto internacional SIN signo y SIN separadores, ej. `5491123456789`
+ * (país + indicativo + número). Se guarda así para poder armar el `wa.me`
+ * sin limpiar nada y para que la comparación de duplicados sea exacta.
+ *
+ * Corre SIEMPRE en `asegurarEsquema` (patrón TPM): así una base que ya tiene
+ * `usuarios` recibe la columna sin tocar el esquema a mano, y una base fresca
+ * que todavía no la trae en supabase_schema.sql también. Idempotente.
+ */
+const COLUMNA_USUARIO_WHATSAPP = `
+  alter table public.usuarios add column if not exists telefono_whatsapp text;
 `;
 
 /**
@@ -951,6 +971,7 @@ function mapUsuario(row) {
     usuario: row.usuario,
     nombre: row.nombre,
     email: row.email || null,
+    telefono_whatsapp: row.telefono_whatsapp || null,
     rol: row.rol,
     activo: !!row.activo,
     ultimo_acceso: row.ultimo_acceso || null,

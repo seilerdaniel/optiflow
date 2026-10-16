@@ -243,6 +243,7 @@ create table if not exists public.usuarios (
   nombre         text   not null,                 -- nombre visible
   nombre_norm    text   not null unique,          -- clave normalizada
   email          text,
+  telefono_whatsapp text,                        -- WhatsApp internacional ej. 54911xxxxxxxx
   password_hash  text   not null,                 -- scrypt/argon2 (hex)
   password_salt  text   not null,
   rol            text   not null default 'operario',

@@ -30,6 +30,34 @@ function publicarUsuario(u) {
   return { id: u.id, usuario: u.usuario, nombre: u.nombre, rol: u.rol };
 }
 
+/**
+ * Normaliza y valida el WhatsApp de un encargado (MAESTRO DE TELÉFONOS).
+ *
+ * Regla de formato: número INTERNACIONAL de 8 a 15 dígitos, SIN signo '+' ni
+ * separadores, ej. `5491123456789` (país + indicativo + número). Se guarda
+ * exactamente así para poder armar `https://wa.me/<numero>` sin retoques y
+ * para que dos cargas del mismo número coincidan.
+ *
+ * En la entrada se toleran espacios, puntos, guiones, paréntesis y un prefijo
+ * '+' o '00'; todo eso se descarta antes de validar.
+ * Campo OPCIONAL: vacío o nulo devuelve `null`.
+ */
+function telefonoWhatsApp(valor) {
+  const crudo = textoOpcional(valor, 'WhatsApp', { max: 32 });
+  if (!crudo) return null;
+
+  let d = crudo.replace(/[\s().\- ·]/g, '');
+  if (d.startsWith('00')) d = d.slice(2);
+  d = d.replace(/^\+/, '');
+
+  if (!/^\d{8,15}$/.test(d)) {
+    throw new ApiError(400,
+      'El campo "WhatsApp" debe ser un número internacional de 8 a 15 dígitos, sin espacios ni símbolos.',
+      { accion: 'Ej.: 5491123456789 (país 54, celular 9 + 11 y el número).', recibido: crudo });
+  }
+  return d;
+}
+
 function claveIntento(req) {
   const ip = String((req.headers['x-forwarded-for'] || (req.socket && req.socket.remoteAddress) || '?'))
     .split(',')[0].trim();
@@ -91,7 +119,8 @@ async function usuarioActual({ req }) {
 
 async function listarUsuarios() {
   const filas = await db.all(`
-    SELECT id, usuario, nombre, rol, activo, ultimo_acceso, fecha_creacion
+    SELECT id, usuario, nombre, rol, activo, ultimo_acceso, fecha_creacion,
+           telefono_whatsapp
       FROM usuarios
      ORDER BY activo DESC, lower(usuario) ASC
      LIMIT 500;`);
@@ -103,6 +132,7 @@ async function listarUsuarios() {
         id: f.id, usuario: f.usuario, nombre: f.nombre, rol: f.rol,
         activo: !!f.activo, ultimo_acceso: f.ultimo_acceso || null,
         fecha_creacion: f.fecha_creacion,
+        telefono_whatsapp: f.telefono_whatsapp || null,
       })),
     },
   };
@@ -116,6 +146,7 @@ async function crearUsuario({ body }) {
   const nombre = textoRequerido(body.nombre, 'Nombre visible', { max: 80 });
   const password = textoRequerido(body.password, 'Contraseña', { min: 6, max: 200 });
   const rol = enumOpcion(body.rol, ROLES, 'Rol');
+  const telefono = telefonoWhatsApp(body.telefono_whatsapp);
 
   const existe = await db.get('SELECT id FROM usuarios WHERE usuario = ?;', usuario);
   if (existe) throw new ApiError(409, `El usuario "${usuario}" ya existe.`);
@@ -123,10 +154,11 @@ async function crearUsuario({ body }) {
   const { hash, salt } = auth.hashearPassword(password);
   const ahora = db.ahoraUTC();
   const r = await db.run(`
-    INSERT INTO usuarios (usuario, nombre, nombre_norm, email, password_hash, password_salt,
-                          rol, activo, fecha_creacion, fecha_actualizacion)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-  usuario, nombre, usuario, textoOpcional(body.email, 'Email', { max: 120 }),
+    INSERT INTO usuarios (usuario, nombre, nombre_norm, email, telefono_whatsapp,
+                          password_hash, password_salt, rol, activo,
+                          fecha_creacion, fecha_actualizacion)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+  usuario, nombre, usuario, textoOpcional(body.email, 'Email', { max: 120 }), telefono,
   hash, salt, rol, booleano(body.activo, true) ? 1 : 0, ahora, ahora);
 
   return { status: 201, data: db.mapUsuario(await db.get('SELECT * FROM usuarios WHERE id = ?;', r.lastInsertRowid)) };
@@ -143,6 +175,9 @@ async function actualizarUsuario({ params, body }) {
   const activo = body.activo === undefined ? !!actual.activo : booleano(body.activo, !!actual.activo);
   const email = body.email === undefined ? actual.email
     : textoOpcional(body.email, 'Email', { max: 120 });
+  // WhatsApp: undefined = "no se toca" (edición parcial típica del panel).
+  const telefono = body.telefono_whatsapp === undefined ? (actual.telefono_whatsapp || null)
+    : telefonoWhatsApp(body.telefono_whatsapp);
 
   // La contraseña sólo cambia si viene informada.
   let hash = actual.password_hash;
@@ -165,9 +200,10 @@ async function actualizarUsuario({ params, body }) {
 
   await db.run(`
     UPDATE usuarios SET nombre = ?, rol = ?, activo = ?, email = ?,
+                        telefono_whatsapp = ?,
                         password_hash = ?, password_salt = ?, fecha_actualizacion = ?
      WHERE id = ?;`,
-  nombre, rol, activo ? 1 : 0, email, hash, salt, db.ahoraUTC(), id);
+  nombre, rol, activo ? 1 : 0, email, telefono, hash, salt, db.ahoraUTC(), id);
 
   return { status: 200, data: db.mapUsuario(await db.get('SELECT * FROM usuarios WHERE id = ?;', id)) };
 }
@@ -175,4 +211,5 @@ async function actualizarUsuario({ params, body }) {
 module.exports = {
   login, logout, usuarioActual,
   listarUsuarios, crearUsuario, actualizarUsuario,
+  telefonoWhatsApp,   // exportado para las pruebas del maestro de teléfonos
 };

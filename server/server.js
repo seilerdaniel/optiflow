@@ -203,6 +203,9 @@ const RUTAS = [
       claves_especiales: db.CLAVES_ESPECIALES,
       lineas_ot: db.LINEAS_OT,
       lineas_area: db.LINEAS_AREA,
+      // Soporte: a dónde mandar un reporte de bug desde el botón 🐛.
+      // Vacío = el botón avisa que falta configurarlo en vez de abrir wa.me roto.
+      numero_soporte_analista: (process.env.NUMERO_SOPORTE_ANALISTA || '').trim(),
     },
   })],
 

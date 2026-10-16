@@ -1610,3 +1610,78 @@ a { color: var(--acento); }
     width: auto;
   }
 }
+
+/* ============================================================
+   REPORTE DE BUG  (soporte.js) — botón discreto en la topbar
+   ------------------------------------------------------------
+   Sólo variables que YA existen en :root: aquí NO se agregan ni se
+   renombran. El botón imita el aspecto de .reloj (mismo traslúcido sobre el
+   degradado azul) y, por debajo de 768px, colapsa a sólo el emoji igual que
+   .nav-txt, para que el topbar móvil no se desborde.
+   ============================================================ */
+.btn-bug {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 7px 13px;
+  border: 1px solid rgba(255, 255, 255, .25);
+  border-radius: var(--radio-sm);
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+  font-family: var(--fuente);
+  font-size: .84rem;
+  font-weight: 600;
+  letter-spacing: .2px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease;
+}
+.btn-bug:hover {
+  background: rgba(255, 255, 255, .22);
+  border-color: rgba(255, 255, 255, .4);
+}
+.btn-bug-ico { font-size: 1rem; line-height: 1; }
+.btn-bug-txt { line-height: 1; }
+
+@media (max-width: 767px) {
+  /* Sólo emoji + tooltip nativo (title=) y objetivo táctil ≥44px,
+     exactamente como le pasa a .nav-txt en este mismo breakpoint. */
+  .btn-bug {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 8px;
+  }
+  .btn-bug-txt { display: none; }
+}
+
+/* Línea "📲 Destino: +549…" dentro del modal: se ve sólo si está informada. */
+.bug-destino {
+  font-family: var(--mono);
+  font-size: .82rem;
+  color: var(--texto-apagado);
+}
+.bug-destino[hidden] { display: none; }
+
+/* El botón principal se deshabilita si todavía no hay número de soporte. */
+#bug-enviar:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  filter: saturate(.4);
+}
+
+/* WhatsApp del maestro de teléfonos en la tabla de usuarios:
+   mono (como todo dato técnico) y discreto hasta que se pasa el mouse. */
+#tabla-usuarios a[href^="https://wa.me/"] {
+  color: var(--azul);
+  font-family: var(--mono);
+  font-size: .84rem;
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 1px dotted transparent;
+}
+#tabla-usuarios a[href^="https://wa.me/"]:hover {
+  border-bottom-color: var(--azul);
+  text-decoration: underline;
+}
