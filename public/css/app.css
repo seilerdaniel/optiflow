@@ -1739,3 +1739,95 @@ a { color: var(--acento); }
   border-bottom-color: var(--azul);
   text-decoration: underline;
 }
+
+/* ============================================================
+   OBJETIVO MENSUAL DE CORTE (metros lineales) -- Panel de Analitica
+   ------------------------------------------------------------
+   Sólo se usan variables que YA existian en :root; no se crea, renombra
+   ni borra ninguna (--estado-cian, --border-color, --mono, --radio-md,
+   --texto-claro, --texto-apagado, --estado-proceso, --linea-placares,
+   --linea-cocinas). Bloque anexado al final, como en rondas anteriores.
+   ============================================================ */
+
+/* Semáforo de la tarjeta: acento cian (el color del sistema). */
+.kpi-ind.acento-corte { border-left-color: var(--estado-cian); }
+
+/* --- Cifra principal: metros cortados / meta / % --- */
+.corte-avance {
+  display: flex; align-items: baseline; flex-wrap: wrap;
+  gap: 8px; margin-top: 8px;
+}
+.corte-valor {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 2.35rem; font-weight: 800; line-height: 1;
+  color: var(--estado-cian);
+}
+.corte-meta { color: var(--texto-apagado); font-size: .82rem; }
+.corte-pct {
+  margin-left: auto;
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: 1.3rem; font-weight: 800; color: var(--texto-claro);
+}
+
+/* --- Barra de progreso general (0..100) --- */
+.barra-avance {
+  height: 16px; margin-top: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+.barra-avance > i {
+  display: block; height: 100%;
+  border-radius: 999px;
+  background: var(--estado-cian);
+  transition: width .45s ease, background-color .2s ease;
+}
+/* Meta superada: la barra queda llena y cambia a verde de un vistazo. */
+.barra-avance > i.completo { background: var(--estado-proceso); }
+
+/* --- Desglose comparativo por línea: Placares vs. Cocinas --- */
+.corte-lineas {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 12px; margin-top: 14px;
+}
+.corte-linea { min-width: 0; }
+.corte-linea-nom {
+  display: block;
+  font-size: .7rem; font-weight: 700; letter-spacing: .7px;
+  text-transform: uppercase; color: var(--texto-apagado);
+}
+.corte-linea b {
+  display: block; margin: 3px 0 6px;
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: .86rem; font-weight: 700; color: var(--texto-claro);
+}
+.barra-mini {
+  height: 8px; border-radius: 999px;
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+.barra-mini > i {
+  display: block; height: 100%;
+  border-radius: 999px;
+  transition: width .45s ease;
+}
+
+/* --- Métrica predictiva: proyección de cierre de mes --- */
+.corte-proyeccion {
+  margin: 14px 0 12px;
+  padding: 9px 11px;
+  border-radius: var(--radio-md);
+  background: rgba(34, 184, 207, .10);
+  border: 1px solid var(--border-color);
+  color: var(--texto-claro);
+  font-size: .8rem; line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .corte-lineas { grid-template-columns: 1fr; }
+  .corte-valor { font-size: 2rem; }
+  .corte-pct { margin-left: 0; }
+}

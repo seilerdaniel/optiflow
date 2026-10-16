@@ -254,6 +254,11 @@ const RUTAS = [
 
   // --- Métricas / cuellos de botella (Fase 2) ---
   ['GET', '/api/metricas', metricas.calcular],
+  // Objetivo mensual de CORTE (metros lineales). Lectura abierta, igual que el
+  // resto de /api/metricas; la escritura es decisión de PLANTA (jefe/encargado)
+  // y no un dato que el operario de terminal pueda mover.
+  ['GET', '/api/metricas/objetivo-corte', metricas.objetivoCorte],
+  ['POST', '/api/metricas/objetivo-corte', metricas.guardarObjetivoCorte, { auth: 'gestion' }],
 
   // Catálogo dinámico de placas (reconstruido desde ot_materiales).
   ['GET', '/api/materiales/catalogo', materiales.catalogo],

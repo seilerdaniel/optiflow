@@ -113,6 +113,51 @@
         <div class="grafico-lienzo"><canvas id="grafico-causas" aria-label="Causa raíz de pausas y reprocesos" role="img"></canvas></div>
       </div>
     </div>
+
+    <!-- ===== Objetivo mensual de CORTE (metros lineales) =====
+         Tarjeta de alto impacto + avance diario vs. tendencia ideal. -->
+    <div class="dos-columnas" style="margin-top:18px;">
+      <div class="kpi-ind acento-corte" id="tarjeta-corte">
+        <div class="kpi-titulo">🎯 Objetivo de corte · <span id="corte-periodo">—</span></div>
+
+        <div class="corte-avance">
+          <div class="corte-valor" id="corte-cortados">—</div>
+          <div class="corte-meta" id="corte-meta">/ — meta del mes</div>
+          <div class="corte-pct" id="corte-pct">—</div>
+        </div>
+
+        <div class="barra-avance" role="progressbar" id="corte-barra"
+             aria-label="Avance sobre la meta mensual de corte"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <i id="corte-barra-fill" style="width:0%"></i>
+        </div>
+
+        <div class="corte-lineas">
+          <div class="corte-linea">
+            <span class="corte-linea-nom">📦 Placares</span>
+            <b id="corte-placares">—</b>
+            <div class="barra-mini"><i id="corte-placares-fill" style="width:0%; background:var(--linea-placares);"></i></div>
+          </div>
+          <div class="corte-linea">
+            <span class="corte-linea-nom">🍳 Cocinas</span>
+            <b id="corte-cocinas">—</b>
+            <div class="barra-mini"><i id="corte-cocinas-fill" style="width:0%; background:var(--linea-cocinas);"></i></div>
+          </div>
+        </div>
+
+        <p class="corte-proyeccion" id="corte-proyeccion">
+          Proyección de cierre a fin de mes: —
+        </p>
+
+        <button type="button" class="btn" id="btn-meta-corte">⚙️ Ajustar Meta Mensual</button>
+      </div>
+
+      <div class="grafico-envoltura">
+        <h3>Avance diario de corte</h3>
+        <p class="grafico-nota" id="nota-corte">Metros cortados por día contra el ritmo ideal para cerrar la meta.</p>
+        <div class="grafico-lienzo"><canvas id="grafico-avance" aria-label="Avance diario de corte" role="img"></canvas></div>
+      </div>
+    </div>
   </section>
 
   <!-- ============ CARGA POR SECTOR (desglose del cuello de botella) ============ -->
@@ -771,6 +816,52 @@
       <div class="modal-pie">
         <button type="button" class="btn" data-cerrar="modal-tpm-config">Cancelar</button>
         <button type="submit" class="btn btn-primario" id="tpm-config-guardar">💾 Guardar máquina</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ MODAL: AJUSTAR META MENSUAL DE CORTE ============ -->
+<div class="modal-fondo" id="modal-meta-corte">
+  <div class="modal" style="width:min(520px,100%);" role="dialog" aria-modal="true" aria-labelledby="meta-corte-titulo">
+    <div class="modal-cabecera">
+      <h3 id="meta-corte-titulo">⚙️ Ajustar meta mensual de corte</h3>
+      <button class="modal-cerrar" data-cerrar="modal-meta-corte" aria-label="Cerrar">✕</button>
+    </div>
+    <form id="form-meta-corte" novalidate>
+      <div class="modal-cuerpo">
+        <p class="texto-suave" style="margin-top:0;">
+          Periodo <b id="meta-corte-periodo">—</b> · valores en metros lineales.
+          Si se deja un campo vacío, conserva el valor actual.
+        </p>
+
+        <div class="form-grid">
+          <label class="campo" style="grid-column:1/-1;">
+            <span>Meta total del mes (m) *</span>
+            <input type="number" id="meta-corte-total" min="0" max="99999999.99"
+                   step="0.01" required inputmode="decimal" placeholder="1200">
+          </label>
+
+          <label class="campo">
+            <span>Meta Placares (m)</span>
+            <input type="number" id="meta-corte-placares" min="0" max="99999999.99"
+                   step="0.01" inputmode="decimal" placeholder="800">
+          </label>
+
+          <label class="campo">
+            <span>Meta Cocinas (m)</span>
+            <input type="number" id="meta-corte-cocinas" min="0" max="99999999.99"
+                   step="0.01" inputmode="decimal" placeholder="400">
+          </label>
+        </div>
+
+        <small class="texto-suave" style="display:block; margin-top:8px; font-size:.75rem;">
+          Tope de numeric(10,2): 99.999.999,99 metros por campo.
+        </small>
+      </div>
+      <div class="modal-pie">
+        <button type="button" class="btn" data-cerrar="modal-meta-corte">Cancelar</button>
+        <button type="submit" class="btn btn-primario" id="meta-corte-guardar">💾 Guardar meta</button>
       </div>
     </form>
   </div>

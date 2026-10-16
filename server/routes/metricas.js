@@ -20,7 +20,7 @@
  */
 
 const db = require('../db');
-const { ApiError } = require('../lib/http');
+const { ApiError, decimal } = require('../lib/http');
 
 const { MOTIVOS_REPROCESO, MOTIVOS_PAUSA, ESTADOS_OT, ESTADOS_ABIERTOS } = db;
 
@@ -279,6 +279,316 @@ async function cargaHoy() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Objetivo mensual de CORTE (metros lineales de corte)                */
+/* ------------------------------------------------------------------ */
+
+const RE_PERIODO = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/** 'YYYY-MM' del mes en curso en la zona de PLANTA (no la del servidor). */
+function periodoActual() {
+  return hoyLocal().slice(0, 7);
+}
+
+/** 'YYYY-MM-DD' del primer día del mes SIGUIENTE a `periodo`. */
+function inicioMesSiguiente(periodo) {
+  const anio = Number(periodo.slice(0, 4));
+  const mes = Number(periodo.slice(5, 7));
+  return mes === 12
+    ? `${anio + 1}-01-01`
+    : `${anio}-${String(mes + 1).padStart(2, '0')}-01`;
+}
+
+/**
+ * Días enteros entre dos 'YYYY-MM-DD'. La segunda fecha NO se cuenta, así que
+ * `diasEntre('2026-10-01','2026-11-01')` devuelve 31 (los días de octubre).
+ * Se usa mediodía UTC para que el cálculo no se tambalee con cambios de huso.
+ */
+function diasEntre(desde, hasta) {
+  return Math.round(
+    (Date.parse(`${hasta}T12:00:00Z`) - Date.parse(`${desde}T12:00:00Z`)) / 86400000
+  );
+}
+
+/** Redondea a 2 decimales: evita colgar ruido de coma flotante en el JSON. */
+const r2 = (v) => (Number.isFinite(v) ? Math.round(v * 100) / 100 : 0);
+
+/**
+ * Devuelve la meta de `periodo`, creándola con los defaults del esquema si
+ * todavía no existe (cambio de mes, base recién montada, o un POST que
+ * precargó un mes futuro).
+ *
+ * Sin esto, el tablero respondería 404 durante todo un mes nuevo: el objetivo
+ * es una meta configurable, no un dato que la planta deba "cargar".
+ */
+async function asegurarObjetivo(periodo) {
+  const fila = await db.get(
+    'SELECT * FROM objetivos_produccion WHERE periodo = ?;', periodo
+  );
+  if (fila) return fila;
+
+  await db.run(
+    'INSERT INTO objetivos_produccion (periodo) VALUES (?) ON CONFLICT (periodo) DO NOTHING;',
+    periodo
+  );
+  // Relee: si otra invocación ganó la carrera, devolvemos SU fila.
+  return db.get('SELECT * FROM objetivos_produccion WHERE periodo = ?;', periodo);
+}
+
+/**
+ * Día LOCAL al que se acreditan los metros de una OT: el arranque del corte
+ * RECORTADO al rango [mesInicio, ultimoDia].
+ *
+ * El recorte es lo que garantiza `SUMA(serie.metros) === cortados`: una OT
+ * que arrancó en el mes anterior acredita al día 1 (no desaparece del total)
+ * y una fecha imposible (reloj corrido, zona equivocada) nunca cae fuera de
+ * la serie que el tablero va a mostrar.
+ *
+ * Sin inicio conocido se acredita al día 1: es el criterio conservador.
+ * Exportada aparte para poder testearla sin necesidad de base de datos.
+ */
+function diaAcreditado(inicioCorte, mesInicio, ultimoDia) {
+  const legible = inicioCorte ? db.aLocalLegible(inicioCorte) : null;
+  let dia = legible ? legible.slice(0, 10) : mesInicio;
+  if (dia < mesInicio) dia = mesInicio;
+  if (dia > ultimoDia) dia = ultimoDia;
+  return dia;
+}
+
+/**
+ * GET /api/metricas/objetivo-corte[?periodo=YYYY-MM]
+ *
+ * Semántica del cómputo (definición de negocio, documentada para la planta):
+ *
+ *  · QUÉ SE CUENTA: la suma de `metros_lineales` de las OTs cuyo PRIMER
+ *    sector de su propia línea —el corte, p. ej. 'Seccionadora / Corte' en
+ *    Placares o 'Seccionadora B / Corte Módulos' en Cocinas— haya arrancado
+ *    O terminado dentro del mes. Es el criterio "iniciado o completado" del
+ *    requerimiento: una OT que entró en corte el 30 del mes anterior y salió
+ *    el 2 del mes siguiente se computa en ambos meses.
+ *
+ *  · CÓMO SE IDENTIFICA ESE SECTOR: NO se hardcodea el nombre. Se usa la
+ *    MISMA regla que `db.prerrequisitosSector` (primer sector regular de la
+ *    línea: `orden_flujo` mínimo entre los sectores activos, sin clave
+ *    especial y con `linea_area` igual a la de la OT). Si la planta agrega o
+ *    renombra un sector, el cómputo se adapta solo.
+ *
+ *  · A QUÉ DÍA SE ACREDITA: al día LOCAL en que arrancó el corte, RECORTADO
+ *    al mes consultado. El recorte es lo que garantiza
+ *    `SUMA(serie.metros) === cortados`: un corte que empezó en el mes
+ *    anterior acredita sus metros al día 1, nunca se pierden del total.
+ *    Esa regla vive en `diaAcreditado()`, exportada para testearla.
+ *
+ *  · POR QUÉ TODO EN JS: el runtime de Vercel está en UTC y la fábrica
+ *    opera en ZONA. `substr(fecha,1,10)` en SQL agruparía por día UTC y
+ *    desplazaría la última hora de cada jornada al día siguiente (o al mes
+ *    siguiente el último día). Las ventanas se arman con
+ *    `inicioDiaLocalUTC()` y los días con `db.aLocalLegible()`, igual que el
+ *    resto de este archivo.
+ *
+ *  · PROYECCIÓN: `ritmo_diario_promedio × días_del_mes`. El ritmo es
+ *    metros ÷ días transcurridos, es decir el promedio real de lo corrido.
+ */
+async function objetivoCorte({ query }) {
+  const periodo = query && query.periodo !== undefined && query.periodo !== ''
+    ? String(query.periodo).trim()
+    : periodoActual();
+  if (!RE_PERIODO.test(periodo)) {
+    throw new ApiError(400, 'El campo "periodo" debe tener el formato YYYY-MM.');
+  }
+
+  const meta = await asegurarObjetivo(periodo);
+  const metaTotales = Number(meta.meta_metros_totales || 0);
+  const metaPlacares = Number(meta.meta_metros_placares || 0);
+  const metaCocinas = Number(meta.meta_metros_cocinas || 0);
+
+  const mesInicio = `${periodo}-01`;
+  const mesFin = inicioMesSiguiente(periodo);
+  const hoy = hoyLocal();
+
+  const diasTotales = Math.max(1, diasEntre(mesInicio, mesFin));
+  // Mes aún futuro -> 0 días transcurridos (no se fabrica un "día 1" falso).
+  const diasTranscurridos = hoy < mesInicio
+    ? 0
+    : Math.min(diasTotales, diasEntre(mesInicio, hoy) + 1);
+  const diasRestantes = diasTotales - diasTranscurridos;
+
+  // Límite superior del recorte: el último día que la serie va a mostrar.
+  const ultimoDia = diasTranscurridos > 0
+    ? correrDias(mesInicio, diasTranscurridos - 1)
+    : mesInicio;
+
+  // Corte de cada OT, con su intervalo, y filtro de MES por solape.
+  //   min(inicio) < fin_del_mes  AND  (fin IS NULL OR fin >= inicio_del_mes)
+  const filas = await db.all(`
+    SELECT o.id,
+           o.numero_ot,
+           o.metros_lineales,
+           o.linea_area,
+           min(r.fecha_hora_inicio) AS inicio_corte,
+           max(r.fecha_hora_fin)    AS fin_corte
+      FROM ordenes_trabajo o
+      JOIN registros_tiempos r ON r.ot_id = o.id
+      JOIN sectores s          ON s.id  = r.sector_id
+     WHERE s.activo = 1
+       AND s.clave_especial IS NULL
+       AND s.linea_area = o.linea_area
+       AND s.orden_flujo = (
+             SELECT min(s2.orden_flujo)
+               FROM sectores s2
+              WHERE s2.activo = 1
+                AND s2.clave_especial IS NULL
+                AND s2.linea_area = o.linea_area
+           )
+     GROUP BY o.id, o.numero_ot, o.metros_lineales, o.linea_area
+    HAVING min(r.fecha_hora_inicio) < ?
+       AND (max(r.fecha_hora_fin) IS NULL OR max(r.fecha_hora_fin) >= ?);`,
+    inicioDiaLocalUTC(mesFin), inicioDiaLocalUTC(mesInicio)
+  );
+
+  const porDia = new Map();
+  const porLineaCrudo = { Placares: 0, Cocinas: 0 };
+  let total = 0;
+
+  for (const f of filas) {
+    const metros = Number(f.metros_lineales || 0);
+    total += metros;
+    if (Object.prototype.hasOwnProperty.call(porLineaCrudo, f.linea_area)) {
+      porLineaCrudo[f.linea_area] += metros;
+    }
+
+    const dia = diaAcreditado(f.inicio_corte, mesInicio, ultimoDia);
+    porDia.set(dia, (porDia.get(dia) || 0) + metros);
+  }
+
+  const ritmoDiario = diasTranscurridos > 0 ? total / diasTranscurridos : 0;
+  const idealDiario = metaTotales / diasTotales;
+
+  // Serie día a día de los días TRANSCURRIDOS (los futuros no se inventan).
+  const serie = [];
+  let acumulado = 0;
+  for (let i = 0; i < diasTranscurridos; i += 1) {
+    const dia = correrDias(mesInicio, i);
+    const m = r2(porDia.get(dia) || 0);
+    acumulado += m;
+    serie.push({
+      fecha: dia,
+      metros: m,
+      acumulado: r2(acumulado),
+      ideal: r2(idealDiario),
+      ideal_acumulado: r2(idealDiario * (i + 1)),
+    });
+  }
+
+  const porcentaje = metaTotales > 0 ? r2((total / metaTotales) * 100) : null;
+  const proyeccion = r2(ritmoDiario * diasTotales);
+  const porLinea = [
+    {
+      linea: 'Placares',
+      meta: metaPlacares,
+      cortados: r2(porLineaCrudo.Placares),
+      porcentaje: metaPlacares > 0 ? r2((porLineaCrudo.Placares / metaPlacares) * 100) : null,
+    },
+    {
+      linea: 'Cocinas',
+      meta: metaCocinas,
+      cortados: r2(porLineaCrudo.Cocinas),
+      porcentaje: metaCocinas > 0 ? r2((porLineaCrudo.Cocinas / metaCocinas) * 100) : null,
+    },
+  ];
+
+  return {
+    status: 200,
+    data: {
+      periodo,
+      es_mes_en_curso: periodo === periodoActual(),
+      meta: { totales: metaTotales, placares: metaPlacares, cocinas: metaCocinas },
+      cortados: r2(total),
+      porcentaje,
+      dias: {
+        transcurridos: diasTranscurridos,
+        totales: diasTotales,
+        restantes: diasRestantes,
+      },
+      ritmo_diario: r2(ritmoDiario),
+      // Lo que hay que sostener por día para llegar a la meta exacta.
+      ritmo_necesario: diasRestantes > 0 && metaTotales > total
+        ? r2((metaTotales - total) / diasRestantes)
+        : 0,
+      proyeccion_cierre: proyeccion,
+      diferencia_proyeccion: r2(proyeccion - metaTotales),
+      por_linea: porLinea,
+      serie,
+      ots_contadas: filas.length,
+      generado_en: db.ahoraUTC(),
+    },
+  };
+}
+
+/**
+ * POST /api/metricas/objetivo-corte
+ * Actualiza las metas mensuales. Requiere sesión de gestión (admin/encargado).
+ *
+ * · `periodo` es opcional: si no viene, se escribe el mes en curso. Existe
+ *   para poder precargar la meta del mes que viene; GET lo acepta igual, así
+ *   lo que se escribe se puede volver a leer.
+ * · Las tres metas son OPCIONALES: las que no llegan conservan su valor.
+ *   Así un cliente puede mover sólo la meta total sin reenviar las líneas.
+ * · Toda meta se limita a 99.999.999,99 porque la columna es numeric(10,2):
+ *   sin ese tope, un número más grande haría fallar el INSERT con 22003 y la
+ *   consulta terminaría en un 500 genérico en lugar de un 040 entendible.
+ */
+async function guardarObjetivoCorte({ body }) {
+  const periodo = body.periodo === undefined || body.periodo === null || body.periodo === ''
+    ? periodoActual()
+    : String(body.periodo).trim();
+  if (!RE_PERIODO.test(periodo)) {
+    throw new ApiError(400, 'El campo "periodo" debe tener el formato YYYY-MM.');
+  }
+
+  const actual = await asegurarObjetivo(periodo);
+
+  const rango = { min: 0, max: 99999999.99, requerido: false, porDefecto: null };
+  const recibidas = {
+    meta_metros_totales: decimal(body.meta_metros_totales, 'Meta de metros totales', rango),
+    meta_metros_placares: decimal(body.meta_metros_placares, 'Meta de metros Placares', rango),
+    meta_metros_cocinas: decimal(body.meta_metros_cocinas, 'Meta de metros Cocinas', rango),
+  };
+
+  if (Object.values(recibidas).every((v) => v === null)) {
+    throw new ApiError(
+      400,
+      'Enviá al menos una meta (total, Placares o Cocinas) para actualizar.'
+    );
+  }
+
+  const finales = {
+    meta_metros_totales: recibidas.meta_metros_totales !== null
+      ? recibidas.meta_metros_totales
+      : Number(actual.meta_metros_totales),
+    meta_metros_placares: recibidas.meta_metros_placares !== null
+      ? recibidas.meta_metros_placares
+      : Number(actual.meta_metros_placares),
+    meta_metros_cocinas: recibidas.meta_metros_cocinas !== null
+      ? recibidas.meta_metros_cocinas
+      : Number(actual.meta_metros_cocinas),
+  };
+
+  await db.run(`
+    UPDATE objetivos_produccion
+       SET meta_metros_totales  = ?,
+           meta_metros_placares = ?,
+           meta_metros_cocinas  = ?
+     WHERE periodo = ?;`,
+    finales.meta_metros_totales,
+    finales.meta_metros_placares,
+    finales.meta_metros_cocinas,
+    periodo
+  );
+
+  return { status: 200, data: { ok: true, periodo, meta: finales } };
+}
+
+/* ------------------------------------------------------------------ */
 /* Handler                                                              */
 /* ------------------------------------------------------------------ */
 
@@ -322,4 +632,11 @@ async function calcular({ query }) {
   };
 }
 
-module.exports = { calcular };
+module.exports = {
+  calcular,
+  objetivoCorte,
+  guardarObjetivoCorte,
+  // Utilidades del módulo exportadas para poder testear el cómputo de fechas
+  // (bisiestos, cierre de mes, cambio de período) sin necesidad de base.
+  _pruebas: { periodoActual, inicioMesSiguiente, diasEntre, diaAcreditado, r2 },
+};

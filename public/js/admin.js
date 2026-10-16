@@ -18,6 +18,7 @@ const S = {
   materiales: null,      // catálogo dinámico de placas
   compartidos: null,     // etapas en talleres compartidos
   tpm: null,             // mantenimiento preventivo: máquinas + historial
+  objetivo: null,        // meta mensual de corte (metros lineales)
 };
 
 const $ = (id) => document.getElementById(id);
@@ -156,6 +157,15 @@ function ligarEventos() {
   $('tpm-config-activo').addEventListener('change', (ev) => {
     ev.target.closest('.check').classList.toggle('marcado', ev.target.checked);
   });
+
+  // Objetivo mensual de corte: ajuste de metas. El endpoint exige rol de
+  // gestión (admin/encargado), así que a un operario ni siquiera se le ofrece
+  // el botón: ahorrar un 403 que sólo confundiría.
+  $('btn-meta-corte').addEventListener('click', abrirAjusteMetaCorte);
+  $('form-meta-corte').addEventListener('submit', guardarMetaCorte);
+  if (S.usuario && !['admin', 'encargado'].includes(S.usuario.rol)) {
+    $('btn-meta-corte').hidden = true;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -194,6 +204,10 @@ async function cargarMetricas() {
     pintarGraficoCiclo();
     pintarCargaSectores(m);
     pintarPausas(m);
+    // Objetivo de corte: carga PROPIA y con try/catch interno, para que un
+    // fallo suyo (o un endpoint que todavía no exista) no deje en "—" el
+    // Lead Time ni el FTT del dashboard.
+    await cargarObjetivoCorte();
     $('kpi-actualizado').textContent = `Actualizado ${FORMATO.hora(m.generado_en)} · período ${FORMATO.fecha(m.periodo.desde)} → ${FORMATO.fecha(m.periodo.hasta)}`;
   } catch (e) {
     manejarError(e, 'Cargar métricas');
@@ -321,7 +335,7 @@ function paletaIndustrial() {
   };
 }
 
-const GRAFICOS = { ciclo: null, causas: null };
+const GRAFICOS = { ciclo: null, causas: null, avance: null };
 
 /** Tiempo de ciclo promedio por sector, filtrable por línea. */
 function pintarGraficoCiclo() {
@@ -430,6 +444,218 @@ function pintarGraficoCausas(m) {
 
   if (GRAFICOS.causas) { GRAFICOS.causas.data = datos; GRAFICOS.causas.update(); return; }
   GRAFICOS.causas = new Chart($('grafico-causas'), { type: 'doughnut', data: datos, options: opciones });
+}
+
+/* ------------- Objetivo mensual de CORTE (metros lineales) ------------- */
+
+/** Metros por día con formato de planta: '41,9 m/día'. */
+function metrosDia(v) {
+  return `${Number(v || 0).toLocaleString('es-AR', { maximumFractionDigits: 1 })} m/día`;
+}
+
+/**
+ * Carga meta + avance del mes.
+ *
+ * Está AISLADA del resto del dashboard: tiene su propio try/catch y sólo
+ * avisa por consola. Si el endpoint falla, el Lead Time, el FTT y los
+ * gráficos de ciclo/causas ya quedaron pintados arriba, y el reintento llega
+ * solo con el timer de 30 s de `cargarMetricas`.
+ */
+async function cargarObjetivoCorte() {
+  try {
+    const d = await API.get('/api/metricas/objetivo-corte');
+    S.objetivo = d;
+    pintarObjetivoCorte(d);
+    pintarGraficoAvance(d);
+  } catch (e) {
+    console.warn('Objetivo de corte no disponible:', e.message);
+  }
+}
+
+/** Tarjeta: avance total, desglose por línea y proyección de cierre. */
+function pintarObjetivoCorte(d) {
+  if (!d || !d.meta) return;
+
+  $('corte-periodo').textContent = d.periodo ? d.periodo.replace('-', ' / ') : '—';
+  $('meta-corte-periodo').textContent = d.periodo;
+
+  $('corte-cortados').textContent = FORMATO.metros(d.cortados);
+  $('corte-meta').textContent = `/ ${FORMATO.metros(d.meta.totales)} meta del mes`;
+
+  const pct = (d.porcentaje === null || d.porcentaje === undefined) ? null : Number(d.porcentaje);
+  $('corte-pct').textContent = pct === null ? '—' : `${pct}%`;
+
+  // La barra es una magnitud acotada 0..100: lo que se pasa del 100 % se
+  // dibuja llena y en verde, para que "meta superada" se lea de un vistazo
+  // en lugar de ver una barra con el texto 132 % desbordado.
+  const llenado = pct === null ? 0 : Math.max(0, Math.min(100, pct));
+  const fill = $('corte-barra-fill');
+  fill.style.width = `${llenado}%`;
+  fill.classList.toggle('completo', pct !== null && pct >= 100);
+  $('corte-barra').setAttribute('aria-valuenow', String(Math.round(llenado)));
+
+  for (const l of (d.por_linea || [])) {
+    const esPlacares = l.linea === 'Placares';
+    const idTxt = esPlacares ? 'corte-placares' : 'corte-cocinas';
+    $(idTxt).textContent = `${FORMATO.metros(l.cortados)} / ${FORMATO.metros(l.meta)}`;
+    const p = l.meta > 0 ? Math.max(0, Math.min(100, (l.cortados / l.meta) * 100)) : 0;
+    $(`${idTxt}-fill`).style.width = `${p}%`;
+  }
+
+  const dif = Number(d.diferencia_proyeccion || 0);
+  const signo = dif >= 0 ? '+' : '−';
+  $('corte-proyeccion').textContent =
+    `Proyección de cierre a fin de mes: ${FORMATO.metros(d.proyeccion_cierre)}`
+    + ` · ${signo}${FORMATO.metros(Math.abs(dif))} frente a la meta`
+    + ` · ritmo actual ${metrosDia(d.ritmo_diario)}`;
+
+  const cumplida = d.meta.totales > 0 && d.cortados >= d.meta.totales;
+  $('nota-corte').textContent = cumplida
+    ? `✔ Meta cumplida con ${d.dias.transcurridos} de ${d.dias.totales} días · ${metrosDia(d.ritmo_diario)}`
+    : `${d.dias.transcurridos} de ${d.dias.totales} días · ritmo ${metrosDia(d.ritmo_diario)}`
+      + (d.dias.restantes > 0 && d.ritmo_necesario > 0
+        ? ` · hacen falta ${metrosDia(d.ritmo_necesario)} el resto del mes`
+        : '');
+}
+
+/**
+ * Gráfico mixto: barras por DÍA contra la tendencia ideal, más las dos
+ * rectas ACUMULADAS sobre un segundo eje.
+ *
+ * Hacen falta dos ejes porque las magnitudes no conviven: un día puede ser
+ * 60 m mientras el acumulado va en 700. Sin el eje derecho, las barras
+ * quedarían aplastadas contra el cero y el gráfico no diría nada.
+ */
+function pintarGraficoAvance(d) {
+  if (typeof Chart === 'undefined' || !d || !Array.isArray(d.serie)) return;
+  const p = paletaIndustrial();
+  const cian = '#22B8CF';
+
+  const datos = {
+    labels: d.serie.map((x) => `${x.fecha.slice(8)}/${x.fecha.slice(5, 7)}`),
+    datasets: [
+      {
+        type: 'bar',
+        label: 'Metros del día',
+        data: d.serie.map((x) => x.metros),
+        backgroundColor: cian,
+        borderRadius: 4,
+        maxBarThickness: 26,
+        order: 3,
+      },
+      {
+        type: 'line',
+        label: 'Ideal diario',
+        data: d.serie.map((x) => x.ideal),
+        borderColor: p.texto,
+        borderDash: [6, 5],
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0,
+        fill: false,
+        order: 2,
+      },
+      {
+        type: 'line',
+        label: 'Acumulado',
+        data: d.serie.map((x) => x.acumulado),
+        borderColor: p.placares,
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.25,
+        fill: false,
+        yAxisID: 'y2',
+        order: 1,
+      },
+      {
+        type: 'line',
+        label: 'Acumulado ideal',
+        data: d.serie.map((x) => x.ideal_acumulado),
+        borderColor: p.proceso,
+        borderDash: [3, 4],
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0,
+        fill: false,
+        yAxisID: 'y2',
+        order: 0,
+      },
+    ],
+  };
+
+  const opciones = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { color: p.texto, boxWidth: 12, padding: 10, font: { size: 11 } },
+      },
+      tooltip: {
+        callbacks: { label: (c) => ` ${c.dataset.label}: ${FORMATO.metros(c.parsed.y)}` },
+      },
+    },
+    scales: {
+      x: {
+        ticks: { color: p.texto, maxRotation: 60, minRotation: 45, font: { size: 9 } },
+        grid: { display: false },
+      },
+      y: {
+        position: 'left',
+        ticks: { color: p.texto },
+        grid: { color: p.borde },
+        title: { display: true, text: 'm / día', color: p.texto },
+      },
+      y2: {
+        position: 'right',
+        ticks: { color: p.texto },
+        grid: { drawOnChartArea: false },
+        title: { display: true, text: 'm acumulados', color: p.texto },
+      },
+    },
+  };
+
+  if (GRAFICOS.avance) { GRAFICOS.avance.data = datos; GRAFICOS.avance.update(); return; }
+  GRAFICOS.avance = new Chart($('grafico-avance'), { type: 'bar', data: datos, options: opciones });
+}
+
+/** Abre el modal de ajuste ya precargado con las metas vigentes. */
+function abrirAjusteMetaCorte() {
+  const d = S.objetivo;
+  if (!d) { Avisos.aviso('Todavía no se cargó la meta del mes.'); return; }
+  $('meta-corte-periodo').textContent = d.periodo;
+  $('meta-corte-total').value = d.meta.totales;
+  $('meta-corte-placares').value = d.meta.placares;
+  $('meta-corte-cocinas').value = d.meta.cocinas;
+  Modal.abrir('modal-meta-corte');
+}
+
+/**
+ * Guarda las metas. Un campo vacío viaja como '' y el servidor lo trata como
+ * "no enviado": conserva el valor actual, así mover sólo la meta total no
+ * obliga a reenviar las dos líneas.
+ */
+async function guardarMetaCorte(ev) {
+  ev.preventDefault();
+  const cuerpo = {
+    meta_metros_totales: $('meta-corte-total').value,
+    meta_metros_placares: $('meta-corte-placares').value,
+    meta_metros_cocinas: $('meta-corte-cocinas').value,
+  };
+  const btn = $('meta-corte-guardar');
+  btn.disabled = true;
+  try {
+    const r = await API.post('/api/metricas/objetivo-corte', cuerpo);
+    Avisos.ok('✔ Meta mensual de corte actualizada.',
+      `${r.periodo} · ${FORMATO.metros(r.meta.totales)} en total`);
+    Modal.cerrar('modal-meta-corte');
+    await cargarObjetivoCorte();
+  } catch (e) {
+    manejarError(e, 'Guardar meta de corte');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 /* ------------------------------------------------------------------ */
