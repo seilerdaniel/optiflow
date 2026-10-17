@@ -177,6 +177,10 @@ function ligarEventos() {
   });
   $('btnPeriodoAnterior').addEventListener('click', () => moverPeriodoObjetivo(1));
   $('btnPeriodoSiguiente').addEventListener('click', () => moverPeriodoObjetivo(-1));
+
+  // Buscador global (Ctrl/⌘ + K): se liga al final para que todo el estado
+  // del panel (S.ordenes, S.meta…) ya esté disponible.
+  CommandPalette.ligar();
 }
 
 /* ------------------------------------------------------------------ */
@@ -2607,3 +2611,157 @@ async function guardarConfigTPM(ev) {
     btn.disabled = false;
   }
 }
+
+/* ============================================================
+   BUSCADOR GLOBAL / COMMAND PALETTE  (Ctrl o ⌘ + K)
+   ------------------------------------------------------------
+   Busca entre las OTs YA cargadas en memoria (S.ordenes), sin
+   tocar la red: la planta tiene wifi intermitente y el resultado
+   debe ser instantáneo. Al elegir una OT abre su detalle
+   (verDetalle) y baja el scroll hasta el panel de OTs.
+   ============================================================ */
+
+const CommandPalette = {
+  indice: 0,          // fila resaltada dentro de `resultados`
+  resultados: [],
+  _ligado: false,
+
+  /** Atajo global + eventos del input. Idempotente (se llama desde ligarEventos). */
+  ligar() {
+    if (this._ligado) return;
+    const input = $('cp-input');
+    if (!input) return;          // no es el panel de admin
+    this._ligado = true;
+
+    // Ctrl/⌘ + K. `preventDefault` evita que el navegador abra su propia
+    // barra de búsqueda (Firefox: Ctrl+K) o la paleta del sistema.
+    document.addEventListener('keydown', (ev) => {
+      if ((ev.ctrlKey || ev.metaKey) && (ev.key === 'k' || ev.key === 'K')) {
+        ev.preventDefault();
+        this.abierto() ? this.cerrar() : this.abrir();
+        return;
+      }
+      if (ev.key === 'Escape' && this.abierto()) {
+        // Se maneja acá y no sólo en el handler global de api.js para poder
+        // limpiar el estado (input + resultados) además de ocultar el modal.
+        ev.preventDefault();
+        this.cerrar();
+      }
+    });
+
+    input.addEventListener('input', () => this.buscar(input.value));
+
+    // Flechas + Enter dentro del input.
+    input.addEventListener('keydown', (ev) => {
+      if (!this.abierto()) return;
+      if (ev.key === 'ArrowDown') { ev.preventDefault(); this.mover(1); }
+      else if (ev.key === 'ArrowUp') { ev.preventDefault(); this.mover(-1); }
+      else if (ev.key === 'Enter') { ev.preventDefault(); this.elegir(this.indice); }
+    });
+
+    // Clic en el fondo (afuera de la caja) = cerrar.
+    $('command-palette').addEventListener('click', (ev) => {
+      if (ev.target === $('command-palette')) this.cerrar();
+    });
+  },
+
+  abierto() {
+    const m = $('command-palette');
+    return !!m && m.classList.contains('abierto');
+  },
+
+  abrir() {
+    const m = $('command-palette');
+    if (!m) return;
+    m.classList.add('abierto');
+    const input = $('cp-input');
+    input.value = '';
+    this.indice = 0;
+    this.buscar('');
+    // Enfoca en el siguiente ciclo para que el modal ya esté pintado.
+    requestAnimationFrame(() => input.focus());
+  },
+
+  cerrar() {
+    const m = $('command-palette');
+    if (!m) return;
+    m.classList.remove('abierto');
+    const input = $('cp-input');
+    if (input) { input.value = ''; input.blur(); }
+    this.resultados = [];
+    this.pintar();
+  },
+
+  /**
+   * Filtra en memoria por número de OT, cliente o modelo (sin acentos ni
+   * mayúsculas). Con consulta vacía muestra las primeras OTs de la lista,
+   * que es lo que el usuario quiere ver al pulsar Ctrl+K "a ciegas".
+   */
+  buscar(texto) {
+    const q = FORMATO.normalizar(String(texto || '').trim());
+    const base = Array.isArray(S.ordenes) ? S.ordenes : [];
+
+    if (!q) {
+      this.resultados = base.slice(0, 8);
+    } else {
+      this.resultados = base.filter((ot) => (
+        FORMATO.normalizar(ot.numero_ot).includes(q)
+        || FORMATO.normalizar(ot.cliente).includes(q)
+        || FORMATO.normalizar(ot.modelo || '').includes(q)
+      )).slice(0, 12);
+    }
+    this.indice = 0;
+    this.pintar();
+  },
+
+  mover(paso) {
+    if (!this.resultados.length) return;
+    this.indice = (this.indice + paso + this.resultados.length) % this.resultados.length;
+    this.pintar();
+    const fila = $('cp-lista').querySelector(`[data-i="${this.indice}"]`);
+    if (fila) fila.scrollIntoView({ block: 'nearest' });
+  },
+
+  /** Abre el detalle de la OT elegida y la lleva al foco del panel. */
+  elegir(i) {
+    const ot = this.resultados[i];
+    if (!ot) return;
+    this.cerrar();
+    verDetalle(ot.id);
+    // "Redirige la vista": el panel es de scroll único, así que basta con
+    // asegurar que la tabla de OTs quede visible (el detalle se abre encima).
+    const panel = $('panel-ots');
+    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  },
+
+  pintar() {
+    const lista = $('cp-lista');
+    const input = $('cp-input');
+    if (!lista) return;
+    lista.innerHTML = '';
+    if (input) input.setAttribute('aria-expanded', this.resultados.length ? 'true' : 'false');
+
+    if (!this.resultados.length) {
+      lista.append(h('li', { class: 'cp-vacio', text: 'Sin coincidencias.' }));
+      return;
+    }
+
+    this.resultados.forEach((ot, i) => {
+      const fila = h('li', {
+        class: 'cp-item',
+        role: 'option',
+        'data-i': i,
+        'aria-selected': i === this.indice ? 'true' : 'false',
+      },
+      h('span', { class: 'cp-num', text: ot.numero_ot }),
+      h('span', { class: 'cp-desc' },
+        h('span', { class: 'cp-cliente', text: ot.cliente }),
+        h('span', { class: 'cp-meta', text: [ot.modelo, ot.linea_area || 'Placares'].filter(Boolean).join(' · ') }))
+      );
+      // mouseenter cambia la selección; click la confirma.
+      fila.addEventListener('mouseenter', () => { this.indice = i; this.pintar(); });
+      fila.addEventListener('click', () => this.elegir(i));
+      lista.append(fila);
+    });
+  },
+};

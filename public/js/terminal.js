@@ -805,6 +805,49 @@ function renderBotones() {
 /* Acciones                                                            */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Vibración háptica de confirmación (tablets/celulares de planta).
+ *
+ * `navigator.vibrate` sólo existe en algunos dispositivos y puede lanzar si el
+ * navegador lo restringe (p.ej. sin gesto previo del usuario), así que va
+ * envuelto en try/catch: la vibration NUNCA debe romper el fichado.
+ */
+function vibrarExito() {
+  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+  try {
+    navigator.vibrate([100, 50, 100]);
+  } catch { /* soporte ausente o bloqueado: se ignora deliberadamente */ }
+}
+
+/**
+ * Destello visual breve sobre la tarjeta de la OT activa tras una acción OK.
+ *
+ * Se aplica la clase `.flash-exito` (app.css: @keyframes flash-exito) y se
+ * quita sola a los 600 ms para que el gesto pueda repetirse. Si el nodo aún
+ * no existe no hace nada: es feedback OPTATIVO, nunca una dependencia.
+ *
+ * @param {HTMLElement} [elemento] Tarjeta a iluminar. Por defecto la ficha de
+ *   la OT activa (`#ficha-ot .ficha-ot`); si esa se está re-renderizando se
+ *   cae al contenedor `#ficha-ot`, que persiste entre pintados.
+ */
+function mostrarExitoSensorial(elemento) {
+  const tarjeta = elemento
+    || document.querySelector('#ficha-ot .ficha-ot')
+    || document.getElementById('ficha-ot');
+  if (!tarjeta) return;
+  tarjeta.classList.remove('flash-exito');
+  // fuerza reflow para reiniciar la animación si se dispara dos veces seguidas
+  void tarjeta.offsetWidth;
+  tarjeta.classList.add('flash-exito');
+  setTimeout(() => tarjeta.classList.remove('flash-exito'), 600);
+}
+
+/** Confirmación sensorial completa (táctil + visual) de una acción exitosa. */
+function confirmarExitoSensorial() {
+  vibrarExito();
+  mostrarExitoSensorial();
+}
+
 async function accionIniciar() {
   if (!$('btn-iniciar').disabled) {
     $('btn-iniciar').disabled = true;
@@ -817,7 +860,10 @@ async function accionIniciar() {
       Avisos.ok('✔ Etapa iniciada',
         `${r.registro.numero_ot} · ${r.registro.nombre_sector} · ${r.registro.operario_nombre}`);
       await Promise.all([refrescar(), cargarRegistros()]);
-      actualizarFichaOT();
+      await actualizarFichaOT();
+      // Confirmación sensorial SÓLO tras la respuesta OK (200/201) y el
+      // re-render: la ficha ya muestra el nuevo estado y se ilumina.
+      confirmarExitoSensorial();
     } catch (e) {
       manejarError(e, 'Iniciar etapa');
       await refrescar();
@@ -886,6 +932,7 @@ async function confirmarPausa() {
     Modal.cerrar('modal-pausa');
     Avisos.aviso('⏸ Etapa pausada', `Motivo: ${r.registro.motivo_pausa}`);
     await Promise.all([refrescar(), cargarRegistros()]);
+    confirmarExitoSensorial();
   } catch (e) {
     manejarError(e, 'Pausar etapa');
   } finally {
@@ -898,6 +945,7 @@ async function accionReanudar(id) {
     const r = await API.post(`/api/registros/${id}/reanudar`, {});
     Avisos.ok('⏵ Etapa reanudada', `${r.registro.numero_ot} · ${r.registro.nombre_sector}`);
     await Promise.all([refrescar(), cargarRegistros()]);
+    confirmarExitoSensorial();
   } catch (e) {
     manejarError(e, 'Reanudar etapa');
   }
@@ -930,6 +978,7 @@ async function confirmarFinalizar() {
       `${r.registro.numero_ot} · ${r.registro.nombre_sector} · Duración: ${FORMATO.duracion(r.registro.duracion_minutos)}`);
     await Promise.all([refrescar(), cargarRegistros()]);
     await actualizarFichaOT();
+    confirmarExitoSensorial();
   } catch (e) {
     manejarError(e, 'Finalizar etapa');
   } finally {

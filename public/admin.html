@@ -883,6 +883,34 @@
 
 </div><!-- /.app-cuerpo -->
 
+<!-- ============================================================
+     BUSCADOR GLOBAL (COMMAND PALETTE) — Ctrl/⌘ + K
+     ------------------------------------------------------------
+     Modal flotante oculto por defecto (.command-palette). Busca
+     entre las OTs ya cargadas en memoria (S.ordenes) sin tocar la
+     red: la planta tiene wifi intermitente y esto debe ser instantáneo.
+     ============================================================ -->
+<div class="modal-fondo command-palette" id="command-palette" role="dialog"
+     aria-modal="true" aria-label="Buscador global de órdenes de trabajo">
+  <div class="cp-caja">
+    <div class="cp-campo">
+      <span class="cp-icono" aria-hidden="true">⌕</span>
+      <input type="text" id="cp-input" class="cp-input"
+             placeholder="Buscar OT por número, cliente o modelo…"
+             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+             role="combobox" aria-expanded="false" aria-controls="cp-lista"
+             aria-autocomplete="list" aria-label="Buscar orden de trabajo">
+      <kbd class="cp-atajo">Esc</kbd>
+    </div>
+    <ul class="cp-lista" id="cp-lista" role="listbox" aria-label="Resultados"></ul>
+    <div class="cp-pie">
+      <span><kbd>↑</kbd><kbd>↓</kbd> navegar</span>
+      <span><kbd>↵</kbd> abrir detalle</span>
+      <span><kbd>Esc</kbd> cerrar</span>
+    </div>
+  </div>
+</div>
+
 <div id="avisos"></div>
 
 <script src="/js/api.js"></script>
