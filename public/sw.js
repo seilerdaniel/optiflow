@@ -1,10 +1,16 @@
 /* ============================================================
  * OPTIFLOW - Service Worker (PWA) · Fase 7
  * ------------------------------------------------------------
- * Estrategia:
- *   · Estáticos (CSS/JS/iconos): cache-first con actualización en
- *     segundo plano (stale-while-revalidate). La app carga aunque
- *     la red de planta esté caída.
+ * Estrategia (M-7 · auditoría):
+ *   · JS y CSS (/js/*, /css/*): NETWORK-FIRST con fallback a caché.
+ *     La red manda siempre que haya conexión, garantizando que tras
+ *     cada deploy la tablet de planta reciba la versión más reciente
+ *     del código en la PRIMERA carga (antes: cache-first entregaba los
+ *     bytes viejos y sólo actualizaba en la siguiente recarga, dejando
+ *     HTML nuevo con JS viejo). Sin red, se sirve la última copia
+ *     conocida y la app sigue operativa.
+ *   · Resto de estáticos (iconos, fuentes, manifest): cache-first con
+ *     revalidación en segundo plano. Cambian poco y son caros en datos.
  *   · Navegación (HTML): network-first con fallback al cache
  *     (siempre sirve la última versión conocida).
  *   · API (/api/*): SIN cacheo. Los datos de producción son
@@ -15,7 +21,7 @@
  * bump CACHE_VERSION para descartar los assets viejos.
  * ============================================================ */
 
-const CACHE_VERSION = 'v9';
+const CACHE_VERSION = 'v10';
 const CACHE_ESTATICOS = `optiflow-estaticos-${CACHE_VERSION}`;
 const CACHE_PAGINAS = `optiflow-paginas-${CACHE_VERSION}`;
 
@@ -88,7 +94,39 @@ self.addEventListener('fetch', (evento) => {
     return;
   }
 
-  // Estáticos: cache-first + revalidación en segundo plano.
+  // Estáticos CRÍTICOS (JS/CSS): NETWORK-FIRST con fallback a caché.
+  //
+  // Antes eran cache-first + revalidación en 2º plano (stale-while-revalidate),
+  // lo que entregaba los bytes VIEJOS en la primera carga tras cada deploy y
+  // sólo los actualizaba en la siguiente recarga. Con HTML network-first y JS
+  // cache-first la app podía quedar DESINCRONIZADA: un admin.html nuevo
+  // ejecutando un admin.js viejo (rompiendo, p.ej., el command palette o el
+  // flash de fichado).
+  //
+  // Ahora la red manda siempre que haya conexión (la planta tiene wifi
+  // intermitente, pero no caído), y la caché sólo actúa como respaldo
+  // offline. Los assets no cambian de nombre (sin hash), así que el
+  // CACHE_VERSION sigue siendo el que invalida tras un deploy.
+  if (esCritico(url.pathname)) {
+    evento.respondWith(
+      caches.open(CACHE_ESTATICOS).then(async (c) => {
+        try {
+          const respuesta = await fetch(request);
+          // Sólo se cachean respuestas completas (2xx); un 404/500 nunca
+          // debe quedar guardado y quedarse pegado para siempre.
+          if (respuesta && respuesta.ok) c.put(request, respuesta.clone());
+          return respuesta;
+        } catch {
+          // Sin red: se sirve la última versión conocida (modo planta offline).
+          return (await c.match(request)) || Response.error();
+        }
+      })
+    );
+    return;
+  }
+
+  // Resto de estáticos (imágenes, fuentes, manifest): cache-first +
+  // revalidación en segundo plano. Cambian poco y son caros en datos.
   if (esEstatico(url.pathname)) {
     evento.respondWith(
       caches.open(CACHE_ESTATICOS).then(async (c) => {
@@ -104,6 +142,11 @@ self.addEventListener('fetch', (evento) => {
     );
   }
 });
+
+/** Assets cuya versión debe viajar SIEMPRE con el HTML: código y estilos. */
+function esCritico(pathname) {
+  return pathname.startsWith('/js/') || pathname.startsWith('/css/');
+}
 
 function esEstatico(pathname) {
   return /\.(css|js|png|jpg|jpeg|svg|ico|woff2?)$/.test(pathname)

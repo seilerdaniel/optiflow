@@ -225,49 +225,52 @@ const RUTAS = [
   ['PUT', '/api/usuarios/:id', authRuta.actualizarUsuario, { auth: 'admin' }],
 
   // --- Sectores ---
-  ['GET', '/api/sectores', sectores.listar],
+  // A-1: las lecturas de negocio ya NO son anónimas. La terminal sólo llama a
+  // estos endpoints DESPUÉS de tener sesión (terminal.js: `arrancar()` corre
+  // tras validar sesión) y ante un 401 `API.onSinSesion` reabre el login.
+  ['GET', '/api/sectores', sectores.listar, { auth: 'usuario' }],
   ['POST', '/api/sectores', sectores.crear, { auth: 'gestion' }],
   ['PUT', '/api/sectores/:id', sectores.actualizar, { auth: 'gestion' }],
 
   // --- Órdenes de trabajo ---
-  ['GET', '/api/ordenes', ordenes.listar],
+  ['GET', '/api/ordenes', ordenes.listar, { auth: 'usuario' }],
   ['POST', '/api/ordenes', ordenes.crear, { auth: 'gestion' }],
-  ['GET', '/api/ordenes/:id', ordenes.obtener],
+  ['GET', '/api/ordenes/:id', ordenes.obtener, { auth: 'usuario' }],
   ['PUT', '/api/ordenes/:id', ordenes.actualizar, { auth: 'gestion' }],
   ['PUT', '/api/ordenes/:id/materiales', ordenes.actualizarMateriales, { auth: 'gestion' }],
   ['PUT', '/api/ordenes/:id/materiales/:mid', ordenes.actualizarMaterial, { auth: 'gestion' }],
   ['DELETE', '/api/ordenes/:id', ordenes.eliminar, { auth: 'gestion' }],
 
   // --- Registros de tiempos (escrituras de PLANTA: cualquier usuario) ---
-  ['GET', '/api/estado', registros.estado],
-  ['GET', '/api/registros', registros.listar],
-  ['GET', '/api/registros/:id', registros.obtener],
+  ['GET', '/api/estado', registros.estado, { auth: 'usuario' }],
+  ['GET', '/api/registros', registros.listar, { auth: 'usuario' }],
+  ['GET', '/api/registros/:id', registros.obtener, { auth: 'usuario' }],
   ['POST', '/api/registros', registros.iniciar, { auth: 'usuario' }],
   ['POST', '/api/registros/:id/pausar', registros.pausar, { auth: 'usuario' }],
   ['POST', '/api/registros/:id/reanudar', registros.reanudar, { auth: 'usuario' }],
   ['POST', '/api/registros/:id/finalizar', registros.finalizar, { auth: 'usuario' }],
 
   // --- Operarios (maestro, Fase 4) ---
-  ['GET', '/api/operarios', operarios.listar],
+  ['GET', '/api/operarios', operarios.listar, { auth: 'usuario' }],
   ['POST', '/api/operarios', operarios.crear, { auth: 'gestion' }],
   ['PUT', '/api/operarios/:id', operarios.actualizar, { auth: 'gestion' }],
 
   // --- Métricas / cuellos de botella (Fase 2) ---
-  ['GET', '/api/metricas', metricas.calcular],
-  // Objetivo mensual de CORTE (metros lineales). Lectura abierta, igual que el
-  // resto de /api/metricas; la escritura es decisión de PLANTA (jefe/encargado)
-  // y no un dato que el operario de terminal pueda mover.
-  ['GET', '/api/metricas/objetivo-corte', metricas.objetivoCorte],
+  ['GET', '/api/metricas', metricas.calcular, { auth: 'usuario' }],
+  // Objetivo mensual de CORTE (metros lineales). La lectura exige sesión, igual
+  // que el resto de /api/metricas (A-1); la escritura es decisión de PLANTA
+  // (jefe/encargado) y no un dato que el operario de terminal pueda mover.
+  ['GET', '/api/metricas/objetivo-corte', metricas.objetivoCorte, { auth: 'usuario' }],
   ['POST', '/api/metricas/objetivo-corte', metricas.guardarObjetivoCorte, { auth: 'gestion' }],
 
   // Catálogo dinámico de placas (reconstruido desde ot_materiales).
-  ['GET', '/api/materiales/catalogo', materiales.catalogo],
+  ['GET', '/api/materiales/catalogo', materiales.catalogo, { auth: 'usuario' }],
 
   // --- Mantenimiento Preventivo (TPM) por horas netas de uso real ---
-  // Lecturas abiertas (igual que /api/estado y /api/sectores, que consume la
-  // terminal de planta para avisar de un mantenimiento vencido).
-  ['GET', '/api/tpm/estado', tpm.estado],
-  ['GET', '/api/tpm', tpm.listar],
+  // La terminal consume /api/tpm/estado para avisar de un mantenimiento
+  // vencido; ambas lecturas exigen sesión (A-1).
+  ['GET', '/api/tpm/estado', tpm.estado, { auth: 'usuario' }],
+  ['GET', '/api/tpm', tpm.listar, { auth: 'usuario' }],
   // Escrituras de gestión: registrar un service o cambiar las metas es tarea
   // de encargado/admin, no del operario que fiche en la terminal.
   ['POST', '/api/tpm/mantenimiento', tpm.registrarMantenimiento, { auth: 'gestion' }],
@@ -555,9 +558,11 @@ process.on('uncaughtException', (e) => console.error('[uncaughtException]', e));
 process.on('unhandledRejection', (e) => console.error('[unhandledRejection]', e));
 
 // `manejar` se exporta para el Serverless Function de Vercel (api/[...slug].js).
+// `HEADERS_SEGURIDAD` lo comparte api/admin.js (guarda de /admin en la nube,
+// auditoría A-2) para no duplicar el set de cabeceras.
 // `main()` sólo se ejecuta cuando este archivo es el proceso de arranque local
 // (node server/server.js / start.bat), no cuando lo requiere Vercel.
-module.exports = { manejar, enrutar, servirEstatico };
+module.exports = { manejar, enrutar, servirEstatico, HEADERS_SEGURIDAD };
 
 if (require.main === module) {
   main().catch((e) => {

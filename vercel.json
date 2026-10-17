@@ -5,6 +5,10 @@
     "api/[...slug].js": {
       "memory": 1024,
       "maxDuration": 10
+    },
+    "api/admin.js": {
+      "memory": 512,
+      "maxDuration": 10
     }
   },
   "headers": [
@@ -27,14 +31,22 @@
       ]
     }
   ],
-  "rewrites": [
-    {
-      "source": "/admin",
-      "destination": "/admin.html"
-    },
-    {
-      "source": "/api/:path*",
-      "destination": "/api/[...slug]"
-    }
-  ]
+  "rewrites": {
+    "beforeFiles": [
+      {
+        "source": "/admin",
+        "destination": "/api/admin"
+      },
+      {
+        "source": "/admin.html",
+        "destination": "/api/admin"
+      }
+    ],
+    "afterFiles": [
+      {
+        "source": "/api/:path*",
+        "destination": "/api/[...slug]"
+      }
+    ]
+  }
 }
