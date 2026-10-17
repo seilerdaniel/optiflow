@@ -29,26 +29,13 @@ const DIAS_DEFECTO = 30;
 
 /* ------------------------------------------------------------------ */
 /* Helpers de fecha (zona de PLANTA, no del servidor)                   */
+/*                                                                      */
+/* La definición única vive en `db.js` (hoyLocal, correrDias,           */
+/* inicioDiaLocalUTC, ventanaLocalUTC) para que métricas, registros,    */
+/* export y el cron no diverjan nunca sobre qué es "hoy" en la planta. */
 /* ------------------------------------------------------------------ */
 
-/** 'YYYY-MM-DD' de HOY en la zona horaria de planta. */
-function hoyLocal() {
-  return db.aLocalLegible(db.ahoraUTC()).slice(0, 10);
-}
-
-/** Suma/resta días a 'YYYY-MM-DD' (sin depender del reloj del sistema). */
-function correrDias(fechaLocal, dias) {
-  const ms = Date.parse(`${fechaLocal}T12:00:00Z`) + dias * 86400000;
-  return new Date(ms).toISOString().slice(0, 10);
-}
-
-/** ISO UTC del medianoche LOCAL de `fechaLocal` (para ventanas "hoy"). */
-function inicioDiaLocalUTC(fechaLocal) {
-  const ahora = db.ahoraUTC();
-  // Offset local real (ms) medido con el propio traductor de db.js.
-  const offset = Date.parse(`${db.aLocalLegible(ahora).replace(' ', 'T')}Z`) - Date.parse(ahora);
-  return new Date(Date.parse(`${fechaLocal}T00:00:00Z`) - offset).toISOString();
-}
+const { hoyLocal, correrDias, inicioDiaLocalUTC, ventanaLocalUTC } = db;
 
 function parseFecha(valor, defecto) {
   if (valor === undefined || valor === null || valor === '') return defecto;
@@ -77,11 +64,15 @@ const red1 = (v) => (v === null || v === undefined ? null : Math.round(Number(v)
 
 /** OTs creadas en el período, por estado. */
 async function metricasOTS(desde, hasta) {
+  // Rango SEMIABIERTO en UTC: `[inicio del día `desde`, inicio del día
+  // siguiente a `hasta`)`. Cubre la jornada local completa (incluye
+  // 21:00–23:59) que `substr(fecha_creacion,1,10) BETWEEN ? AND ?` perdía.
+  const [desdeUTC, hastaUTC] = ventanaLocalUTC(desde, hasta);
   const filas = await db.all(`
     SELECT estado_general, COUNT(*) AS n
       FROM ordenes_trabajo
-     WHERE substr(fecha_creacion, 1, 10) BETWEEN ? AND ?
-     GROUP BY estado_general;`, desde, hasta);
+     WHERE fecha_creacion >= ? AND fecha_creacion < ?
+     GROUP BY estado_general;`, desdeUTC, hastaUTC);
 
   const porEstado = {};
   for (const e of ESTADOS_OT) porEstado[e] = 0;
@@ -101,6 +92,7 @@ async function metricasOTS(desde, hasta) {
  * (`HAVING inicio_flujo IS NOT NULL`).
  */
 async function metricasLeadTime(desde, hasta) {
+  const [desdeUTC, hastaUTC] = ventanaLocalUTC(desde, hasta);
   const filas = await db.all(`
     SELECT o.id,
            MIN(r.fecha_hora_inicio) AS inicio_flujo,
@@ -109,10 +101,10 @@ async function metricasLeadTime(desde, hasta) {
       JOIN registros_tiempos r ON r.ot_id = o.id
       JOIN sectores s          ON s.id = r.sector_id
      WHERE s.linea_area = o.linea_area          -- sólo el flujo propio de la línea
-       AND substr(o.fecha_creacion, 1, 10) BETWEEN ? AND ?
+       AND o.fecha_creacion >= ? AND o.fecha_creacion < ?
      GROUP BY o.id
     HAVING MIN(r.fecha_hora_inicio) IS NOT NULL
-       AND MAX(r.fecha_hora_fin) IS NOT NULL;`, desde, hasta);
+       AND MAX(r.fecha_hora_fin) IS NOT NULL;`, desdeUTC, hastaUTC);
 
   let suma = 0;
   for (const f of filas) {
@@ -126,12 +118,13 @@ async function metricasLeadTime(desde, hasta) {
 /** % de OTs que avanzaron sin pausas de reproceso (FTT). */
 async function metricasFTT(desde, hasta) {
   const marcadores = MOTIVOS_REPROCESO.map(() => '?').join(',');
+  const [desdeUTC, hastaUTC] = ventanaLocalUTC(desde, hasta);
   const row = await db.get(`
     WITH avanzadas AS (
       SELECT DISTINCT r.ot_id
         FROM registros_tiempos r
        WHERE r.estado_etapa = 'Finalizado'
-         AND substr(r.fecha_hora_inicio, 1, 10) BETWEEN ? AND ?
+         AND r.fecha_hora_inicio >= ? AND r.fecha_hora_inicio < ?
     )
     SELECT COUNT(*) AS evaluadas,
            SUM(CASE WHEN NOT EXISTS (
@@ -141,7 +134,7 @@ async function metricasFTT(desde, hasta) {
                    WHERE r2.ot_id = avanzadas.ot_id
                      AND ep.motivo_pausa IN (${marcadores})
                 ) THEN 1 ELSE 0 END) AS conformes
-      FROM avanzadas;`, desde, hasta, ...MOTIVOS_REPROCESO);
+      FROM avanzadas;`, desdeUTC, hastaUTC, ...MOTIVOS_REPROCESO);
 
   const evaluadas = Number(row.evaluadas || 0);
   const conformes = Number(row.conformes || 0);
@@ -151,15 +144,16 @@ async function metricasFTT(desde, hasta) {
 
 /** Pausas del período agrupadas por motivo (eventos_pausa). */
 async function metricasPausas(desde, hasta) {
+  const [desdeUTC, hastaUTC] = ventanaLocalUTC(desde, hasta);
   const filas = await db.all(`
     SELECT ep.motivo_pausa AS motivo,
            COUNT(*)        AS frecuencia,
            COALESCE(SUM(ep.segundos), 0) AS segundos,
            SUM(CASE WHEN ep.fin_pausa IS NULL THEN 1 ELSE 0 END) AS abiertas
       FROM eventos_pausa ep
-     WHERE substr(ep.inicio_pausa, 1, 10) BETWEEN ? AND ?
+     WHERE ep.inicio_pausa >= ? AND ep.inicio_pausa < ?
      GROUP BY ep.motivo_pausa
-     ORDER BY segundos DESC, frecuencia DESC;`, desde, hasta);
+     ORDER BY segundos DESC, frecuencia DESC;`, desdeUTC, hastaUTC);
 
   const lista = filas.map((f) => ({
     motivo: f.motivo,

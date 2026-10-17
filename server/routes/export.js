@@ -47,13 +47,16 @@ function construirFiltros(query) {
   const filtros = [];
   const params = [];
 
+  // Ventana SEMIABIERTA en la zona de planta (`[desde 00:00, hasta+1 00:00)`),
+  // igual que en `registros.listar`: el extremo superior EXCLUSIVO evita
+  // perder los registros de las 21:00–23:59 del último día filtrado.
   if (query.desde) {
-    filtros.push('substr(r.fecha_hora_inicio,1,10) >= ?');
-    params.push(String(query.desde).slice(0, 10));
+    filtros.push('r.fecha_hora_inicio >= ?');
+    params.push(db.inicioDiaLocalUTC(String(query.desde).slice(0, 10)));
   }
   if (query.hasta) {
-    filtros.push('substr(r.fecha_hora_inicio,1,10) <= ?');
-    params.push(String(query.hasta).slice(0, 10));
+    filtros.push('r.fecha_hora_inicio < ?');
+    params.push(db.inicioDiaLocalUTC(db.correrDias(String(query.hasta).slice(0, 10), 1)));
   }
   if (query.ot_id) {
     filtros.push('r.ot_id = ?');

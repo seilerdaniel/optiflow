@@ -184,7 +184,10 @@ async function iniciar({ body }) {
       { accion: 'Reactívelo desde Administración → Operarios o utilice otro operario.' });
   }
 
-  // R5
+  // R5 — pre-chequeo temprano (fast-fail): evita tomar advisory locks ni
+  // abrir transacción si la OT ya está cerrada. La guarda AUTORITATIVA está
+  // dentro de la transacción, con `SELECT ... FOR UPDATE` (ver más abajo),
+  // porque acá `ot` es un snapshot de antes del lock.
   if (ot.estado_general === 'Finalizado') {
     throw new ApiError(409, `La ${ot.numero_ot} está FINALIZADA: no se pueden iniciar nuevas etapas.`,
       { accion: 'Cambie el estado de la OT en Administración si es un error.' });
@@ -272,13 +275,34 @@ async function iniciar({ body }) {
 
   // Escrituras atómicas: alta de la etapa + cambio de estado de la OT.
   // CONCURRENCIA (C-1/C-2/A-5/V-4): la transacción toma advisory locks de
-  // sector + OT + operario, RE-VERIFICA R1/R2/R3 con el lock tomado (cierra el
+  // sector + OT + operario, RE-VERIFICA R5/R1/R2/R3 con el lock tomado (cierra el
   // hueco TOCTOU entre la validación y el INSERT) y los índices únicos
   // parciales son la última línea: si aún así entrara un duplicado, Postgres
   // responde 23505 y se traduce a un 409 entendible.
   let insert;
   try {
     insert = await db.transaccion(async () => {
+      // R5 (re-check bajo lock) — SE EJECUTA PRIMERO: es la guarda más
+      // determinante y la más barata. La comprobación de la línea 188 usa la
+      // `ot` leída FUERA de la transacción; entre esa lectura y este INSERT
+      // otra sesión pudo finalizar la OT, lo que dejaría una etapa huérfana
+      // abierta sobre una OT ya cerrada. El `FOR UPDATE` bloquea la fila de la
+      // OT (serialized contra cualquier UPDATE posterior, p.ej. `ordenes.actualizar`
+      // o el auto-cierre de `finalizar`) y garantiza leer el estado VIGENTE.
+      const otAhora = await db.get(
+        'SELECT id, numero_ot, estado_general FROM ordenes_trabajo WHERE id = ? FOR UPDATE;',
+        otId
+      );
+      if (!otAhora) {
+        throw new ApiError(409, 'La OT fue eliminada mientras se abría la etapa.',
+          { accion: 'Actualice la lista de OTs e intente de nuevo.' });
+      }
+      if (otAhora.estado_general === 'Finalizado') {
+        throw new ApiError(409,
+          `La ${otAhora.numero_ot} está FINALIZADA: no se pueden iniciar nuevas etapas.`,
+          { accion: 'Cambie el estado de la OT en Administración si es un error.' });
+      }
+
       // R1 (re-check bajo lock): misma OT + mismo sector sin etapa abierta.
       const mismaAhora = await db.get(`
         SELECT r.*, s.nombre_sector FROM registros_tiempos r
@@ -338,8 +362,11 @@ async function iniciar({ body }) {
       );
 
       // Actualiza el estado general de la OT si estaba en cola o detenida.
-      // Guarda con `changes`: si otra petición ya la puso en producción, no pasa nada.
-      if (ot.estado_general === 'En Cola' || ot.estado_general === 'Detenido') {
+      // Usa `otAhora` (leído con FOR UPDATE), no el snapshot viejo: si otra
+      // sesión la pasó a 'En Producción' entre la validación y aquí, el
+      // predicado `AND estado_general IN (...)` no matchea y no hace falta
+      // ningún `changes` extra para evitar el pisado.
+      if (otAhora.estado_general === 'En Cola' || otAhora.estado_general === 'Detenido') {
         await db.run(
           `UPDATE ordenes_trabajo SET estado_general = 'En Producción', fecha_actualizacion = ?
             WHERE id = ? AND estado_general IN ('En Cola','Detenido');`,
@@ -608,13 +635,16 @@ async function listar({ query }) {
     filtros.push('r.estado_etapa = ?');
     params.push(enumOpcion(query.estado, db.ESTADOS_ETAPA, 'estado'));
   }
+  // Ventana de fechas SEMIABIERTA en la zona de planta: `[desde 00:00 local,
+  // hasta+1 00:00 local)`. `substr(fecha,1,10) <= hasta` perdía los registros
+  // de 21:00–23:59 del último día; el extremo superior aquí es EXCLUSIVO.
   if (query.desde) {
-    filtros.push('substr(r.fecha_hora_inicio, 1, 10) >= ?');
-    params.push(String(query.desde).slice(0, 10));
+    filtros.push('r.fecha_hora_inicio >= ?');
+    params.push(db.inicioDiaLocalUTC(String(query.desde).slice(0, 10)));
   }
   if (query.hasta) {
-    filtros.push('substr(r.fecha_hora_inicio, 1, 10) <= ?');
-    params.push(String(query.hasta).slice(0, 10));
+    filtros.push('r.fecha_hora_inicio < ?');
+    params.push(db.inicioDiaLocalUTC(db.correrDias(String(query.hasta).slice(0, 10), 1)));
   }
   if (query.operario) {
     filtros.push('r.operario_nombre = ?');

@@ -443,26 +443,63 @@ async function actualizarMaterial({ params, body }) {
   };
 }
 
+/**
+ * Elimina una OT junto con todos sus registros y materiales.
+ *
+ * CONCURRENCIA (C-3): el DELETE no era transaccional. Un `iniciar` que llegara
+ * en paralelo (validó "sin etapas abiertas" ANTES del recuento) podría INSERTAR
+ * una etapa justo entre el `COUNT` y el `DELETE`, y el `ON DELETE CASCADE` la
+ * borraría junto con la OT: el operario quedaría fichando contra una OT inexistente
+ * y su etapa abierta desaparecería sin pasar por `finalizar`.
+ *
+ * Ahora todo ocurre dentro de una transacción con ADVISORY LOCK de OT (la misma
+ * clave que toma `registros.iniciar`), de modo que iniciar y eliminar quedan
+ * SERIALIZADOS: o la etapa entra antes y `eliminar` responde 409, o el borrado
+ * ocupa el slot primero y `iniciar` ve la OT inexistente. Además la comprobación
+ * de etapas abiertas se RE-VERIFICA dentro de la transacción, no fuera.
+ */
 async function eliminar({ params }) {
   const id = entero(params.id, 'id');
-  const ot = await db.get('SELECT * FROM ordenes_trabajo WHERE id = ?;', id);
-  if (!ot) throw new ApiError(404, `No existe la OT con id ${id}.`);
 
-  const abiertas = (await db.get(
-    `SELECT COUNT(*) AS n FROM registros_tiempos WHERE ot_id = ? AND estado_etapa IN ('En Proceso','Pausado');`,
-    id
-  )).n;
-  if (abiertas > 0) {
-    throw new ApiError(409, `No se puede eliminar: la ${ot.numero_ot} tiene ${abiertas} etapa(s) en curso. Finalícelas primero.`);
-  }
+  return db.transaccion(async () => {
+    // Bloquea la fila de la OT: nadie puede cambiarla ni fichar contra ella
+    // mientras decidimos si procede el borrado.
+    const ot = await db.get(
+      'SELECT id, numero_ot FROM ordenes_trabajo WHERE id = ? FOR UPDATE;', id
+    );
+    if (!ot) throw new ApiError(404, `No existe la OT con id ${id}.`);
 
-  const total = (await db.get('SELECT COUNT(*) AS n FROM registros_tiempos WHERE ot_id = ?;', id)).n;
-  const mats = (await db.get('SELECT COUNT(*) AS n FROM ot_materiales WHERE ot_id = ?;', id)).n;
-  await db.run('DELETE FROM ordenes_trabajo WHERE id = ?;', id);
-  return {
-    status: 200,
-    data: { eliminada: true, numero_ot: ot.numero_ot, registros_eliminados: total, materiales_eliminados: mats },
-  };
+    // Re-check DENTRO de la transacción (bajo el lock de OT).
+    const abiertas = Number((await db.get(
+      `SELECT COUNT(*) AS n FROM registros_tiempos
+        WHERE ot_id = ? AND estado_etapa IN ('En Proceso','Pausado');`,
+      id
+    )).n || 0);
+    if (abiertas > 0) {
+      throw new ApiError(409,
+        `No se puede eliminar: la ${ot.numero_ot} tiene ${abiertas} etapa(s) en curso. Finalícelas primero.`);
+    }
+
+    const total = Number((await db.get(
+      'SELECT COUNT(*) AS n FROM registros_tiempos WHERE ot_id = ?;', id)).n || 0);
+    const mats = Number((await db.get(
+      'SELECT COUNT(*) AS n FROM ot_materiales WHERE ot_id = ?;', id)).n || 0);
+
+    const borrado = await db.run('DELETE FROM ordenes_trabajo WHERE id = ?;', id);
+    if (!borrado.changes) {
+      throw new ApiError(404, `La ${ot.numero_ot} ya no existe (otra sesión la eliminó).`);
+    }
+
+    return {
+      status: 200,
+      data: {
+        eliminada: true,
+        numero_ot: ot.numero_ot,
+        registros_eliminados: total,
+        materiales_eliminados: mats,
+      },
+    };
+  }, [[db.LOCK_OT, id]]);
 }
 
 module.exports = {

@@ -28,10 +28,9 @@ const notificaciones = require('../lib/notificaciones');
 const metricas = require('./metricas');
 const registrosRuta = require('./registros');
 
-/** 'YYYY-MM-DD' de HOY en la zona horaria de PLANTA (no del runtime). */
-function hoyLocal() {
-  return db.aLocalLegible(db.ahoraUTC()).slice(0, 10);
-}
+// Helpers de fecha: la definición única vive en `db.js` para que el cron,
+// las métricas y los listados no diverjan sobre qué es "hoy" en la planta.
+const { hoyLocal, ventanaLocalUTC } = db;
 
 /* --------------------------- Anti-spam ----------------------------- */
 
@@ -180,10 +179,15 @@ async function resumenDiario({ query }) {
 
   // "Finalizadas" = OTs que se CERRARON hoy (estado + sello de actualización),
   // no las creadas hoy: es lo que a la jefatura le interesa al cierre del turno.
+  // Rango SEMIABIERTO en la zona de planta: una OT finalizada a las 22:30 local
+  // tiene `fecha_actualizacion` de mañana en UTC y `substr(...,1,10) = hoy` la
+  // perdía; con `[hoy 00:00 local, mañana 00:00 local)` cae siempre en su turno.
+  const [cerradasDesde, cerradasHasta] = ventanaLocalUTC(hoy, hoy);
   const finalizadasHoy = Number((await db.get(
     `SELECT COUNT(*) AS n FROM ordenes_trabajo
-      WHERE estado_general = 'Finalizado' AND substr(fecha_actualizacion, 1, 10) = ?;`,
-    hoy
+      WHERE estado_general = 'Finalizado'
+        AND fecha_actualizacion >= ? AND fecha_actualizacion < ?;`,
+    cerradasDesde, cerradasHasta
   )).n || 0);
 
   const pausas = resumirPausas(d.pausas_por_motivo);

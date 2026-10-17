@@ -20,7 +20,9 @@
  *    la duración neta de trabajo productivo.
  *
  * Por eso en supabase_schema.sql las fechas son TEXT y no timestamptz:
- * el resto del código usa substr(fecha,1,10) para comparar por día.
+ * el código las compara como texto ISO-8601 con rangos SEMIABIERTOS
+ * (`fecha >= ? AND fecha < ?`) cuyos extremos arma `ventanaLocalUTC()`
+ * en la zona de PLANTA (ver "Día LOCAL de planta" más abajo).
  */
 
 const fs = require('node:fs');
@@ -767,6 +769,53 @@ function aLocalLegible(iso) {
   return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`;
 }
 
+/* ------------------------------------------------------------------ */
+/* Día LOCAL de planta: la ÚNICA definición compartida por las rutas.   */
+/*                                                                      */
+/* El runtime (Vercel) corre en UTC y la fábrica en `ZONA` (UTC-3).    */
+/* Un registro hecho a las 22:00 de hoy tiene fecha ISO de mañana en   */
+/* UTC: si SQL compara `substr(fecha,1,10) = 'hoy'` lo pierde. Por eso */
+/* TODA ventana de fechas se arma acá en JS como instante UTC y se     */
+/* compara contra el texto ISO completo con un rango SEMIABIERTO:       */
+/*     fecha >= inicioDiaLocalUTC(desde)                                */
+/* AND fecha <  inicioDiaLocalUTC(correrDias(hasta, 1))                 */
+/* ------------------------------------------------------------------ */
+
+/** 'YYYY-MM-DD' de HOY en la zona horaria de PLANTA (no del runtime). */
+function hoyLocal() {
+  return aLocalLegible(ahoraUTC()).slice(0, 10);
+}
+
+/** Suma/resta días a 'YYYY-MM-DD' (sin depender del reloj del sistema). */
+function correrDias(fechaLocal, dias) {
+  const ms = Date.parse(`${fechaLocal}T12:00:00Z`) + dias * 86400000;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+/** ISO UTC del medianoche LOCAL de `fechaLocal` (apertura del día). */
+function inicioDiaLocalUTC(fechaLocal) {
+  const ahora = ahoraUTC();
+  // Offset local real (ms) medido con el propio traductor de este módulo.
+  const offset = Date.parse(`${aLocalLegible(ahora).replace(' ', 'T')}Z`) - Date.parse(ahora);
+  return new Date(Date.parse(`${fechaLocal}T00:00:00Z`) - offset).toISOString();
+}
+
+/**
+ * `[desdeUTC, hastaUTC)` = jornada LOCAL completa desde `desde` hasta
+ * `hasta` inclusive, ya traducida a instantes UTC para comparar contra
+ * campos `timestamptz` (o texto ISO completo) SIN depender del huso del
+ * runtime. El extremo superior es EXCLUSIVO: cubre las 21:00–23:59 de
+ * `hasta`, que `substr(fecha,1,10) <= hasta` dejaba fuera.
+ *
+ * Uso:  `WHERE fecha >= ? AND fecha < ?` con `[d, h] = ventanaLocalUTC(d, h)`.
+ */
+function ventanaLocalUTC(desdeLocal, hastaLocal) {
+  return [
+    inicioDiaLocalUTC(desdeLocal),
+    inicioDiaLocalUTC(correrDias(hastaLocal, 1)),
+  ];
+}
+
 /** Duración neta en minutos (descontando pausas), redondeada a 2 decimales. */
 function calcularDuracionMinutos(inicioISO, finISO, segundosPausados, pausaInicioISO) {
   const ms = new Date(finISO).getTime() - new Date(inicioISO).getTime();
@@ -1156,6 +1205,11 @@ module.exports = {
   claveLockOperario: (nombre) => auth.clave32(claveNormalizada(nombre)),
   ahoraUTC,
   aLocalLegible,
+  /* Día local de planta: única definición de "ventana de fechas" (UTC-3). */
+  hoyLocal,
+  correrDias,
+  inicioDiaLocalUTC,
+  ventanaLocalUTC,
   calcularDuracionMinutos,
   claveNormalizada,
   umbralMinutos,
