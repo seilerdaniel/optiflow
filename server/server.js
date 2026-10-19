@@ -268,6 +268,8 @@ const RUTAS = [
   // (jefe/encargado) y no un dato que el operario de terminal pueda mover.
   ['GET', '/api/metricas/objetivo-corte', metricas.objetivoCorte, { auth: 'usuario' }],
   ['POST', '/api/metricas/objetivo-corte', metricas.guardarObjetivoCorte, { auth: 'gestion' }],
+  // Comparativo anual de metas vs. real (selector de año + tabla de 12 meses).
+  ['GET', '/api/metricas/objetivos-anio', metricas.objetivosAnio, { auth: 'usuario' }],
 
   // Catálogo dinámico de placas (reconstruido desde ot_materiales).
   ['GET', '/api/materiales/catalogo', materiales.catalogo, { auth: 'usuario' }],

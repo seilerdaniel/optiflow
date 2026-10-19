@@ -21,7 +21,7 @@
  * bump CACHE_VERSION para descartar los assets viejos.
  * ============================================================ */
 
-const CACHE_VERSION = 'v10';
+const CACHE_VERSION = 'v11';
 const CACHE_ESTATICOS = `optiflow-estaticos-${CACHE_VERSION}`;
 const CACHE_PAGINAS = `optiflow-paginas-${CACHE_VERSION}`;
 
@@ -38,6 +38,7 @@ const SHELL = [
   '/login.html',
   '/css/app.css',
   '/js/api.js',
+  '/js/qr.js',
   '/js/login.js',
   '/js/sidebar.js',
   '/js/terminal.js',
@@ -75,7 +76,7 @@ self.addEventListener('fetch', (evento) => {
   if (request.method !== 'GET') return; // POST/PUT/DELETE siempre van a la red
 
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return; // externos (ej. api.qrserver) sin tocar
+  if (url.origin !== self.location.origin) return; // otros orígenes: fuera del alcance del SW
 
   // API: siempre red, jamás caché.
   if (url.pathname.startsWith('/api/')) return;

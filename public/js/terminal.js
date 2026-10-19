@@ -364,6 +364,27 @@ function ocultarBannerEscaneo() {
 /* Ficha de la OT                                                      */
 /* ------------------------------------------------------------------ */
 
+/**
+ * QR compacto de la ficha: codifica la misma URL `/?ot=<numero>` que ya usa
+ * el escáner de la terminal. Sirve para abrir la OT en otro dispositivo sin
+ * tipear el número (QR nativo, sin servicios externos).
+ */
+function crearQRFicha(ot) {
+  const caja = h('div', {
+    class: 'ficha-ot-qr',
+    title: 'Escanear para abrir esta OT en otro dispositivo',
+  });
+  if (window.QR) {
+    QR.pintar(caja, QR.payloadOT(ot), {
+      px: 64,
+      quiet: 2,
+      color: '#0f2f4f',
+      label: `QR de la OT ${ot.numero_ot}`,
+    });
+  }
+  return caja;
+}
+
 function pintarFichaOT() {
   const cont = $('ficha-ot');
   cont.innerHTML = '';
@@ -395,8 +416,10 @@ function pintarFichaOT() {
 
   cont.append(h('div', { class: 'ficha-ot' },
     h('div', { class: 'ficha-ot-top' },
-      h('span', { class: 'ficha-ot-num', text: ot.numero_ot }),
-      h('span', { class: 'ficha-ot-cli', text: ot.cliente }),
+      h('div', { class: 'ficha-ot-ident' },
+        h('span', { class: 'ficha-ot-num', text: ot.numero_ot }),
+        h('span', { class: 'ficha-ot-cli', text: ot.cliente })),
+      crearQRFicha(ot),
       h('span', { class: 'espaciador' }),
       h('button', { class: 'btn btn-chico', type: 'button', onclick: cambiarOT, text: '✕ Cambiar OT' })
     ),

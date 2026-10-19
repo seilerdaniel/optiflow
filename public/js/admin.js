@@ -21,6 +21,8 @@ const S = {
   objetivo: null,        // meta del MES consultado (última respuesta válida)
   objetivoPeriodo: null, // mes elegido en el selector; null = mes en curso
   periodosBase: null,    // mes a partir del cual se armó el desplegable
+  objetivosAnio: null,   // comparativo anual de metas (12 meses)
+  anioObjetivos: null,   // año elegido en el selector anual
 };
 
 const $ = (id) => document.getElementById(id);
@@ -55,6 +57,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     await Promise.all([cargarActivas(), cargarMetricas(), cargarOperarios()]);
     // Paneles dedicados: catálogo de placas, talleres compartidos y TPM.
     await Promise.all([cargarMateriales(), cargarCompartidos(), cargarTPM()]);
+    // Comparativo anual de metas (tiene try/catch propio: si falla, el resto
+    // del panel sigue funcionando).
+    await cargarObjetivosAnio();
     if (S.usuario.rol === 'admin') {
       $('panel-usuarios').hidden = false;
       await cargarUsuarios();
@@ -177,6 +182,12 @@ function ligarEventos() {
   });
   $('btnPeriodoAnterior').addEventListener('click', () => moverPeriodoObjetivo(1));
   $('btnPeriodoSiguiente').addEventListener('click', () => moverPeriodoObjetivo(-1));
+
+  // Comparativo anual: el selector de año recarga SOLO ese panel.
+  $('selectAnioObjetivos').addEventListener('change', (ev) => {
+    S.anioObjetivos = Number(ev.target.value) || null;
+    cargarObjetivosAnio(S.anioObjetivos);
+  });
 
   // Buscador global (Ctrl/⌘ + K): se liga al final para que todo el estado
   // del panel (S.ordenes, S.meta…) ya esté disponible.
@@ -350,7 +361,7 @@ function paletaIndustrial() {
   };
 }
 
-const GRAFICOS = { ciclo: null, causas: null, avance: null };
+const GRAFICOS = { ciclo: null, causas: null, avance: null, objetivosAnio: null };
 
 /** Tiempo de ciclo promedio por sector, filtrable por línea. */
 function pintarGraficoCiclo() {
@@ -880,6 +891,10 @@ function abrirAjusteMetaCorte() {
   $('meta-corte-total').value = configurada ? d.meta.totales : '';
   $('meta-corte-placares').value = configurada ? d.meta.placares : '';
   $('meta-corte-cocinas').value = configurada ? d.meta.cocinas : '';
+  // Metas complementarias: vacías si el mes no las tiene configuradas.
+  $('meta-corte-unidades').value = configurada && d.meta.unidades != null ? d.meta.unidades : '';
+  $('meta-corte-monto').value = configurada && d.meta.monto != null ? d.meta.monto : '';
+  $('meta-corte-categoria').value = d.categoria_o_area || '';
 
   Modal.abrir('modal-meta-corte');
 }
@@ -906,6 +921,10 @@ async function guardarMetaCorte(ev) {
     meta_metros_totales: $('meta-corte-total').value,
     meta_metros_placares: $('meta-corte-placares').value,
     meta_metros_cocinas: $('meta-corte-cocinas').value,
+    // Campos OPCIONALES: vacío = conservar / no configurar.
+    meta_unidades_totales: $('meta-corte-unidades').value,
+    meta_monto_total: $('meta-corte-monto').value,
+    categoria_o_area: $('meta-corte-categoria').value,
   };
   const btn = $('meta-corte-guardar');
   btn.disabled = true;
@@ -917,10 +936,204 @@ async function guardarMetaCorte(ev) {
     // Sigue mirando el mismo mes: si se guardó un período histórico, el
     // refresco debe volver sobre ÉL y no saltar al mes en curso.
     await cargarObjetivoCorte();
+    // El comparativo anual cambió: se refresca el año del período guardado.
+    await cargarObjetivosAnio(Number(periodo.slice(0, 4)));
   } catch (e) {
     manejarError(e, 'Guardar meta de corte');
   } finally {
     btn.disabled = false;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Metas por período: comparativo anual (12 meses)                     */
+/* ------------------------------------------------------------------ */
+
+/** Monto en pesos con separador de miles (2 decimales como máximo). */
+function formatoMonto(v) {
+  if (v === null || v === undefined || v === '') return '—';
+  return Number(v).toLocaleString('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 2,
+  });
+}
+
+/** Carga el comparativo anual. `anio` null = año en curso. */
+async function cargarObjetivosAnio(anio) {
+  if (!$('panel-objetivos-anio')) return;
+  try {
+    const q = anio ? `?anio=${encodeURIComponent(anio)}` : '';
+    const d = await API.get(`/api/metricas/objetivos-anio${q}`);
+    S.objetivosAnio = d;
+    S.anioObjetivos = d.anio;
+    pintarSelectorAnio(d);
+    pintarGraficoObjetivosAnio(d);
+    pintarTablaObjetivosAnio(d);
+  } catch (e) {
+    console.warn('Objetivos por período no disponibles:', e.message);
+    const nota = $('nota-objetivos-anio');
+    if (nota) nota.textContent = 'No se pudo cargar el comparativo anual.';
+  }
+}
+
+/** Llena el selector de año sin perder la selección en cada refresco. */
+function pintarSelectorAnio(d) {
+  const sel = $('selectAnioObjetivos');
+  if (!sel || !d) return;
+  const anios = (Array.isArray(d.anios) && d.anios.length ? d.anios : [d.anio]).map(Number);
+  const firma = anios.join(',');
+  if (sel.dataset.firma !== firma) {
+    sel.innerHTML = '';
+    for (const a of anios) sel.append(h('option', { value: String(a), text: String(a) }));
+    sel.dataset.firma = firma;
+  }
+  sel.value = String(d.anio);
+}
+
+/** Barras meta/real + línea de % de cumplimiento (eje derecho). */
+function pintarGraficoObjetivosAnio(d) {
+  if (typeof Chart === 'undefined' || !d || !Array.isArray(d.meses)) return;
+  const lienzo = $('grafico-objetivos-anio');
+  if (!lienzo) return;
+
+  const p = paletaIndustrial();
+  const datos = {
+    labels: d.meses.map((m) => MESES_CORTOS[m.mes - 1] || m.periodo.slice(5)),
+    datasets: [
+      {
+        type: 'bar',
+        label: 'Meta (m)',
+        data: d.meses.map((m) => (m.meta_configurada ? m.meta.metros : null)),
+        backgroundColor: 'rgba(29, 99, 184, .30)',
+        borderColor: p.placares,
+        borderWidth: 1,
+        borderRadius: 4,
+        order: 2,
+      },
+      {
+        type: 'bar',
+        label: 'Real (m)',
+        data: d.meses.map((m) => m.real.metros),
+        backgroundColor: 'rgba(34, 184, 207, .85)',
+        borderColor: '#0f7f93',
+        borderWidth: 1,
+        borderRadius: 4,
+        order: 1,
+      },
+      {
+        type: 'line',
+        label: '% cumplimiento',
+        data: d.meses.map((m) => m.porcentaje),
+        borderColor: p.proceso,
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        pointRadius: 2,
+        pointHoverRadius: 4,
+        tension: 0.25,
+        spanGaps: false,
+        yAxisID: 'y2',
+        order: 0,
+      },
+    ],
+  };
+
+  const opciones = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { color: p.texto, boxWidth: 12, padding: 12, font: { size: 11 } },
+      },
+      tooltip: {
+        callbacks: {
+          label: (c) => (c.dataset.yAxisID === 'y2'
+            ? ` ${c.dataset.label}: ${c.parsed.y === null ? '—' : `${c.parsed.y}%`}`
+            : ` ${c.dataset.label}: ${FORMATO.metros(c.parsed.y)}`),
+        },
+      },
+    },
+    scales: {
+      x: { ticks: { color: p.texto }, grid: { display: false } },
+      y: {
+        position: 'left',
+        beginAtZero: true,
+        ticks: { color: p.texto },
+        grid: { color: p.borde },
+        title: { display: true, text: 'metros', color: p.texto },
+      },
+      y2: {
+        position: 'right',
+        beginAtZero: true,
+        suggestedMax: 120,
+        ticks: { color: p.texto, callback: (v) => `${v}%` },
+        grid: { drawOnChartArea: false },
+        title: { display: true, text: '% cumplimiento', color: p.texto },
+      },
+    },
+  };
+
+  if (GRAFICOS.objetivosAnio) {
+    GRAFICOS.objetivosAnio.data = datos;
+    GRAFICOS.objetivosAnio.options = opciones;
+    GRAFICOS.objetivosAnio.update();
+    return;
+  }
+  GRAFICOS.objetivosAnio = new Chart(lienzo, { type: 'bar', data: datos, options: opciones });
+}
+
+/** Tabla de 12 meses + fila de totales. */
+function pintarTablaObjetivosAnio(d) {
+  const tabla = $('tabla-objetivos-anio');
+  const tbody = tabla && tabla.tBodies[0];
+  if (!tbody || !d || !Array.isArray(d.meses)) return;
+
+  const chipPct = (pct) => {
+    const clase = pct === null || pct === undefined
+      ? 'chip chip-gris'
+      : pct >= 100 ? 'chip chip-verde'
+        : pct >= 75 ? 'chip chip-azul'
+          : 'chip chip-amarillo';
+    return h('span', {
+      class: clase,
+      text: pct === null || pct === undefined ? '—' : `${pct}%`,
+    });
+  };
+
+  tbody.innerHTML = '';
+  const filas = d.meses.map((m) => h('tr', {},
+    h('td', {}, h('b', { text: MESES_CORTOS[m.mes - 1] || m.periodo.slice(5) }),
+      ' ', h('span', { class: 'texto-suave', text: m.periodo.slice(0, 4) })),
+    h('td', { class: 'num', text: m.meta_configurada ? FORMATO.metros(m.meta.metros) : '—' }),
+    h('td', { class: 'num', text: FORMATO.metros(m.real.metros) }),
+    h('td', { class: 'num' }, chipPct(m.porcentaje)),
+    h('td', { class: 'num', text: String(m.real.ots) }),
+    h('td', { class: 'num', text: m.meta.unidades === null ? '—' : String(m.meta.unidades) }),
+    h('td', { class: 'num', text: m.meta.monto === null ? '—' : formatoMonto(m.meta.monto) }),
+    h('td', { text: m.categoria_o_area || '—' })));
+
+  const t = d.totales || {};
+  filas.push(h('tr', { class: 'fila-total' },
+    h('td', {}, h('b', { text: 'Total del año' })),
+    h('td', { class: 'num', text: t.meta_metros === null ? '—' : FORMATO.metros(t.meta_metros) }),
+    h('td', { class: 'num', text: FORMATO.metros(t.real_metros) }),
+    h('td', { class: 'num' }, chipPct(t.porcentaje)),
+    h('td', { class: 'num', text: String(t.real_ots || 0) }),
+    h('td', { class: 'num', text: t.meta_unidades === null ? '—' : String(t.meta_unidades) }),
+    h('td', { class: 'num', text: t.meta_monto === null ? '—' : formatoMonto(t.meta_monto) }),
+    h('td', { text: '—' })));
+
+  tbody.append(...filas);
+  estamparEtiquetas(tabla);
+
+  const configurados = d.meses.filter((m) => m.meta_configurada).length;
+  const nota = $('nota-objetivos-anio');
+  if (nota) {
+    nota.textContent = `Año ${d.anio} · ${configurados} de 12 meses con meta configurada`
+      + ` · real acumulado ${FORMATO.metros(t.real_metros)}`
+      + (t.porcentaje === null ? '.' : ` (${t.porcentaje}% del objetivo anual).`);
   }
 }
 
@@ -1690,8 +1903,27 @@ async function verDetalle(id) {
               h('td', { text: [g.motivo_pausa, g.observacion].filter(Boolean).join(' · ') || '—' })))
             : [h('tr', {}, h('td', { colspan: '8', class: 'vacio', text: 'Sin registros de tiempo.' }))])));
 
+    // QR compacto junto al N° de OT y al cliente: al escanearlo desde un
+    // móvil/tablet abre ESTA OT en la Terminal de Fichado.
+    const qrLienzo = h('div', { class: 'ot-qr-lienzo' });
+    if (window.QR) {
+      QR.pintar(qrLienzo, QR.payloadOT(ot), {
+        px: 104,
+        quiet: 3,
+        color: '#0f2f4f',
+        label: `QR de la OT ${ot.numero_ot} de ${ot.cliente}`,
+      });
+    }
+    const bloqueQR = h('div', { class: 'ot-qr-bloque' },
+      h('div', { class: 'ot-qr-datos' },
+        h('div', { class: 'ot-qr-ot', text: ot.numero_ot }),
+        h('div', { class: 'ot-qr-cliente', text: ot.cliente }),
+        h('div', { class: 'ot-qr-hint', text: 'Escaneá para abrir esta OT en la Terminal.' })),
+      qrLienzo);
+
     $('detalle-cuerpo').innerHTML = '';
     $('detalle-cuerpo').append(
+      bloqueQR,
       h('div', { class: 'resumen-modal' },
         h('div', {}, 'Estado: ', h('b', { text: ot.estado_general }),
           ' · Línea: ', h('b', { text: ot.linea_area || 'Placares' }),
@@ -1734,7 +1966,16 @@ function imprimirHojaRuta(ot) {
 
   // URL que el QR encodea: la terminal con la OT precargada (ver TAREA 5).
   const urlTerminal = `${window.location.origin}/?ot=${encodeURIComponent(ot.numero_ot)}`;
-  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=0&data=${encodeURIComponent(urlTerminal)}`;
+  // QR NATIVO: sin servicios externos ni librerías de terceros.
+  // El SVG lo genera public/js/qr.js y sale nítido también en la impresión.
+  const qrLienzo = h('div', { class: 'hoja-qr' });
+  if (window.QR) {
+    QR.pintar(qrLienzo, urlTerminal, {
+      quiet: 2,
+      color: '#0f2f4f',
+      label: `QR de ${ot.numero_ot}`,
+    });
+  }
 
   // Materiales / placas.
   const mats = ot.materiales || [];
@@ -1767,7 +2008,7 @@ function imprimirHojaRuta(ot) {
       h('div', { class: 'hoja-linea', text: linea.toUpperCase() })),
 
     h('div', { class: 'hoja-qr-bloque' },
-      h('img', { class: 'hoja-qr', src: qrSrc, alt: `QR de ${ot.numero_ot}` }),
+      qrLienzo,
       h('div', { class: 'hoja-qr-texto' },
         h('b', { text: ot.numero_ot }),
         h('p', { text: 'Escaneé con la tablet para abrir esta OT en la Terminal de Fichado.' }),

@@ -20,7 +20,7 @@
  */
 
 const db = require('../db');
-const { ApiError, decimal } = require('../lib/http');
+const { ApiError, decimal, textoOpcional } = require('../lib/http');
 
 const { MOTIVOS_REPROCESO, MOTIVOS_PAUSA, ESTADOS_OT, ESTADOS_ABIERTOS } = db;
 
@@ -536,7 +536,20 @@ async function objetivoCorte({ query }) {
       // false en meses históricos que la planta nunca configuró: el resto de
       // campos (porcentaje, diferencia, ideales del gráfico) vienen anulados.
       meta_configurada: configurada,
-      meta: { totales: metaTotales, placares: metaPlacares, cocinas: metaCocinas },
+      meta: {
+        totales: metaTotales,
+        placares: metaPlacares,
+        cocinas: metaCocinas,
+        // Metas complementarias OPCIONALES (null = no configurada). Se envían
+        // para que el modal de ajuste pueda precargarlas sin otra consulta.
+        unidades: fuente && fuente.meta_unidades_totales !== null
+          && fuente.meta_unidades_totales !== undefined
+          ? Number(fuente.meta_unidades_totales) : null,
+        monto: fuente && fuente.meta_monto_total !== null
+          && fuente.meta_monto_total !== undefined
+          ? Number(fuente.meta_monto_total) : null,
+      },
+      categoria_o_area: (fuente && fuente.categoria_o_area) || null,
       cortados: r2(total),
       porcentaje,
       dias: {
@@ -586,46 +599,242 @@ async function guardarObjetivoCorte({ body }) {
   // histórico o del que viene, sin tocar el registro de ningún otro período
   // (el UPDATE de más abajo filtra exactamente por este `periodo`).
   const actual = await leerObjetivo(periodo, true);
+  if (!actual) {
+    throw new ApiError(500, 'No se pudo preparar la meta del período para actualizarla.');
+  }
 
-  const rango = { min: 0, max: 99999999.99, requerido: false, porDefecto: null };
+  const rangoMetros = { min: 0, max: 99999999.99, requerido: false, porDefecto: null };
+  const rangoUnidades = { min: 0, max: 999999999.99, requerido: false, porDefecto: null };
+  const rangoMonto = { min: 0, max: 999999999999.99, requerido: false, porDefecto: null };
   const recibidas = {
-    meta_metros_totales: decimal(body.meta_metros_totales, 'Meta de metros totales', rango),
-    meta_metros_placares: decimal(body.meta_metros_placares, 'Meta de metros Placares', rango),
-    meta_metros_cocinas: decimal(body.meta_metros_cocinas, 'Meta de metros Cocinas', rango),
+    meta_metros_totales: decimal(body.meta_metros_totales, 'Meta de metros totales', rangoMetros),
+    meta_metros_placares: decimal(body.meta_metros_placares, 'Meta de metros Placares', rangoMetros),
+    meta_metros_cocinas: decimal(body.meta_metros_cocinas, 'Meta de metros Cocinas', rangoMetros),
+    meta_unidades_totales: decimal(body.meta_unidades_totales, 'Meta de unidades', rangoUnidades),
+    meta_monto_total: decimal(body.meta_monto_total, 'Meta de monto', rangoMonto),
   };
 
-  if (Object.values(recibidas).every((v) => v === null)) {
+  const tocaCategoria = body.categoria_o_area !== undefined;
+  if (Object.values(recibidas).every((v) => v === null) && !tocaCategoria) {
     throw new ApiError(
       400,
-      'Enviá al menos una meta (total, Placares o Cocinas) para actualizar.'
+      'Enviá al menos una meta (metros, unidades o monto) para actualizar.'
     );
   }
 
-  const finales = {
-    meta_metros_totales: recibidas.meta_metros_totales !== null
-      ? recibidas.meta_metros_totales
-      : Number(actual.meta_metros_totales),
-    meta_metros_placares: recibidas.meta_metros_placares !== null
-      ? recibidas.meta_metros_placares
-      : Number(actual.meta_metros_placares),
-    meta_metros_cocinas: recibidas.meta_metros_cocinas !== null
-      ? recibidas.meta_metros_cocinas
-      : Number(actual.meta_metros_cocinas),
+  // Campo no enviado (null) -> conserva el valor previo; enviado -> lo pisa.
+  const conservar = (recibido, previo) => {
+    if (recibido !== null) return recibido;
+    return previo === null || previo === undefined ? null : Number(previo);
   };
+
+  const finales = {
+    meta_metros_totales: conservar(recibidas.meta_metros_totales, actual.meta_metros_totales),
+    meta_metros_placares: conservar(recibidas.meta_metros_placares, actual.meta_metros_placares),
+    meta_metros_cocinas: conservar(recibidas.meta_metros_cocinas, actual.meta_metros_cocinas),
+    meta_unidades_totales: conservar(recibidas.meta_unidades_totales, actual.meta_unidades_totales),
+    meta_monto_total: conservar(recibidas.meta_monto_total, actual.meta_monto_total),
+  };
+
+  // La categoría se puede LIMPIAR enviando una cadena vacía; si el campo no
+  // viene en el cuerpo, se conserva el valor actual.
+  const categoria = tocaCategoria
+    ? textoOpcional(body.categoria_o_area, 'Categoría o área', { max: 40 })
+    : (actual.categoria_o_area || null);
 
   await db.run(`
     UPDATE objetivos_produccion
-       SET meta_metros_totales  = ?,
-           meta_metros_placares = ?,
-           meta_metros_cocinas  = ?
+       SET meta_metros_totales   = ?,
+           meta_metros_placares  = ?,
+           meta_metros_cocinas   = ?,
+           meta_unidades_totales = ?,
+           meta_monto_total      = ?,
+           categoria_o_area      = ?
      WHERE periodo = ?;`,
     finales.meta_metros_totales,
     finales.meta_metros_placares,
     finales.meta_metros_cocinas,
+    finales.meta_unidades_totales,
+    finales.meta_monto_total,
+    categoria,
     periodo
   );
 
-  return { status: 200, data: { ok: true, periodo, meta: finales } };
+  return {
+    status: 200,
+    data: { ok: true, periodo, meta: finales, categoria_o_area: categoria },
+  };
+}
+
+/**
+ * GET /api/metricas/objetivos-anio?anio=YYYY
+ *
+ * Comparativo anual de metas vs. producción real, mes a mes.
+ *
+ * · El real de metros usa EXACTAMENTE el mismo criterio que el endpoint
+ *   mensual: una OT computa en un mes si su intervalo de corte [inicio, fin]
+ *   solapa ese mes (fin NULL = todavía abierta). Así la suma de la tabla
+ *   anual coincide con lo que muestra la tarjeta de cada mes.
+ * · Las metas se leen de `objetivos_produccion`. Sólo el mes EN CURSO se
+ *   auto-crea; un mes histórico sin fila se reporta `meta_configurada:false`
+ *   en vez de inventarle un objetivo.
+ * · `meta_unidades_totales` se compara contra OTs con actividad en el mes y
+ *   `meta_monto_total` se muestra como objetivo configurado (el sistema no
+ *   registra facturación, así que no se fabrica un "real" monetario).
+ */
+async function objetivosAnio({ query }) {
+  const RE_ANIO = /^\d{4}$/;
+  const anio = query && query.anio !== undefined && query.anio !== ''
+    ? String(query.anio).trim()
+    : hoyLocal().slice(0, 4);
+  if (!RE_ANIO.test(anio) || Number(anio) < 2000 || Number(anio) > 2100) {
+    throw new ApiError(400, 'El campo "anio" debe ser un año de 4 dígitos (2000-2100).');
+  }
+
+  const periodoActualStr = periodoActual();
+  const filasMeta = await db.all(
+    'SELECT * FROM objetivos_produccion WHERE periodo LIKE ? ORDER BY periodo;',
+    `${anio}-%`
+  );
+  const porPeriodo = new Map(filasMeta.map((f) => [f.periodo, f]));
+
+  // Mismo contrato que el endpoint mensual: el mes en curso SIEMPRE tiene
+  // meta; los históricos sin fila quedan "sin configurar".
+  if (periodoActualStr.startsWith(`${anio}-`) && !porPeriodo.has(periodoActualStr)) {
+    const creada = await leerObjetivo(periodoActualStr, true);
+    if (creada) porPeriodo.set(periodoActualStr, creada);
+  }
+
+  const desdeAnio = `${anio}-01-01`;
+  const hastaAnio = `${Number(anio) + 1}-01-01`;
+
+  // OTs con corte que solapan el año (misma consulta base que el mes).
+  const filas = await db.all(`
+    SELECT o.id,
+           o.metros_lineales,
+           o.linea_area,
+           min(r.fecha_hora_inicio) AS inicio_corte,
+           max(r.fecha_hora_fin)    AS fin_corte
+      FROM ordenes_trabajo o
+      JOIN registros_tiempos r ON r.ot_id = o.id
+      JOIN sectores s          ON s.id  = r.sector_id
+     WHERE s.activo = 1
+       AND s.clave_especial IS NULL
+       AND s.linea_area = o.linea_area
+       AND s.orden_flujo = (
+             SELECT min(s2.orden_flujo)
+               FROM sectores s2
+              WHERE s2.activo = 1
+                AND s2.clave_especial IS NULL
+                AND s2.linea_area = o.linea_area
+           )
+     GROUP BY o.id, o.metros_lineales, o.linea_area
+    HAVING min(r.fecha_hora_inicio) < ?
+       AND (max(r.fecha_hora_fin) IS NULL OR max(r.fecha_hora_fin) >= ?);`,
+    inicioDiaLocalUTC(hastaAnio),
+    inicioDiaLocalUTC(desdeAnio)
+  );
+
+  const meses = [];
+  for (let m = 1; m <= 12; m += 1) {
+    const periodo = `${anio}-${String(m).padStart(2, '0')}`;
+    const mesInicio = `${periodo}-01`;
+    const mesFin = inicioMesSiguiente(periodo);
+    const desdeUTC = inicioDiaLocalUTC(mesInicio);
+    const hastaUTC = inicioDiaLocalUTC(mesFin);
+
+    let metros = 0;
+    let placares = 0;
+    let cocinas = 0;
+    const ots = new Set();
+    for (const f of filas) {
+      if (!f.inicio_corte || !(f.inicio_corte < hastaUTC)) continue;
+      if (f.fin_corte && !(f.fin_corte >= desdeUTC)) continue;
+      const mt = Number(f.metros_lineales || 0);
+      metros += mt;
+      if (f.linea_area === 'Placares') placares += mt;
+      else if (f.linea_area === 'Cocinas') cocinas += mt;
+      ots.add(f.id);
+    }
+
+    const fila = porPeriodo.get(periodo) || null;
+    const configurada = !!fila || periodo === periodoActualStr;
+    const base = fila || (periodo === periodoActualStr ? META_DEFECTO : null);
+    const metaMetros = configurada ? Number((base && base.meta_metros_totales) || 0) : 0;
+    const metaPlacares = configurada ? Number((base && base.meta_metros_placares) || 0) : 0;
+    const metaCocinas = configurada ? Number((base && base.meta_metros_cocinas) || 0) : 0;
+    const metaUnidades = configurada && base && base.meta_unidades_totales !== null
+      && base.meta_unidades_totales !== undefined
+      ? Number(base.meta_unidades_totales)
+      : null;
+    const metaMonto = configurada && base && base.meta_monto_total !== null
+      && base.meta_monto_total !== undefined
+      ? Number(base.meta_monto_total)
+      : null;
+
+    meses.push({
+      periodo,
+      mes: m,
+      meta_configurada: configurada,
+      categoria_o_area: (base && base.categoria_o_area) || null,
+      meta: {
+        metros: r2(metaMetros),
+        placares: r2(metaPlacares),
+        cocinas: r2(metaCocinas),
+        unidades: metaUnidades === null ? null : r2(metaUnidades),
+        monto: metaMonto === null ? null : r2(metaMonto),
+      },
+      real: {
+        metros: r2(metros),
+        placares: r2(placares),
+        cocinas: r2(cocinas),
+        ots: ots.size,
+      },
+      porcentaje: configurada && metaMetros > 0 ? r2((metros / metaMetros) * 100) : null,
+      porcentaje_unidades: metaUnidades && metaUnidades > 0
+        ? r2((ots.size / metaUnidades) * 100)
+        : null,
+      diferencia: configurada && metaMetros > 0 ? r2(metros - metaMetros) : null,
+    });
+  }
+
+  const totalMeta = meses.reduce((a, x) => a + (x.meta_configurada ? x.meta.metros : 0), 0);
+  const totalReal = meses.reduce((a, x) => a + x.real.metros, 0);
+  const totalMetaUnidades = meses.reduce((a, x) => a + (x.meta.unidades || 0), 0);
+  // En el TOTAL se cuentan OTs ÚNICAS del año, no la suma de las OTs-mes
+  // (una OT que cruza de enero a febrero aparecería dos veces).
+  const totalRealOTs = new Set(filas.map((f) => f.id)).size;
+  const totalMetaMonto = meses.reduce((a, x) => a + (x.meta.monto || 0), 0);
+
+  // Años ofrecidos por el selector: los que tienen metas + el año en curso.
+  // El año se deriva en JS (no con substr en SQL): el período ya es 'YYYY-MM'
+  // y así la consulta no depende del motor ni de comparaciones de texto.
+  const periodosFilas = await db.all(
+    'SELECT DISTINCT periodo FROM objetivos_produccion ORDER BY periodo DESC;'
+  );
+  const anios = new Set([Number(hoyLocal().slice(0, 4)), Number(anio)]);
+  for (const f of periodosFilas) {
+    const y = String((f && f.periodo) || '').slice(0, 4);
+    if (/^\d{4}$/.test(y)) anios.add(Number(y));
+  }
+
+  return {
+    status: 200,
+    data: {
+      anio: Number(anio),
+      anios: [...anios].sort((a, b) => b - a),
+      meses,
+      totales: {
+        meta_metros: r2(totalMeta),
+        real_metros: r2(totalReal),
+        porcentaje: totalMeta > 0 ? r2((totalReal / totalMeta) * 100) : null,
+        meta_unidades: totalMetaUnidades > 0 ? r2(totalMetaUnidades) : null,
+        real_ots: totalRealOTs,
+        meta_monto: totalMetaMonto > 0 ? r2(totalMetaMonto) : null,
+      },
+      generado_en: db.ahoraUTC(),
+    },
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -676,6 +885,7 @@ module.exports = {
   calcular,
   objetivoCorte,
   guardarObjetivoCorte,
+  objetivosAnio,
   // Utilidades del módulo exportadas para poder testear el cómputo de fechas
   // (bisiestos, cierre de mes, cambio de período) sin necesidad de base.
   _pruebas: { periodoActual, inicioMesSiguiente, diasEntre, diaAcreditado, r2, META_DEFECTO },

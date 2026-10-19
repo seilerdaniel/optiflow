@@ -172,6 +172,49 @@
         <div class="grafico-lienzo"><canvas id="grafico-avance" aria-label="Avance diario de corte" role="img"></canvas></div>
       </div>
     </div>
+
+    <!-- ===== Metas por período: comparativo anual =====
+         Selector de año + barras meta/real + tabla de 12 meses con el %
+         de cumplimiento, OTs con actividad, unidades y monto objetivo. -->
+    <div class="panel-industrial objetivos-anio" id="panel-objetivos-anio" style="margin-top:18px;">
+      <div class="objetivos-anio-cabecera">
+        <div>
+          <h3 class="titulo-seccion" style="font-size:1rem; margin:0;">📅 Metas por período</h3>
+          <p class="texto-suave" style="margin:2px 0 0;">
+            Progreso real vs. objetivo mensual. El real de metros usa el mismo criterio de corte que la tarjeta superior.
+          </p>
+        </div>
+        <label class="campo" style="flex:0 0 auto; min-width:150px;">
+          <span>Año</span>
+          <select id="selectAnioObjetivos" aria-label="Año de los objetivos"></select>
+        </label>
+      </div>
+
+      <div class="grafico-lienzo objetivos-anio-grafico">
+        <canvas id="grafico-objetivos-anio" aria-label="Comparativo anual de metas y producción real" role="img"></canvas>
+      </div>
+
+      <div class="tabla-envoltura">
+        <table class="tabla" id="tabla-objetivos-anio">
+          <thead>
+            <tr>
+              <th>Mes</th>
+              <th class="num">Meta (m)</th>
+              <th class="num">Real (m)</th>
+              <th class="num">Cumpl.</th>
+              <th class="num">OTs</th>
+              <th class="num">Meta OTs</th>
+              <th class="num">Meta monto</th>
+              <th>Categoría / área</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="8" class="vacio">Cargando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="texto-suave" id="nota-objetivos-anio" style="margin:8px 0 0; font-size:.78rem;"></p>
+    </div>
   </section>
 
   <!-- ============ CARGA POR SECTOR (desglose del cuello de botella) ============ -->
@@ -867,10 +910,30 @@
             <input type="number" id="meta-corte-cocinas" min="0" max="99999999.99"
                    step="0.01" inputmode="decimal" placeholder="400">
           </label>
+
+          <label class="campo">
+            <span>Meta de unidades (OTs)</span>
+            <input type="number" id="meta-corte-unidades" min="0" max="999999999.99"
+                   step="0.01" inputmode="decimal" placeholder="Opcional">
+          </label>
+
+          <label class="campo">
+            <span>Meta de monto</span>
+            <input type="number" id="meta-corte-monto" min="0" max="999999999999.99"
+                   step="0.01" inputmode="decimal" placeholder="Opcional">
+          </label>
+
+          <label class="campo" style="grid-column:1/-1;">
+            <span>Categoría / área</span>
+            <input type="text" id="meta-corte-categoria" maxlength="40"
+                   placeholder="Ej.: Placares, Cocinas, Exportación…">
+          </label>
         </div>
 
         <small class="texto-suave" style="display:block; margin-top:8px; font-size:.75rem;">
-          Tope de numeric(10,2): 99.999.999,99 metros por campo.
+          Metros: tope 99.999.999,99 por campo. Unidades, monto y categoría son
+          opcionales y se conservan si se dejan vacíos (la categoría se limpia
+          enviando el campo vacío).
         </small>
       </div>
       <div class="modal-pie">
@@ -916,6 +979,8 @@
 <script src="/js/api.js"></script>
 <script src="/js/sidebar.js"></script>
 <script src="/js/soporte.js"></script>
+<!-- Generador de QR 100% nativo (sin CDN ni servicios externos). -->
+<script src="/js/qr.js"></script>
 <!-- Chart.js 4.4.1 vendorizado localmente: cero CDN en runtime (la planta
      opera con red intermitente y el dashboard debe cargar igual). -->
 <script src="/js/lib/chart.umd.min.js"></script>
