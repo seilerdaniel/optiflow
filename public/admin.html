@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0f2f4f">
   <title>Optiflow · Administración de OTs</title>
   <link rel="stylesheet" href="/css/app.css">
@@ -63,7 +63,7 @@
   <section class="panel ancho-completo panel-industrial" id="panel-kpis">
     <h2 class="panel-titulo">
       <span class="etiqueta-titulo">📊 Dashboard de analítica integrada</span>
-      <span class="texto-suave" id="kpi-actualizado">Cargando métricas…</span>
+      <span class="texto-suave" id="kpi-actualizado"><span class="spinner spinner-sm" aria-hidden="true"></span> Cargando métricas…</span>
     </h2>
 
     <!-- 4 tarjetas de KPI (Lead Time · Standby · Riesgo · FTT) -->
@@ -132,7 +132,7 @@
           </div>
         </div>
 
-        <p class="corte-estado" id="corte-estado">Cargando…</p>
+        <p class="corte-estado" id="corte-estado"><span class="spinner spinner-sm" aria-hidden="true"></span> Cargando…</p>
 
         <div class="corte-avance">
           <div class="corte-valor" id="corte-cortados">—</div>
@@ -176,7 +176,8 @@
     <!-- ===== Metas por período: comparativo anual =====
          Selector de año + barras meta/real + tabla de 12 meses con el %
          de cumplimiento, OTs con actividad, unidades y monto objetivo. -->
-    <div class="panel-industrial objetivos-anio" id="panel-objetivos-anio" style="margin-top:18px;">
+    <div class="panel-industrial objetivos-anio" id="panel-objetivos-anio"
+         aria-busy="false" style="margin-top:18px;">
       <div class="objetivos-anio-cabecera">
         <div>
           <h3 class="titulo-seccion" style="font-size:1rem; margin:0;">📅 Metas por período</h3>
@@ -198,22 +199,23 @@
         <table class="tabla" id="tabla-objetivos-anio">
           <thead>
             <tr>
-              <th>Mes</th>
-              <th class="num">Meta (m)</th>
-              <th class="num">Real (m)</th>
-              <th class="num">Cumpl.</th>
-              <th class="num">OTs</th>
-              <th class="num">Meta OTs</th>
-              <th class="num">Meta monto</th>
-              <th>Categoría / área</th>
+              <th scope="col">Mes</th>
+              <th scope="col" class="num">Meta (m)</th>
+              <th scope="col" class="num">Real (m)</th>
+              <th scope="col" class="num">Cumpl.</th>
+              <th scope="col" class="num">OTs</th>
+              <th scope="col" class="num">Meta OTs</th>
+              <th scope="col" class="num">Meta monto</th>
+              <th scope="col">Categoría / área</th>
             </tr>
           </thead>
           <tbody>
-            <tr><td colspan="8" class="vacio">Cargando…</td></tr>
+            <tr><td colspan="8" class="vacio"><span class="spinner spinner-sm" aria-hidden="true"></span> Cargando…</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="texto-suave" id="nota-objetivos-anio" style="margin:8px 0 0; font-size:.78rem;"></p>
+      <p class="texto-suave" id="nota-objetivos-anio" aria-live="polite"
+         style="margin:8px 0 0; font-size:.78rem;"></p>
     </div>
   </section>
 
@@ -234,10 +236,10 @@
         <div class="tabla-envoltura">
           <table class="tabla" style="min-width:380px;">
             <thead>
-              <tr><th>Motivo</th><th class="num">Frecuencia</th><th class="num">Horas perdidas</th></tr>
+              <tr><th scope="col">Motivo</th><th scope="col" class="num">Frecuencia</th><th scope="col" class="num">Horas perdidas</th></tr>
             </thead>
             <tbody id="cuerpo-pausas">
-              <tr><td colspan="3" class="vacio">Cargando…</td></tr>
+              <tr><td colspan="3" class="vacio"><span class="spinner spinner-sm" aria-hidden="true"></span> Cargando…</td></tr>
             </tbody>
           </table>
         </div>
@@ -270,17 +272,17 @@
       <table class="tabla" id="tabla-seguimiento">
         <thead>
           <tr>
-            <th>OT</th>
-            <th>Cliente</th>
-            <th>Estado</th>
-            <th>Etapa activa</th>
-            <th>Avance</th>
-            <th class="num">Tiempo</th>
-            <th>Requiere</th>
+            <th scope="col">OT</th>
+            <th scope="col">Cliente</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Etapa activa</th>
+            <th scope="col">Avance</th>
+            <th scope="col" class="num">Tiempo</th>
+            <th scope="col">Requiere</th>
           </tr>
         </thead>
         <tbody id="cuerpo-seguimiento">
-          <tr><td colspan="7" class="vacio">Cargando…</td></tr>
+          <tr><td colspan="7" class="vacio"><span class="spinner spinner-sm" aria-hidden="true"></span> Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -402,20 +404,20 @@
       <table class="tabla" id="tabla-ots">
         <thead>
           <tr>
-            <th>OT</th>
-            <th>Cliente</th>
-            <th>Modelo</th>
-            <th class="num">Metros</th>
-            <th>Prometida</th>
-            <th>Requiere</th>
-            <th>Estado</th>
-            <th>Progreso</th>
-            <th class="num">Tiempo</th>
-            <th></th>
+            <th scope="col">OT</th>
+            <th scope="col">Cliente</th>
+            <th scope="col">Modelo</th>
+            <th scope="col" class="num">Metros</th>
+            <th scope="col">Prometida</th>
+            <th scope="col">Requiere</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Progreso</th>
+            <th scope="col" class="num">Tiempo</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody id="cuerpo-ots">
-          <tr><td colspan="10" class="vacio">Cargando…</td></tr>
+          <tr><td colspan="10" class="vacio"><span class="spinner spinner-sm" aria-hidden="true"></span> Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -466,18 +468,18 @@
       <table class="tabla" id="tabla-materiales">
         <thead>
           <tr>
-            <th>Material</th>
-            <th>Familia</th>
-            <th class="num">Espesor</th>
-            <th class="num">Requeridas</th>
-            <th class="num">Consumidas</th>
-            <th class="num">% Consumo</th>
-            <th class="num">OTs</th>
-            <th>Estado</th>
+            <th scope="col">Material</th>
+            <th scope="col">Familia</th>
+            <th scope="col" class="num">Espesor</th>
+            <th scope="col" class="num">Requeridas</th>
+            <th scope="col" class="num">Consumidas</th>
+            <th scope="col" class="num">% Consumo</th>
+            <th scope="col" class="num">OTs</th>
+            <th scope="col">Estado</th>
           </tr>
         </thead>
         <tbody id="cuerpo-materiales">
-          <tr><td colspan="8" class="vacio">Cargando…</td></tr>
+          <tr><td colspan="8" class="vacio"><span class="spinner spinner-sm" aria-hidden="true"></span> Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -523,17 +525,17 @@
       <table class="tabla" id="tabla-compartidos">
         <thead>
           <tr>
-            <th>Taller</th>
-            <th>Línea demandante</th>
-            <th>OT</th>
-            <th>Cliente</th>
-            <th>Etapa</th>
-            <th class="num">Minutos</th>
-            <th>Estado</th>
+            <th scope="col">Taller</th>
+            <th scope="col">Línea demandante</th>
+            <th scope="col">OT</th>
+            <th scope="col">Cliente</th>
+            <th scope="col">Etapa</th>
+            <th scope="col" class="num">Minutos</th>
+            <th scope="col">Estado</th>
           </tr>
         </thead>
         <tbody id="cuerpo-compartidos">
-          <tr><td colspan="7" class="vacio">Cargando…</td></tr>
+          <tr><td colspan="7" class="vacio"><span class="spinner spinner-sm" aria-hidden="true"></span> Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -580,17 +582,17 @@
       <table class="tabla" id="tabla-sectores">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Sector</th>
-            <th>Línea / Área</th>
-            <th>Operarios sugeridos</th>
-            <th class="num">Orden</th>
-            <th>Estado</th>
-            <th>Acciones</th>
+            <th scope="col">ID</th>
+            <th scope="col">Sector</th>
+            <th scope="col">Línea / Área</th>
+            <th scope="col">Operarios sugeridos</th>
+            <th scope="col" class="num">Orden</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Acciones</th>
           </tr>
         </thead>
         <tbody id="cuerpo-sectores">
-          <tr><td colspan="7" class="vacio">Cargando…</td></tr>
+          <tr><td colspan="7" class="vacio"><span class="spinner spinner-sm" aria-hidden="true"></span> Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -623,7 +625,7 @@
     </div>
 
     <div class="tpm-grid" id="tpm-grid">
-      <div class="vacio">Cargando mantenimientos…</div>
+      <div class="vacio"><span class="spinner spinner-sm" aria-hidden="true"></span> Cargando mantenimientos…</div>
     </div>
 
     <h3 class="titulo-seccion" style="font-size:.86rem; margin:20px 0 8px;">
@@ -634,16 +636,16 @@
       <table class="tabla" id="tabla-tpm-historial">
         <thead>
           <tr>
-            <th>Fecha / Hora</th>
-            <th>Máquina</th>
-            <th>Sector</th>
-            <th>Técnico / Operario</th>
-            <th class="num">Horas acumuladas</th>
-            <th>Observaciones</th>
+            <th scope="col">Fecha / Hora</th>
+            <th scope="col">Máquina</th>
+            <th scope="col">Sector</th>
+            <th scope="col">Técnico / Operario</th>
+            <th scope="col" class="num">Horas acumuladas</th>
+            <th scope="col">Observaciones</th>
           </tr>
         </thead>
         <tbody id="cuerpo-tpm-historial">
-          <tr><td colspan="6" class="vacio">Cargando…</td></tr>
+          <tr><td colspan="6" class="vacio"><span class="spinner spinner-sm" aria-hidden="true"></span> Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -679,16 +681,16 @@
       <table class="tabla" id="tabla-operarios">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Nombre</th>
-            <th class="num">Etapas</th>
-            <th>Última actividad</th>
-            <th>Estado</th>
-            <th>Acciones</th>
+            <th scope="col">ID</th>
+            <th scope="col">Nombre</th>
+            <th scope="col" class="num">Etapas</th>
+            <th scope="col">Última actividad</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Acciones</th>
           </tr>
         </thead>
         <tbody id="cuerpo-operarios">
-          <tr><td colspan="6" class="vacio">Cargando…</td></tr>
+          <tr><td colspan="6" class="vacio"><span class="spinner spinner-sm" aria-hidden="true"></span> Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -741,18 +743,18 @@
       <table class="tabla" id="tabla-usuarios">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Usuario</th>
-            <th>Nombre</th>
-            <th>Rol</th>
-            <th>WhatsApp</th>
-            <th>Último acceso</th>
-            <th>Estado</th>
-            <th>Acciones</th>
+            <th scope="col">ID</th>
+            <th scope="col">Usuario</th>
+            <th scope="col">Nombre</th>
+            <th scope="col">Rol</th>
+            <th scope="col">WhatsApp</th>
+            <th scope="col">Último acceso</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Acciones</th>
           </tr>
         </thead>
         <tbody id="cuerpo-usuarios">
-          <tr><td colspan="8" class="vacio">Cargando…</td></tr>
+          <tr><td colspan="8" class="vacio"><span class="spinner spinner-sm" aria-hidden="true"></span> Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -768,9 +770,9 @@
 
 <!-- ============ MODAL: DETALLE DE OT ============ -->
 <div class="modal-fondo" id="modal-detalle">
-  <div class="modal" style="width:min(900px,100%);" role="dialog" aria-modal="true">
+  <div class="modal" style="width:min(900px,100%);" role="dialog" aria-modal="true" aria-labelledby="detalle-titulo">
     <div class="modal-cabecera">
-      <h3 id="detalle-titulo">Detalle de OT</h3>
+      <h3 id="detalle-titulo" aria-live="polite">Detalle de OT</h3>
       <button class="modal-cerrar" data-cerrar="modal-detalle" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-cuerpo" id="detalle-cuerpo"></div>
@@ -974,7 +976,7 @@
   </div>
 </div>
 
-<div id="avisos"></div>
+<div id="avisos" role="status" aria-live="polite" aria-atomic="false"></div>
 
 <script src="/js/api.js"></script>
 <script src="/js/sidebar.js"></script>

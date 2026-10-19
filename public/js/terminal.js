@@ -130,9 +130,11 @@ function abrirLogin(trasEntrar) {
     if (btn.disabled) return;
     if (err) err.textContent = '';
     btn.disabled = true;
+    marcarCargando(btn, true);
     btn.textContent = 'Verificando…';
     try {
       const r = await API.login(($('login-usuario').value || '').trim(), $('login-password').value);
+      if (pass) pass.removeAttribute('aria-invalid');
       Modal.cerrar('modal-login');
       pintarSesion(r.usuario);
       Avisos.ok(`Bienvenido/a, ${r.usuario.nombre}`, 'Ya puede fichar etapas.');
@@ -140,9 +142,14 @@ function abrirLogin(trasEntrar) {
       else await refrescar();
     } catch (e) {
       if (err) err.textContent = e.message || 'No se pudo iniciar sesión.';
-      if (pass) { pass.value = ''; pass.focus(); }
+      if (pass) {
+        pass.value = '';
+        pass.setAttribute('aria-invalid', 'true');
+        pass.focus();
+      }
     } finally {
       btn.disabled = false;
+      marcarCargando(btn, false);
       btn.textContent = 'Entrar';
     }
   };
@@ -414,7 +421,9 @@ function pintarFichaOT() {
     ['requiere_especiales', 'Especiales', 'chip-rojo'],
   ].filter(([clave]) => ot[clave]);
 
-  cont.append(h('div', { class: 'ficha-ot' },
+  const claseLineaFicha = ot.linea_area === 'Cocinas' ? ' linea-cocinas'
+    : ot.linea_area === 'Compartido' ? ' linea-compartidos' : ' linea-placares';
+  cont.append(h('div', { class: `ficha-ot${claseLineaFicha}` },
     h('div', { class: 'ficha-ot-top' },
       h('div', { class: 'ficha-ot-ident' },
         h('span', { class: 'ficha-ot-num', text: ot.numero_ot }),

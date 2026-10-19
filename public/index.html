@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0f2f4f">
   <title>Optiflow · Terminal de Fichado</title>
   <link rel="stylesheet" href="/css/app.css">
@@ -183,13 +183,13 @@
       <table class="tabla">
         <thead>
           <tr>
-            <th>Sector</th>
-            <th>Operario</th>
-            <th>Inicio</th>
-            <th>Fin</th>
-            <th class="num">Duración</th>
-            <th>Estado</th>
-            <th>Motivo pausa / Observación</th>
+            <th scope="col">Sector</th>
+            <th scope="col">Operario</th>
+            <th scope="col">Inicio</th>
+            <th scope="col">Fin</th>
+            <th scope="col" class="num">Duración</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Motivo pausa / Observación</th>
           </tr>
         </thead>
         <tbody id="cuerpo-registros">
@@ -262,14 +262,16 @@
       <label class="campo">
         <span>Usuario *</span>
         <input type="text" id="login-usuario" autocomplete="username" maxlength="40"
-               autocapitalize="none" spellcheck="false" placeholder="su.usuario">
+               autocapitalize="none" spellcheck="false" placeholder="su.usuario"
+               aria-describedby="login-error">
       </label>
       <label class="campo">
         <span>Contraseña *</span>
         <input type="password" id="login-password" autocomplete="current-password"
-               maxlength="200" placeholder="••••••••">
+               maxlength="200" placeholder="••••••••" aria-describedby="login-error">
       </label>
-      <p id="login-error" class="texto-suave" style="color:#c0392b; min-height:1.2em; margin:2px 0 0;"></p>
+      <p id="login-error" class="texto-suave" role="alert" aria-live="assertive" aria-atomic="true"
+         style="color:#b11d1d; min-height:1.2em; margin:2px 0 0;"></p>
     </div>
     <div class="modal-pie">
       <button class="btn btn-primario" id="btn-login">Entrar</button>
@@ -279,7 +281,7 @@
 
 </div><!-- /.app-cuerpo -->
 
-<div id="avisos"></div>
+<div id="avisos" role="status" aria-live="polite" aria-atomic="false"></div>
 
 <script src="/js/api.js"></script>
 <script src="/js/sidebar.js"></script>

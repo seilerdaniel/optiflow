@@ -31,8 +31,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     err.textContent = '';
+    $('login-usuario').removeAttribute('aria-invalid');
+    $('login-password').removeAttribute('aria-invalid');
     btn.disabled = true;
     btn.textContent = 'Verificando…';
+    marcarCargando(btn, true);
     try {
       const r = await API.login($('login-usuario').value.trim(), $('login-password').value);
       Avisos.ok(`Bienvenido/a, ${r.usuario.nombre}`);
@@ -40,9 +43,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) {
       err.textContent = e.message || 'No se pudo iniciar sesión.';
       $('login-password').value = '';
+      $('login-password').setAttribute('aria-invalid', 'true');
       $('login-password').focus();
       btn.disabled = false;
       btn.textContent = 'Entrar';
+      marcarCargando(btn, false);
     }
   });
 });

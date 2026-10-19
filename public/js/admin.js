@@ -928,6 +928,7 @@ async function guardarMetaCorte(ev) {
   };
   const btn = $('meta-corte-guardar');
   btn.disabled = true;
+  marcarCargando(btn, true);
   try {
     const r = await API.post('/api/metricas/objetivo-corte', cuerpo);
     Avisos.ok('✔ Meta mensual de corte actualizada.',
@@ -942,6 +943,7 @@ async function guardarMetaCorte(ev) {
     manejarError(e, 'Guardar meta de corte');
   } finally {
     btn.disabled = false;
+    marcarCargando(btn, false);
   }
 }
 
@@ -959,21 +961,31 @@ function formatoMonto(v) {
   });
 }
 
+/** Secuencia de cargas anuales: evita que una respuesta vieja pise a la nueva. */
+let cargaObjetivosSecuencia = 0;
+
 /** Carga el comparativo anual. `anio` null = año en curso. */
 async function cargarObjetivosAnio(anio) {
-  if (!$('panel-objetivos-anio')) return;
+  const panel = $('panel-objetivos-anio');
+  if (!panel) return;
+  const secuencia = ++cargaObjetivosSecuencia;
+  cargarEn(panel, true, 'Cargando comparativo anual…');
   try {
     const q = anio ? `?anio=${encodeURIComponent(anio)}` : '';
     const d = await API.get(`/api/metricas/objetivos-anio${q}`);
+    if (secuencia !== cargaObjetivosSecuencia) return; // respuesta obsoleta
     S.objetivosAnio = d;
     S.anioObjetivos = d.anio;
     pintarSelectorAnio(d);
     pintarGraficoObjetivosAnio(d);
     pintarTablaObjetivosAnio(d);
   } catch (e) {
+    if (secuencia !== cargaObjetivosSecuencia) return;
     console.warn('Objetivos por período no disponibles:', e.message);
     const nota = $('nota-objetivos-anio');
     if (nota) nota.textContent = 'No se pudo cargar el comparativo anual.';
+  } finally {
+    if (secuencia === cargaObjetivosSecuencia) cargarEn(panel, false);
   }
 }
 
@@ -1149,7 +1161,10 @@ function pintarTablaObjetivosAnio(d) {
 function estamparEtiquetas(idTabla) {
   const tabla = typeof idTabla === 'string' ? $(idTabla) : idTabla;
   if (!tabla || !tabla.tHead) return;
-  const cabeceras = [...tabla.tHead.rows[0].cells].map((th) => th.textContent.trim());
+  const cabeceras = [...tabla.tHead.rows[0].cells].map((th) => {
+    th.setAttribute('scope', 'col');
+    return th.textContent.trim();
+  });
   for (const fila of tabla.tBodies[0] ? tabla.tBodies[0].rows : []) {
     [...fila.cells].forEach((td, i) => {
       if (cabeceras[i]) td.setAttribute('data-label', cabeceras[i]);
@@ -1493,7 +1508,8 @@ function filaMaterial(mat) {
     autocomplete: 'off', value: m.observaciones || '',
   });
   const btnQuitar = h('button', {
-    type: 'button', class: 'btn btn-chico btn-peligro', text: '✕', title: 'Quitar material',
+    type: 'button', class: 'btn btn-chico btn-peligro', text: '✕',
+    title: 'Quitar material', 'aria-label': 'Quitar material',
     onclick: (ev) => ev.currentTarget.closest('.fila-material').remove(),
   });
   return h('div', { class: 'fila-material fila-flex', style: 'gap:8px; margin-top:6px;' },
@@ -1565,6 +1581,13 @@ async function guardarOT(ev) {
   }
   if (materiales.length) payload.materiales = materiales;
 
+  const btnGuardarOT = (ev.submitter && ev.submitter.matches('button'))
+    ? ev.submitter
+    : $('form-ot').querySelector('button[type="submit"]');
+  if (btnGuardarOT) {
+    btnGuardarOT.disabled = true;
+    marcarCargando(btnGuardarOT, true);
+  }
   try {
     const r = await API.post('/api/ordenes', payload);
     Avisos.ok(`✔ OT ${r.numero_ot} creada`,
@@ -1574,6 +1597,11 @@ async function guardarOT(ev) {
     await cargarOrdenes();
   } catch (e) {
     manejarError(e, 'Alta de OT');
+  } finally {
+    if (btnGuardarOT) {
+      btnGuardarOT.disabled = false;
+      marcarCargando(btnGuardarOT, false);
+    }
   }
 }
 
@@ -1683,7 +1711,10 @@ function pintarTabla() {
       }
     });
 
-    cuerpo.append(h('tr', {},
+    const claseLinea = ot.linea_area === 'Cocinas' ? 'fila-cocinas'
+      : ot.linea_area === 'Compartido' ? 'fila-compartidos' : 'fila-placares';
+
+    cuerpo.append(h('tr', { class: claseLinea },
       h('td', {}, h('b', { text: ot.numero_ot }),
         h('div', { style: 'margin-top:4px;' },
           h('span', { class: `chip ${CHIP_LINEA[ot.linea_area] || 'chip-gris'}`, text: ot.linea_area || 'Placares' })),
@@ -1704,7 +1735,11 @@ function pintarTabla() {
       h('td', {},
         h('div', { class: 'fila-acciones' },
           h('button', { class: 'btn btn-chico', type: 'button', text: '👁 Ver', onclick: () => verDetalle(ot.id) }),
-          h('button', { class: 'btn btn-chico btn-peligro', type: 'button', text: '🗑', title: 'Eliminar OT', onclick: () => eliminarOT(ot) })))
+          h('button', {
+            class: 'btn btn-chico btn-peligro', type: 'button', text: '🗑',
+            title: 'Eliminar OT', 'aria-label': `Eliminar OT ${ot.numero_ot}`,
+            onclick: () => eliminarOT(ot),
+          })))
     ));
   }
   estamparEtiquetas('tabla-ots');
@@ -1778,12 +1813,20 @@ function construirFlujoOT(ot) {
 async function verDetalle(id) {
   Modal.abrir('modal-detalle');
   $('detalle-titulo').textContent = 'Cargando…';
-  $('detalle-cuerpo').innerHTML = '';
+  const cuerpoDetalle = $('detalle-cuerpo');
+  cuerpoDetalle.innerHTML = '';
+  cuerpoDetalle.setAttribute('aria-busy', 'true');
+  cuerpoDetalle.append(h('div', { class: 'esqueleto-detalle', 'aria-hidden': 'true' },
+    h('div', { class: 'skeleton skeleton-linea media' }),
+    h('div', { class: 'skeleton skeleton-linea' }),
+    h('div', { class: 'skeleton skeleton-linea corta' }),
+    h('div', { class: 'skeleton skeleton-bloque' })));
   $('detalle-csv').setAttribute('href', `/api/export/registros.csv?ot_id=${id}`);
 
   try {
     const ot = await API.get(`/api/ordenes/${id}`);
     $('detalle-titulo').textContent = `${ot.numero_ot} · ${ot.cliente}`;
+    cuerpoDetalle.removeAttribute('aria-busy');
 
     const checks = h('div', { class: 'checks' },
       [['requiere_vidrio', '🪟 Vidrio'], ['requiere_lustre', '✨ Lustre'],
@@ -1839,7 +1882,8 @@ async function verDetalle(id) {
         value: String(m.cantidad_consumida).replace('.', ','), title: 'Placas consumidas',
       });
       const btnGuardar = h('button', {
-        class: 'btn btn-chico', type: 'button', text: '💾', title: 'Guardar consumo',
+        class: 'btn btn-chico', type: 'button', text: '💾',
+        title: 'Guardar consumo', 'aria-label': `Guardar consumo de ${m.material_nombre}`,
         onclick: async () => {
           try {
             await API.put(`/api/ordenes/${id}/materiales/${m.id}`, { cantidad_consumida: inpConsumo.value });
@@ -1947,6 +1991,8 @@ async function verDetalle(id) {
   } catch (e) {
     manejarError(e, 'Detalle OT');
     Modal.cerrar('modal-detalle');
+  } finally {
+    cuerpoDetalle.removeAttribute('aria-busy');
   }
 }
 

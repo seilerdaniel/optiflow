@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0f2f4f">
   <title>Optiflow · Iniciar sesión</title>
   <link rel="stylesheet" href="/css/app.css">
@@ -33,14 +33,16 @@
     <label class="campo">
       <span>Usuario *</span>
       <input type="text" id="login-usuario" autocomplete="username" maxlength="40" required
-             autocapitalize="none" spellcheck="false" placeholder="su.usuario">
+             autocapitalize="none" spellcheck="false" placeholder="su.usuario"
+             aria-describedby="login-error">
     </label>
     <label class="campo">
       <span>Contraseña *</span>
       <input type="password" id="login-password" autocomplete="current-password" maxlength="200" required
-             placeholder="••••••••">
+             placeholder="••••••••" aria-describedby="login-error">
     </label>
-    <p id="login-error" class="texto-suave" style="color:#c0392b; min-height:1.2em; margin:2px 0 10px;"></p>
+    <p id="login-error" class="texto-suave" role="alert" aria-live="assertive" aria-atomic="true"
+       style="color:#b11d1d; min-height:1.2em; margin:2px 0 10px;"></p>
     <button type="submit" class="btn btn-primario" id="btn-entrar">Entrar</button>
   </form>
 
@@ -50,7 +52,7 @@
   </p>
 </main>
 
-<div id="avisos"></div>
+<div id="avisos" role="status" aria-live="polite" aria-atomic="false"></div>
 <script src="/js/api.js"></script>
 <script src="/js/login.js"></script>
 </body>

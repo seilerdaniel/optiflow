@@ -183,26 +183,124 @@ const RelojServidor = {
   iso() { return new Date(this.ahora()).toISOString(); },
 };
 
-/** Abre/cierra modales por id. */
+/**
+ * Abre/cierra modales por id.
+ * R20: foco gestionado (primer control), trampa de Tab dentro del diálogo y
+ * restauración del foco al cerrar. Escape y clic en el fondo siguen viviendo
+ * en iniciarBarraSuperior().
+ */
 const Modal = {
+  _previos: new WeakMap(),
+
   abrir(id) {
     const m = document.getElementById(id);
-    if (m) m.classList.add('abierto');
+    if (!m) return;
+    if (!m.classList.contains('abierto')) {
+      this._previos.set(m, document.activeElement);
+    }
+    m.classList.add('abierto');
+    m.setAttribute('aria-hidden', 'false');
+
+    // Espera al paint para que el control ya sea visible y enfocable.
+    requestAnimationFrame(() => {
+      const foco = m.querySelector(
+        '[data-autofocus], input:not([type="hidden"]):not([disabled]), select:not([disabled]), '
+        + 'textarea:not([disabled]), button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+      );
+      if (foco) {
+        try { foco.focus({ preventScroll: true }); } catch { foco.focus(); }
+      }
+    });
+
+    if (m.dataset.trampaFoco !== '1') {
+      m.dataset.trampaFoco = '1';
+      m.addEventListener('keydown', (ev) => Modal._atraparTab(ev, m));
+    }
   },
+
   cerrar(id) {
     const m = document.getElementById(id);
-    if (m) m.classList.remove('abierto');
+    if (!m) return;
+    m.classList.remove('abierto');
+
+    // Restaurar el foco ANTES de ocultar semánticamente el diálogo: así el
+    // navegador nunca queda con foco dentro de un subárbol aria-hidden.
+    const previo = this._previos.get(m);
+    this._previos.delete(m);
+    if (previo && document.contains(previo)) {
+      try { previo.focus({ preventScroll: true }); } catch { /* sin foco previo */ }
+    }
+    m.setAttribute('aria-hidden', 'true');
   },
+
   cerrarTodos() {
-    document.querySelectorAll('.modal-fondo.abierto').forEach((m) => m.classList.remove('abierto'));
+    document.querySelectorAll('.modal-fondo.abierto').forEach((m) => Modal.cerrar(m.id));
+  },
+
+  /** Mantiene Tab/Shift+Tab dentro del diálogo abierto. */
+  _atraparTab(ev, m) {
+    if (ev.key !== 'Tab') return;
+    const focos = [...m.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), '
+      + 'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )].filter((el) => el.getClientRects().length > 0);
+    if (!focos.length) return;
+    const primero = focos[0];
+    const ultimo = focos[focos.length - 1];
+    if (ev.shiftKey && document.activeElement === primero) {
+      ev.preventDefault();
+      ultimo.focus();
+    } else if (!ev.shiftKey && document.activeElement === ultimo) {
+      ev.preventDefault();
+      primero.focus();
+    }
   },
 };
+
+/**
+ * Marca/desmarca un botón como "trabajando": spinner CSS + aria-busy.
+ * No altera disabled (cada flujo decide cuándo bloquear el control).
+ */
+function marcarCargando(boton, activo) {
+  if (!boton) return;
+  boton.classList.toggle('cargando', !!activo);
+  if (activo) boton.setAttribute('aria-busy', 'true');
+  else boton.removeAttribute('aria-busy');
+}
+
+/**
+ * Muestra un overlay de carga dentro de un contenedor y marca aria-busy.
+ * Uso: cargarEn('panel-objetivos-anio', true, 'Cargando comparativo…').
+ */
+function cargarEn(contenedor, activo, texto) {
+  const el = typeof contenedor === 'string' ? document.getElementById(contenedor) : contenedor;
+  if (!el) return;
+  let overlay = el.querySelector(':scope > .cargando-overlay');
+  if (activo) {
+    el.setAttribute('aria-busy', 'true');
+    if (!overlay) {
+      overlay = h('div', { class: 'cargando-overlay', role: 'status', 'aria-live': 'polite' },
+        h('span', { class: 'spinner', 'aria-hidden': 'true' }),
+        h('span', { class: 'cargando-texto', text: texto || 'Cargando…' }));
+      el.append(overlay);
+    } else {
+      const t = overlay.querySelector('.cargando-texto');
+      if (t && texto) t.textContent = texto;
+      overlay.hidden = false;
+    }
+  } else {
+    el.removeAttribute('aria-busy');
+    if (overlay) overlay.remove();
+  }
+}
 
 /** Inicialización compartida: reloj de la barra + avisos + sincronización. */
 async function iniciarBarraSuperior() {
   const cont = document.getElementById('avisos');
   if (!cont) {
-    const div = h('div', { id: 'avisos' });
+    const div = h('div', {
+      id: 'avisos', role: 'status', 'aria-live': 'polite', 'aria-atomic': 'false',
+    });
     document.body.append(div);
   }
   await RelojServidor.sincronizar();
@@ -223,9 +321,9 @@ async function iniciarBarraSuperior() {
   const cerrable = (m) => m && !m.classList.contains('modal-bloqueante');
   document.addEventListener('keydown', (ev) => {
     if (ev.key !== 'Escape') return;
-    document.querySelectorAll('.modal-fondo.abierto').forEach((m) => { if (cerrable(m)) m.classList.remove('abierto'); });
+    document.querySelectorAll('.modal-fondo.abierto').forEach((m) => { if (cerrable(m)) Modal.cerrar(m.id); });
   });
   document.querySelectorAll('.modal-fondo').forEach((f) => {
-    f.addEventListener('click', (ev) => { if (ev.target === f && cerrable(f)) f.classList.remove('abierto'); });
+    f.addEventListener('click', (ev) => { if (ev.target === f && cerrable(f)) Modal.cerrar(f.id); });
   });
 }

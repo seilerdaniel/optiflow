@@ -21,7 +21,7 @@
  * bump CACHE_VERSION para descartar los assets viejos.
  * ============================================================ */
 
-const CACHE_VERSION = 'v11';
+const CACHE_VERSION = 'v12';
 const CACHE_ESTATICOS = `optiflow-estaticos-${CACHE_VERSION}`;
 const CACHE_PAGINAS = `optiflow-paginas-${CACHE_VERSION}`;
 
