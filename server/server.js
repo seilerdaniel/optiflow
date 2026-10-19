@@ -107,6 +107,9 @@ function tokenCoincide(enviado, esperado = TOKEN_EXPORT) {
 
 /** Roles con acceso a la gestión de planta (OTs, sectores, operarios). */
 const ROLES_GESTION = new Set(['admin', 'encargado']);
+// Modos válidos de la tabla de rutas. Un valor desconocido (typo) debe fallar
+// cerrado, nunca degradar a "público" ni saltarse los chequeos de rol.
+const MODOS_AUTH = new Set(['usuario', 'gestion', 'admin', 'export', 'cron']);
 
 /**
  * Middleware de sesión (auditoría V-1). Modos:
@@ -116,6 +119,9 @@ const ROLES_GESTION = new Set(['admin', 'encargado']);
  *  - 'export'  : sesión válida O token estático (Power BI / BI programado).
  */
 async function exigirAcceso(req, url, modo) {
+  if (!MODOS_AUTH.has(modo)) {
+    throw new ApiError(500, 'Modo de autorización no reconocido.');
+  }
   const sesion = await auth.sesionDe(db, req);
   req.optiflowSesion = sesion; // disponible para los handlers
 

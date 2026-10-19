@@ -59,8 +59,10 @@ function telefonoWhatsApp(valor) {
 }
 
 function claveIntento(req) {
-  const ip = String((req.headers['x-forwarded-for'] || (req.socket && req.socket.remoteAddress) || '?'))
-    .split(',')[0].trim();
+  // IP real detrás del proxy (x-real-ip / último salto de x-forwarded-for).
+  // Nunca el primer valor de x-forwarded-for: es inyectable por el cliente y
+  // permitiría rotar la clave para saltarse el bloqueo por fuerza bruta.
+  const ip = auth.ipCliente(req) || 'desconocida';
   return `${ip}|${String((req.body && req.body.usuario) || '').toLowerCase()}`;
 }
 

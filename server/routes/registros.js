@@ -414,6 +414,22 @@ async function pausar({ params, body }) {
   // V-4: el UPDATE lleva GUARDA de estado ('En Proceso') y se verifica
   // `changes`: si otra petición pausó/finalizó primero, esto no pisa nada.
   const r = await db.transaccion(async () => {
+    // Bloqueo por filas de la etapa (misma serialización que reanudar y
+    // finalizar): dos pausas/cierres simultáneos sobre el mismo registro se
+    // resuelven uno detrás del otro. La guarda del UPDATE queda como segunda
+    // línea de defensa ante carreras.
+    const fresco = await db.get(
+      'SELECT estado_etapa FROM registros_tiempos WHERE id = ? FOR UPDATE;', id);
+    if (!fresco) throw new ApiError(404, `No existe el registro de tiempo con id ${id}.`);
+    if (fresco.estado_etapa === 'Finalizado') {
+      throw new ApiError(409, 'La etapa ya fue finalizada: no se puede pausar.',
+        { estado_actual: fresco.estado_etapa });
+    }
+    if (fresco.estado_etapa === 'Pausado') {
+      throw new ApiError(409, 'La etapa ya está pausada.',
+        { estado_actual: fresco.estado_etapa });
+    }
+
     const upd = await db.run(`
       UPDATE registros_tiempos
          SET estado_etapa = 'Pausado', motivo_pausa = ?, pausa_inicio = ?,

@@ -91,6 +91,44 @@ function esHttps(req) {
   return String(proto).split(',')[0].trim() === 'https';
 }
 
+/**
+ * IP real del cliente detrás de un proxy (Vercel).
+ *
+ * Orden de confianza:
+ *  1. `x-real-ip`: lo fija el proxy confiable y NO es spoofable.
+ *  2. `x-forwarded-for`: el cliente puede inyectar entradas; se toma el
+ *     ÚLTIMO salto (el que agrega el proxy más cercano), nunca el [0], que
+ *     permitiría rotar la clave del rate limit y saltarse el bloqueo.
+ *  3. `socket.remoteAddress`: fallback local/directo.
+ *
+ * Normaliza IPv4 mapeado en IPv6 (`::ffff:`) y quita el puerto.
+ * Devuelve null si no hay información de IP.
+ */
+function ipCliente(req) {
+  const norm = (v) => {
+    let s = String(v || '').trim();
+    if (!s) return '';
+    const m = /^\[([^\]]+)\](?::\d+)?$/.exec(s);        // [IPv6]:puerto
+    if (m) s = m[1];
+    else if (!s.includes('::') && s.includes(':') && s.includes('.')) {
+      s = s.replace(/:\d+$/, '');                        // IPv4:puerto
+    }
+    return s.replace(/^::ffff:/i, '').trim();
+  };
+
+  const real = norm(req && req.headers && req.headers['x-real-ip']);
+  if (real) return real;
+
+  const xff = req && req.headers && req.headers['x-forwarded-for'];
+  if (xff) {
+    const partes = String(xff).split(',').map(norm).filter(Boolean);
+    if (partes.length) return partes[partes.length - 1];
+  }
+
+  const sock = norm(req && req.socket && req.socket.remoteAddress);
+  return sock || null;
+}
+
 function cookieSesion(token, req) {
   const atributos = [
     `${NOMBRE_COOKIE}=${encodeURIComponent(token)}`,
@@ -142,13 +180,13 @@ async function crearSesion(db_, usuarioId, req) {
   const token = tokenSesion();
   const ahora = db_.ahoraUTC();
   const expira = new Date(Date.now() + SECS_SESION * 1000).toISOString();
-  const ip = (req && (req.headers['x-forwarded-for'] || req.socket && req.socket.remoteAddress)) || null;
+  const ip = ipCliente(req);
   const ua = (req && req.headers['user-agent']) || null;
 
   await db_.run(`
     INSERT INTO sesiones (usuario_id, token_hash, ip, user_agent, creada_en, expira_en, fecha_creacion)
     VALUES (?, ?, ?, ?, ?, ?, ?);`,
-  usuarioId, hashToken(token), ip ? String(ip).split(',')[0].trim() : null,
+  usuarioId, hashToken(token), ip,
   ua ? String(ua).slice(0, 300) : null, ahora, expira, ahora);
 
   // Limpieza oportunista de sesiones vencidas (barato: sólo al hacer login).
@@ -237,6 +275,7 @@ module.exports = {
   hashToken,
   clave32,
   leerCookie,
+  ipCliente,
   cookieSesion,
   cookieBorrado,
   sesionDe,
