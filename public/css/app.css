@@ -874,6 +874,178 @@ a { color: var(--acento); }
 }
 .flujo-estado { font-size: .8rem; }
 
+/* ============================================================
+   DETALLE DE OT — HERO CARD, PESTAÑAS Y STEPPER (R22)
+   ------------------------------------------------------------
+   La vista reemplaza el scroll largo por un Hero Card + 4
+   pestañas. Sólo se leen variables existentes de :root: no se
+   crea, renombra ni elimina ningún token.
+   ============================================================ */
+
+.ot-detalle { display: flex; flex-direction: column; gap: 16px; }
+
+/* --- Hero Card: identidad + KPIs + QR ------------------------------- */
+.ot-hero {
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: linear-gradient(135deg, #f8fbff 0%, #eef4fa 100%);
+  overflow: hidden;
+}
+.ot-hero-principal {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.25fr) auto;
+  gap: 18px;
+  padding: 18px;
+  align-items: start;
+}
+.ot-hero-ident { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.badge-ot {
+  display: inline-flex; align-items: center; gap: 8px;
+  width: max-content; max-width: 100%;
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: 1.45rem; font-weight: 800; color: var(--azul);
+  background: #fff; border: 1.5px solid var(--borde);
+  border-left: 5px solid var(--acento);
+  border-radius: var(--radio-md); padding: 8px 12px;
+}
+.badge-ot > .ico-svg { width: 20px; height: 20px; color: var(--acento); flex: none; }
+.ot-hero-cliente { margin: 0; font-size: var(--fs-h3); color: var(--texto); }
+.ot-hero-sub { color: var(--texto-suave); font-size: var(--fs-sm); }
+.ot-hero-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: var(--radio-pill);
+  border: 1px solid transparent; font-size: .72rem; font-weight: 800;
+  letter-spacing: .5px; text-transform: uppercase; white-space: nowrap;
+}
+.badge-estado.estado-cola { background: #e9eef3; color: #475569; border-color: #d5dee7; }
+.badge-estado.estado-proceso { background: #dbeafe; color: #14437a; border-color: #bfdbfe; }
+.badge-estado.estado-pausado { background: #fef3c7; color: var(--warning-strong); border-color: #fde68a; }
+.badge-estado.estado-finalizado { background: #dcfce7; color: var(--verde-osc); border-color: #bbf7d0; }
+.badge-linea.linea-placares { background: #dbeafe; color: #14437a; border-color: #bfdbfe; }
+.badge-linea.linea-cocinas { background: #fee2e2; color: var(--rojo-osc); border-color: #fecaca; }
+.badge-linea.linea-compartido { background: #fffbeb; color: var(--warning-strong); border-color: var(--amarillo); }
+.badge-linea.linea-general { background: #e9eef3; color: #475569; border-color: #d5dee7; }
+
+.ot-hero-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-width: 0; }
+.ot-kpi { background: #fff; border: 1px solid var(--borde); border-radius: var(--radio-md); padding: 10px 12px; min-width: 0; }
+.ot-kpi-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: var(--fs-xs); font-weight: 800; letter-spacing: .7px;
+  text-transform: uppercase; color: var(--texto-suave);
+}
+.ot-kpi-label > .ico-svg { width: 14px; height: 14px; color: var(--acento); flex: none; }
+.ot-kpi-valor {
+  display: block; margin-top: 4px;
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-weight: 800; font-size: 1.05rem; color: var(--azul);
+  overflow-wrap: anywhere;
+}
+.ot-mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+.ot-hero-qr { flex: none; }
+.ot-hero .ot-qr-bloque {
+  margin: 0; padding: 12px; background: #fff;
+  border-left-color: var(--acento);
+  flex-direction: column; align-items: flex-start; gap: 8px;
+}
+.ot-hero .ot-qr-lienzo { width: 104px; height: 104px; }
+
+.ot-hero-progreso { display: flex; align-items: center; gap: 12px; padding: 0 18px 18px; }
+.ot-hero-progreso .barra-progreso { flex: 1 1 auto; margin-top: 0; height: 10px; }
+.ot-hero-progreso .barra-progreso > span { background: linear-gradient(90deg, var(--acento), var(--verde)); }
+.ot-hero-pct {
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-weight: 800; color: var(--azul); min-width: 52px; text-align: right;
+}
+
+/* --- Pestañas horizontales ------------------------------------------ */
+.ot-tabs {
+  display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px 0;
+  border-bottom: 2px solid var(--borde);
+  -webkit-overflow-scrolling: touch;
+}
+.ot-tab {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px;
+  min-height: var(--touch-min); padding: 10px 14px;
+  border: 1.5px solid transparent; border-bottom: 0;
+  border-radius: var(--radio-md) var(--radio-md) 0 0;
+  background: transparent; color: var(--texto-suave);
+  font-weight: 700; cursor: pointer; white-space: nowrap;
+  touch-action: manipulation;
+}
+.ot-tab:hover { background: #f1f5f9; color: var(--texto); }
+.ot-tab[aria-selected="true"] {
+  background: #fff; color: var(--azul); border-color: var(--borde);
+  box-shadow: inset 0 -3px 0 var(--acento);
+}
+.ot-tab > .ico-svg { width: 18px; height: 18px; }
+.ot-tab-panels { padding-top: 16px; }
+.ot-tab-panel { display: flex; flex-direction: column; gap: 14px; }
+
+/* --- Resumen de materiales ------------------------------------------ */
+.ot-tabla-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+
+/* --- Stepper horizontal del flujo ----------------------------------- */
+.flujo-stepper {
+  display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 12px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.flujo-paso {
+  position: relative; flex: 0 0 170px; scroll-snap-align: start;
+  display: flex; flex-direction: column; gap: 8px;
+  background: #fff; border: 1.5px solid var(--borde);
+  border-radius: var(--radio-md); padding: 12px;
+}
+.flujo-paso-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.flujo-paso-num { font-family: var(--mono); font-size: .7rem; font-weight: 800; color: var(--texto-suave); }
+.flujo-paso-icono {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid var(--borde); background: #f8fafc; color: var(--texto-suave);
+}
+.flujo-paso-icono > .ico-svg { width: 18px; height: 18px; }
+.flujo-paso-punto { width: 10px; height: 10px; border-radius: 50%; background: var(--gris); }
+.flujo-paso-nombre { font-weight: 800; color: var(--texto); line-height: 1.2; }
+.flujo-paso-estado { font-size: .74rem; font-weight: 700; color: var(--texto-suave); }
+.flujo-paso-bloqueo { font-size: .7rem; color: var(--rojo-osc); }
+.flujo-paso.ok { border-color: #bbf7d0; background: #f0fdf4; }
+.flujo-paso.ok .flujo-paso-icono { border-color: var(--verde); background: #dcfce7; color: var(--verde-osc); }
+.flujo-paso.activo { border-color: var(--acento); box-shadow: 0 0 0 3px rgba(29, 111, 209, .14); }
+.flujo-paso.activo .flujo-paso-icono { border-color: var(--acento); background: #e8f1fc; color: var(--acento); }
+.flujo-paso.bloqueado { background: #f1f5f9; border-color: #cbd5e1; opacity: .78; }
+.flujo-paso.bloqueado .flujo-paso-icono { border-color: #94a3b8; background: #e2e8f0; color: #475569; }
+.flujo-paso.compartido {
+  border-color: var(--amarillo); background: #fffbeb;
+  box-shadow: 0 1px 6px rgba(240, 180, 41, .35);
+}
+.flujo-paso.compartido .flujo-paso-icono { border-color: var(--amarillo); }
+
+/* Las tablas del detalle no compiten con el sticky de la cabecera. */
+.ot-detalle .tabla thead th { position: static; }
+
+/* --- Pie del detalle: acciones al ras y táctiles -------------------- */
+#modal-detalle .modal-pie { position: sticky; bottom: 0; background: #fff; z-index: 2; }
+#modal-detalle .modal-pie .btn,
+#modal-detalle .modal-pie .btn-chico { min-height: var(--touch-min); }
+
+/* --- Responsive ------------------------------------------------------ */
+@media (max-width: 900px) {
+  .ot-hero-principal { grid-template-columns: 1fr; }
+  .ot-hero-qr { width: 100%; }
+  .ot-hero .ot-qr-bloque { flex-direction: row; align-items: center; width: 100%; }
+}
+@media (max-width: 640px) {
+  .ot-hero-kpis { grid-template-columns: 1fr; }
+  .ot-hero .ot-qr-bloque { flex-direction: column; align-items: flex-start; }
+  .ot-hero .ot-qr-lienzo { width: 88px; height: 88px; }
+  #modal-detalle .modal-pie { flex-direction: column; align-items: stretch; }
+  #modal-detalle .modal-pie .btn-primario { order: -1; }
+  #modal-detalle .modal-pie .btn,
+  #modal-detalle .modal-pie .btn-chico { width: 100%; min-width: 0; }
+}
+
 /* --------------------------- Utilidades ------------------------------ */
 .titulo-seccion {
   margin: 4px 0 2px;

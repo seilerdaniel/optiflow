@@ -1765,14 +1765,101 @@ async function eliminarOT(ot) {
 /* Detalle de OT                                                       */
 /* ------------------------------------------------------------------ */
 
+/** Pestaña activa del detalle: se conserva al recargar la misma OT. */
+let detalleTab = 'flujo';
+/** OT abierta en el detalle: permite resetear la pestaña al cambiar de OT. */
+let detalleOTId = null;
+
+/** Clase de badge para el estado general de la OT. */
+function claseEstadoOT(estado) {
+  const e = FORMATO.normalizar(estado);
+  if (e.includes('final')) return 'estado-finalizado';
+  if (e.includes('paus')) return 'estado-pausado';
+  if (e.includes('proceso') || e.includes('produccion') || e.includes('curso')) return 'estado-proceso';
+  return 'estado-cola';
+}
+
+/** Clase de badge para la línea / área de la OT. */
+function claseLineaOT(linea) {
+  const l = FORMATO.normalizar(linea);
+  if (l === 'cocinas') return 'linea-cocinas';
+  if (l === 'compartido') return 'linea-compartido';
+  if (l === 'general') return 'linea-general';
+  return 'linea-placares';
+}
+
+/** KPI compacto del detalle: valor en --mono y etiqueta con icono SVG. */
+function kpiDetalleOT(label, valor, icono) {
+  return h('div', { class: 'ot-kpi' },
+    h('span', { class: 'ot-kpi-label' }, iconoSvg(icono), h('span', { text: label })),
+    h('span', { class: 'ot-kpi-valor', text: valor }));
+}
+
+/** Cabecera "Hero Card": identidad + KPIs + QR de la OT. */
+function construirHeroOT(ot) {
+  const linea = ot.linea_area || 'Placares';
+  const p = ot.progreso || { sectores_finalizados: 0, sectores_requeridos: 0, porcentaje: 0 };
+  const pct = Math.max(0, Math.min(100, Number(p.porcentaje) || 0));
+
+  // QR compacto: al escanearlo abre ESTA OT en la Terminal de Fichado.
+  const qrLienzo = h('div', { class: 'ot-qr-lienzo' });
+  if (window.QR) {
+    QR.pintar(qrLienzo, QR.payloadOT(ot), {
+      px: 104,
+      quiet: 3,
+      color: '#0f2f4f',
+      label: `QR de la OT ${ot.numero_ot} de ${ot.cliente}`,
+    });
+  }
+
+  return h('article', { class: 'ot-hero' },
+    h('div', { class: 'ot-hero-principal' },
+      h('div', { class: 'ot-hero-ident' },
+        h('span', { class: 'badge-ot' }, iconoSvg('scan'), ot.numero_ot),
+        h('h4', { class: 'ot-hero-cliente', text: ot.cliente }),
+        h('div', { class: 'ot-hero-sub', text: ot.modelo ? `Modelo ${ot.modelo}` : 'Sin modelo cargado' }),
+        h('div', { class: 'ot-hero-badges' },
+          h('span', { class: `badge badge-estado ${claseEstadoOT(ot.estado_general)}`, text: ot.estado_general }),
+          h('span', { class: `badge badge-linea ${claseLineaOT(linea)}`, text: linea }))),
+      h('div', { class: 'ot-hero-kpis' },
+        kpiDetalleOT('Metros lineales', FORMATO.metros(ot.metros_lineales), 'chart'),
+        kpiDetalleOT('Fecha prometida', ot.fecha_prometida ? FORMATO.fecha(ot.fecha_prometida) : '—', 'calendar'),
+        kpiDetalleOT('Progreso', `${p.sectores_finalizados} de ${p.sectores_requeridos}`, 'target'),
+        kpiDetalleOT('Tiempo acumulado', FORMATO.duracion(ot.minutos_acumulados), 'clock')),
+      h('div', { class: 'ot-hero-qr' },
+        h('div', { class: 'ot-qr-bloque' },
+          h('div', { class: 'ot-qr-datos' },
+            h('div', { class: 'ot-qr-ot', text: ot.numero_ot }),
+            h('div', { class: 'ot-qr-cliente', text: ot.cliente }),
+            h('div', { class: 'ot-qr-hint', text: 'Escaneá para abrir en Terminal.' })),
+          qrLienzo))),
+    h('div', { class: 'ot-hero-progreso' },
+      h('div', {
+        class: 'barra-progreso', role: 'progressbar',
+        'aria-label': `Progreso ${pct}%`,
+        'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100,
+      }, h('span', { style: `width:${pct}%` })),
+      h('span', { class: 'ot-hero-pct', text: `${pct}%` }))
+  );
+}
+
+/** Etiqueta legible del estado de un nodo del stepper. */
+function etiquetaEstadoFlujo(clase) {
+  if (clase === 'ok') return 'Finalizado';
+  if (clase === 'activo') return 'En proceso';
+  if (clase === 'bloqueado') return 'Bloqueado';
+  return 'Pendiente';
+}
+
 /**
- * Tira del flujo de trabajo de la OT (Fase 2): sectores requeridos en
- * orden, con estado visual. Los sectores COMPARTIDOS requeridos se
- * resaltan como hito especial (borde dorado + insignia).
+ * Stepper horizontal del flujo de la OT: cada sector requerido es un nodo
+ * con estado (pendiente / en proceso / finalizado / bloqueado). Los sectores
+ * compartidos se destacan con el dorado corporativo.
  */
 function construirFlujoOT(ot) {
-  const finalizados = new Set((ot.progreso && ot.progreso.finalizados_ids) || []);
-  const requeridos = (ot.sectores_requeridos || []);
+  const progreso = ot.progreso || {};
+  const finalizados = new Set(progreso.finalizados_ids || []);
+  const requeridos = ot.sectores_requeridos || [];
   const activoId = ot.etapa_activa ? ot.etapa_activa.sector_id : null;
   const bloqueados = ot.sectores_bloqueados || {};
   const ordenados = S.sectores
@@ -1785,30 +1872,230 @@ function construirFlujoOT(ot) {
       return propia || (Number(a.orden_flujo) - Number(b.orden_flujo)) || (a.id - b.id);
     });
 
-  const tira = h('div', { class: 'flujo-ot' });
+  const stepper = h('div', { class: 'flujo-stepper' });
   ordenados.forEach((s, i) => {
-    if (i > 0) tira.append(h('span', { class: 'flujo-flecha', text: '→' }));
     const esCompartido = !!s.es_compartido || !!s.clave_especial;
-    const clases = ['flujo-nodo'];
+    const finalizado = finalizados.has(s.id);
+    const activo = activoId === s.id;
+    const bloqueo = bloqueados[s.id];
+    let estado = 'pendiente';
+    let icono = null;
+    if (finalizado) { estado = 'ok'; icono = iconoSvg('check'); }
+    else if (activo) { estado = 'activo'; icono = iconoSvg('play'); }
+    else if (bloqueo) { estado = 'bloqueado'; icono = iconoSvg('lock'); }
+    const clases = ['flujo-paso', estado];
     if (esCompartido) clases.push('compartido');
-    if (finalizados.has(s.id)) clases.push('ok');
-    if (activoId === s.id) clases.push('activo');
-    if (bloqueados[s.id]) clases.push('bloqueado');
-    tira.append(h('span', {
-      class: clases.join(' '),
-      title: bloqueados[s.id] || s.nombre_sector,
-    },
-      h('span', { class: 'flujo-nombre', text: s.nombre_corto || s.nombre_sector }),
+    stepper.append(h('div', { class: clases.join(' '), title: bloqueo || s.nombre_sector },
+      h('div', { class: 'flujo-paso-cabecera' },
+        h('span', { class: 'flujo-paso-num', text: String(i + 1).padStart(2, '0') }),
+        h('span', { class: 'flujo-paso-icono' }, icono || h('span', { class: 'flujo-paso-punto' }))),
+      h('div', { class: 'flujo-paso-nombre', text: s.nombre_corto || s.nombre_sector }),
       esCompartido ? h('span', { class: 'flujo-insignia', text: 'COMPARTIDO' }) : null,
-      finalizados.has(s.id) ? h('span', { class: 'flujo-estado' }, iconoSvg('check')) : null,
-      bloqueados[s.id] ? h('span', { class: 'flujo-estado' }, iconoSvg('lock')) : null
-    ));
+      h('span', { class: 'flujo-paso-estado', text: etiquetaEstadoFlujo(estado) }),
+      bloqueo ? h('span', { class: 'flujo-paso-bloqueo', text: bloqueo }) : null));
   });
+
   return h('div', {},
-    h('h3', { class: 'titulo-seccion', style: 'font-size:.9rem; margin-top:16px;', text: 'FLUJO DE TRABAJO' }),
-    h('p', { class: 'texto-suave', style: 'margin:2px 0 8px;', text: 'Los sectores compartidos aparecen destacados en dorado: son hitos que consumen capacidad de otros sectores de la fábrica.' }),
-    tira
-  );
+    h('p', { class: 'texto-suave', style: 'margin:0;',
+      text: `${progreso.sectores_finalizados || 0} de ${progreso.sectores_requeridos || 0} sectores finalizados. Los sectores compartidos se destacan en dorado.` }),
+    stepper);
+}
+
+/** Pestaña Materiales & Placas: resumen y desglose editable. */
+function construirMaterialesOT(ot, id) {
+  const mats = ot.materiales || [];
+  const rm = ot.resumen_materiales || { lineas: 0, placas_requeridas: 0, placas_consumidas: 0, placas_restantes: 0, porcentaje_consumo: 0 };
+
+  const filaMaterialDetalle = (m) => {
+    const inpConsumo = h('input', {
+      type: 'text', inputmode: 'decimal', style: 'width:64px; text-align:right;',
+      value: String(m.cantidad_consumida).replace('.', ','), title: 'Placas consumidas',
+    });
+    const btnGuardar = h('button', {
+      class: 'btn btn-chico', type: 'button',
+      title: 'Guardar consumo', 'aria-label': `Guardar consumo de ${m.material_nombre}`,
+      onclick: async () => {
+        try {
+          await API.put(`/api/ordenes/${id}/materiales/${m.id}`, { cantidad_consumida: inpConsumo.value });
+          Avisos.ok(`Consumo de "${m.material_nombre}" actualizado.`);
+          await cargarOrdenes();
+          verDetalle(id);
+        } catch (e) { manejarError(e, 'Actualizar consumo'); }
+      },
+    }, iconoSvg('save'));
+    const completo = m.cantidad_consumida >= m.cantidad_placas;
+    return h('tr', {},
+      h('td', { text: m.material_nombre }),
+      h('td', { class: 'num ot-mono', text: String(m.cantidad_placas) }),
+      h('td', { class: 'num ot-mono' }, inpConsumo, ' ', btnGuardar),
+      h('td', { class: 'num ot-mono', text: String(m.placas_restantes) }),
+      h('td', {}, h('span', { class: `chip ${completo ? 'chip-verde' : 'chip-amarillo'}`, text: completo ? 'Completo' : 'En curso' })),
+      h('td', { text: m.observaciones || '—' }));
+  };
+
+  const tabla = h('table', { class: 'tabla' },
+    h('thead', {}, h('tr', {},
+      h('th', { scope: 'col', text: 'Material' }),
+      h('th', { scope: 'col', class: 'num', text: 'Placas requeridas' }),
+      h('th', { scope: 'col', class: 'num', text: 'Consumidas' }),
+      h('th', { scope: 'col', class: 'num', text: 'Restantes' }),
+      h('th', { scope: 'col', text: 'Estado' }),
+      h('th', { scope: 'col', text: 'Observaciones' }))),
+    h('tbody', {}, mats.length
+      ? mats.map(filaMaterialDetalle)
+      : [h('tr', {}, h('td', { colspan: '6', class: 'vacio', text: 'Sin materiales cargados para esta OT.' }))]));
+  estamparEtiquetas(tabla);
+
+  return h('div', {},
+    h('div', { class: 'ot-tabla-kpis' },
+      kpiDetalleOT('Placas requeridas', String(rm.placas_requeridas), 'package'),
+      kpiDetalleOT('Consumidas', String(rm.placas_consumidas), 'check'),
+      kpiDetalleOT('Restantes', String(rm.placas_restantes), 'clock'),
+      kpiDetalleOT('Consumo', `${rm.porcentaje_consumo}%`, 'chart')),
+    h('div', { class: 'barra-progreso' }, h('span', { style: `width:${Math.min(100, rm.porcentaje_consumo)}%` })),
+    h('div', { class: 'tabla-envoltura' }, tabla),
+    h('p', { class: 'texto-suave', style: 'font-size:.8rem; margin:0;', text: 'Actualice el consumo a medida que se corten las placas. El total se recalcula al guardar.' }));
+}
+
+/** Pestaña Registros de Tiempos: tabla de fichados por sector y operario. */
+function construirRegistrosOT(ot) {
+  const registros = ot.registros || [];
+  const tabla = h('table', { class: 'tabla' },
+    h('thead', {}, h('tr', {},
+      h('th', { scope: 'col', text: 'Sector' }),
+      h('th', { scope: 'col', text: 'Operario' }),
+      h('th', { scope: 'col', text: 'Inicio' }),
+      h('th', { scope: 'col', text: 'Fin' }),
+      h('th', { scope: 'col', class: 'num', text: 'Duración' }),
+      h('th', { scope: 'col', class: 'num', text: 'Horas hombre' }),
+      h('th', { scope: 'col', text: 'Estado' }),
+      h('th', { scope: 'col', text: 'Motivo / Observación' }))),
+    h('tbody', {}, registros.length
+      ? registros.map((g) => h('tr', {},
+        h('td', { text: g.nombre_sector }),
+        h('td', { text: g.operario_nombre }),
+        h('td', { class: 'ot-mono', text: FORMATO.fechaHora(g.fecha_hora_inicio) }),
+        h('td', { class: 'ot-mono', text: g.fecha_hora_fin ? FORMATO.fechaHora(g.fecha_hora_fin) : '—' }),
+        h('td', { class: 'num ot-mono', text: g.estado_etapa === 'Finalizado' ? FORMATO.duracion(g.duracion_minutos) : 'En curso…' }),
+        h('td', { class: 'num ot-mono', text: g.horas_hombre != null ? `${Number(g.horas_hombre).toLocaleString('es-AR', { maximumFractionDigits: 2 })} h.h.` : '—' }),
+        h('td', {}, h('span', {
+          class: `chip ${g.estado_etapa === 'Finalizado' ? 'chip-gris' : g.estado_etapa === 'Pausado' ? 'chip-amarillo' : 'chip-verde'}`,
+          text: g.estado_etapa,
+        })),
+        h('td', { text: [g.motivo_pausa, g.observacion].filter(Boolean).join(' · ') || '—' })))
+      : [h('tr', {}, h('td', { colspan: '8', class: 'vacio', text: 'Sin registros de tiempo.' }))]));
+  estamparEtiquetas(tabla);
+  return h('div', { class: 'tabla-envoltura' }, tabla);
+}
+
+/** Pestaña Configuración: línea/área y sectores especiales. */
+function construirConfiguracionOT(ot, id) {
+  const checks = h('div', { class: 'checks' },
+    [['requiere_vidrio', 'Vidrio'], ['requiere_lustre', 'Lustre'],
+      ['requiere_herreria', 'Herrería'], ['requiere_especiales', 'Especiales']]
+      .map(([k, texto]) => {
+        const cb = h('input', { type: 'checkbox' });
+        cb.checked = !!ot[k];
+        cb.dataset.campo = k;
+        const label = h('label', { class: `check ${cb.checked ? 'marcado' : ''}` }, cb, texto);
+        cb.addEventListener('change', () => label.classList.toggle('marcado', cb.checked));
+        return label;
+      }));
+
+  const selLineaDetalle = h('select', {
+    id: 'detalle-linea',
+    style: 'min-height:42px;padding:8px 12px;border:2px solid var(--borde);border-radius:var(--radio-md);',
+  }, lineasOT().map((l) => h('option', { value: l, text: l, selected: l === (ot.linea_area || 'Placares') })));
+
+  return h('div', {},
+    h('h3', { class: 'titulo-seccion', style: 'font-size:.9rem; margin-top:0;', text: 'FLUJO Y SECTORES ESPECIALES' }),
+    h('div', { class: 'fila-flex', style: 'margin-bottom:10px; gap:8px;' },
+      h('label', { class: 'campo', style: 'flex:0 0 auto;' },
+        h('span', { text: 'Línea / área' }),
+        selLineaDetalle),
+      h('p', { class: 'texto-suave', style: 'flex:1 1 220px;font-size:.78rem;margin:0;',
+        text: 'Define qué sectores debe recorrer la OT. Sólo se puede cambiar mientras no haya etapas finalizadas.' })),
+    checks,
+    h('div', { class: 'fila-flex', style: 'margin-top:10px;' },
+      h('button', {
+        class: 'btn btn-primario', type: 'button',
+        onclick: async () => {
+          const payload = { linea_area: selLineaDetalle.value };
+          document.querySelectorAll('#detalle-cuerpo input[data-campo]').forEach((cb) => {
+            payload[cb.dataset.campo] = cb.checked;
+          });
+          try {
+            await API.put(`/api/ordenes/${id}`, payload);
+            Avisos.ok('Requisitos actualizados', 'Los sectores se habilitarán en el Terminal.');
+            await cargarOrdenes();
+            verDetalle(id);
+          } catch (e) { manejarError(e, 'Guardar requisitos'); }
+        },
+      }, iconoSvg('save'), ' Guardar requisitos')));
+}
+
+/** Estructura completa del detalle: Hero Card + pestañas por sección. */
+function construirDetalleOT(ot, id) {
+  const defs = [
+    { id: 'flujo', label: 'Flujo de Trabajo', icono: 'chart', panel: () => construirFlujoOT(ot) },
+    { id: 'materiales', label: 'Materiales & Placas', icono: 'package', panel: () => construirMaterialesOT(ot, id) },
+    { id: 'registros', label: 'Registros de Tiempos', icono: 'clock', panel: () => construirRegistrosOT(ot) },
+    { id: 'configuracion', label: 'Configuración', icono: 'gear', panel: () => construirConfiguracionOT(ot, id) },
+  ];
+  const tabs = h('div', { class: 'ot-tabs', role: 'tablist', 'aria-label': 'Secciones del detalle de OT' });
+  const paneles = h('div', { class: 'ot-tab-panels' });
+  const botones = [];
+
+  const activar = (tabId) => {
+    detalleTab = tabId;
+    for (const b of botones) {
+      const sel = b.dataset.tab === tabId;
+      b.setAttribute('aria-selected', sel ? 'true' : 'false');
+      b.tabIndex = sel ? 0 : -1;
+      const panel = paneles.querySelector(`#panel-${b.dataset.tab}`);
+      if (panel) panel.hidden = !sel;
+    }
+  };
+
+  defs.forEach((d) => {
+    const boton = h('button', {
+      class: 'ot-tab', type: 'button', role: 'tab',
+      id: `tab-${d.id}`, 'aria-controls': `panel-${d.id}`,
+      'aria-selected': d.id === detalleTab ? 'true' : 'false',
+      tabindex: d.id === detalleTab ? 0 : -1,
+      'data-tab': d.id,
+    }, iconoSvg(d.icono), h('span', { text: d.label }));
+    boton.addEventListener('click', () => activar(d.id));
+    tabs.append(boton);
+    botones.push(boton);
+
+    paneles.append(h('section', {
+      class: 'ot-tab-panel', role: 'tabpanel', id: `panel-${d.id}`,
+      'aria-labelledby': `tab-${d.id}`, tabindex: 0,
+      hidden: d.id !== detalleTab,
+    }, d.panel()));
+  });
+
+  tabs.addEventListener('keydown', (ev) => {
+    const actual = botones.findIndex((b) => b.getAttribute('aria-selected') === 'true');
+    if (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') {
+      ev.preventDefault();
+      const paso = ev.key === 'ArrowRight' ? 1 : -1;
+      const siguiente = botones[(actual + paso + botones.length) % botones.length];
+      siguiente.focus();
+      activar(siguiente.dataset.tab);
+    } else if (ev.key === 'Home') {
+      ev.preventDefault();
+      botones[0].focus();
+      activar(botones[0].dataset.tab);
+    } else if (ev.key === 'End') {
+      ev.preventDefault();
+      botones[botones.length - 1].focus();
+      activar(botones[botones.length - 1].dataset.tab);
+    }
+  });
+
+  return h('div', { class: 'ot-detalle' }, construirHeroOT(ot), tabs, paneles);
 }
 
 async function verDetalle(id) {
@@ -1829,162 +2116,15 @@ async function verDetalle(id) {
     $('detalle-titulo').textContent = `${ot.numero_ot} · ${ot.cliente}`;
     cuerpoDetalle.removeAttribute('aria-busy');
 
-    const checks = h('div', { class: 'checks' },
-      [['requiere_vidrio', 'Vidrio'], ['requiere_lustre', 'Lustre'],
-        ['requiere_herreria', 'Herrería'], ['requiere_especiales', 'Especiales']]
-        .map(([k, texto]) => {
-          const cb = h('input', { type: 'checkbox' });
-          cb.checked = !!ot[k];
-          cb.dataset.campo = k;
-          const label = h('label', { class: `check ${cb.checked ? 'marcado' : ''}` }, cb, texto);
-          cb.addEventListener('change', () => label.classList.toggle('marcado', cb.checked));
-          return label;
-        }));
-
-    const selLineaDetalle = h('select', {
-      id: 'detalle-linea',
-      style: 'min-height:42px;padding:8px 12px;border:2px solid var(--borde);border-radius:var(--radio-md);',
-    },
-      lineasOT().map((l) => h('option', { value: l, text: l, selected: l === (ot.linea_area || 'Placares') })));
-
-    const bloqueChecks = h('div', {},
-      h('h3', { class: 'titulo-seccion', style: 'font-size:.9rem;', text: 'FLUJO Y SECTORES ESPECIALES' }),
-      h('div', { class: 'fila-flex', style: 'margin-bottom:10px; gap:8px;' },
-        h('label', { class: 'campo', style: 'flex:0 0 auto;' },
-          h('span', { text: 'Línea / área' }),
-          selLineaDetalle),
-        h('p', { class: 'texto-suave', style: 'flex:1 1 220px;font-size:.78rem;margin:0;',
-          text: 'Define qué sectores debe recorrer la OT. Sólo se puede cambiar mientras no haya etapas finalizadas.' })),
-      checks,
-      h('div', { class: 'fila-flex', style: 'margin-top:10px;' },
-        h('button', {
-          class: 'btn btn-primario', type: 'button',
-          onclick: async () => {
-            const payload = { linea_area: selLineaDetalle.value };
-            bloqueChecks.querySelectorAll('input[type=checkbox]').forEach((cb) => {
-              payload[cb.dataset.campo] = cb.checked;
-            });
-            try {
-              await API.put(`/api/ordenes/${id}`, payload);
-              Avisos.ok('Requisitos actualizados', 'Los sectores se habilitarán en el Terminal.');
-              await cargarOrdenes();
-              verDetalle(id);
-            } catch (e) { manejarError(e, 'Guardar requisitos'); }
-          },
-        }, iconoSvg('save'), ' Guardar requisitos')));
-
-    // --- Materiales / placas: requeridas vs consumidas (Fase 3) ---
-    const mats = ot.materiales || [];
-    const rm = ot.resumen_materiales || { lineas: 0, placas_requeridas: 0, placas_consumidas: 0, placas_restantes: 0, porcentaje_consumo: 0 };
-
-    const filaMaterialDetalle = (m) => {
-      const inpConsumo = h('input', {
-        type: 'text', inputmode: 'decimal', style: 'width:64px; text-align:right;',
-        value: String(m.cantidad_consumida).replace('.', ','), title: 'Placas consumidas',
-      });
-      const btnGuardar = h('button', {
-        class: 'btn btn-chico', type: 'button',
-        title: 'Guardar consumo', 'aria-label': `Guardar consumo de ${m.material_nombre}`,
-        onclick: async () => {
-          try {
-            await API.put(`/api/ordenes/${id}/materiales/${m.id}`, { cantidad_consumida: inpConsumo.value });
-            Avisos.ok(`Consumo de "${m.material_nombre}" actualizado.`);
-            await cargarOrdenes();
-            verDetalle(id);
-          } catch (e) { manejarError(e, 'Actualizar consumo'); }
-        },
-      }, iconoSvg('save'));
-      const completo = m.cantidad_consumida >= m.cantidad_placas;
-      return h('tr', {},
-        h('td', { text: m.material_nombre }),
-        h('td', { class: 'num', text: String(m.cantidad_placas) }),
-        h('td', { class: 'num' }, inpConsumo, ' ', btnGuardar),
-        h('td', { class: 'num', text: String(m.placas_restantes) }),
-        h('td', {}, h('span', { class: `chip ${completo ? 'chip-verde' : 'chip-amarillo'}`, text: completo ? 'Completo' : 'En curso' })),
-        h('td', { text: m.observaciones || '—' }));
-    };
-
-    const tablaMateriales = h('div', { class: 'tabla-envoltura' },
-      h('table', { class: 'tabla' },
-        h('thead', {}, h('tr', {},
-          h('th', { text: 'Material' }), h('th', { class: 'num', text: 'Placas requeridas' }),
-          h('th', { class: 'num', text: 'Consumidas' }), h('th', { class: 'num', text: 'Restantes' }),
-          h('th', { text: 'Estado' }), h('th', { text: 'Observaciones' }))),
-        h('tbody', {},
-          mats.length
-            ? mats.map(filaMaterialDetalle)
-            : [h('tr', {}, h('td', { colspan: '6', class: 'vacio', text: 'Sin materiales cargados para esta OT.' }))])));
-
-    const bloqueMateriales = h('div', {},
-      h('h3', { class: 'titulo-seccion', style: 'font-size:.9rem; margin-top:16px;', text: 'MATERIALES / PLACAS' }),
-      h('p', { class: 'texto-suave', style: 'margin:2px 0 8px;' },
-        `Requeridas: ${rm.placas_requeridas} · Consumidas: ${rm.placas_consumidas} · Restantes: ${rm.placas_restantes} · Consumo: ${rm.porcentaje_consumo}%`),
-      h('div', { class: 'barra-progreso', style: 'margin-bottom:8px;' }, h('span', { style: `width:${Math.min(100, rm.porcentaje_consumo)}%` })),
-      tablaMateriales,
-      h('p', { class: 'texto-suave', style: 'margin-top:6px; font-size:.8rem;', text: 'Actualice el consumo a medida que se corten las placas. El total se recalcula al guardar.' }));
-
-    const registros = (ot.registros || []);
-    const tabla = h('div', { class: 'tabla-envoltura' },
-      h('table', { class: 'tabla' },
-        h('thead', {}, h('tr', {},
-          h('th', { text: 'Sector' }), h('th', { text: 'Operario' }),
-          h('th', { text: 'Inicio' }), h('th', { text: 'Fin' }),
-          h('th', { class: 'num', text: 'Duración' }), h('th', { class: 'num', text: 'Horas hombre' }),
-          h('th', { text: 'Estado' }),
-          h('th', { text: 'Motivo / Observación' }))),
-        h('tbody', {},
-          registros.length
-            ? registros.map((g) => h('tr', {},
-              h('td', { text: g.nombre_sector }),
-              h('td', { text: g.operario_nombre }),
-              h('td', { text: FORMATO.fechaHora(g.fecha_hora_inicio) }),
-              h('td', { text: g.fecha_hora_fin ? FORMATO.fechaHora(g.fecha_hora_fin) : '—' }),
-              h('td', { class: 'num', text: g.estado_etapa === 'Finalizado' ? FORMATO.duracion(g.duracion_minutos) : 'En curso…' }),
-              h('td', { class: 'num', text: g.horas_hombre != null ? `${Number(g.horas_hombre).toLocaleString('es-AR', { maximumFractionDigits: 2 })} h.h.` : '—' }),
-              h('td', {}, h('span', {
-                class: `chip ${g.estado_etapa === 'Finalizado' ? 'chip-gris' : g.estado_etapa === 'Pausado' ? 'chip-amarillo' : 'chip-verde'}`,
-                text: g.estado_etapa,
-              })),
-              h('td', { text: [g.motivo_pausa, g.observacion].filter(Boolean).join(' · ') || '—' })))
-            : [h('tr', {}, h('td', { colspan: '8', class: 'vacio', text: 'Sin registros de tiempo.' }))])));
-
-    // QR compacto junto al N° de OT y al cliente: al escanearlo desde un
-    // móvil/tablet abre ESTA OT en la Terminal de Fichado.
-    const qrLienzo = h('div', { class: 'ot-qr-lienzo' });
-    if (window.QR) {
-      QR.pintar(qrLienzo, QR.payloadOT(ot), {
-        px: 104,
-        quiet: 3,
-        color: '#0f2f4f',
-        label: `QR de la OT ${ot.numero_ot} de ${ot.cliente}`,
-      });
+    // Pestaña: si cambió la OT, volvemos a Flujo; si es la misma (p. ej. al
+    // guardar configuración o consumo), conservamos la pestaña activa.
+    if (String(detalleOTId) !== String(id)) {
+      detalleTab = 'flujo';
+      detalleOTId = id;
     }
-    const bloqueQR = h('div', { class: 'ot-qr-bloque' },
-      h('div', { class: 'ot-qr-datos' },
-        h('div', { class: 'ot-qr-ot', text: ot.numero_ot }),
-        h('div', { class: 'ot-qr-cliente', text: ot.cliente }),
-        h('div', { class: 'ot-qr-hint', text: 'Escaneá para abrir esta OT en la Terminal.' })),
-      qrLienzo);
 
     $('detalle-cuerpo').innerHTML = '';
-    $('detalle-cuerpo').append(
-      bloqueQR,
-      h('div', { class: 'resumen-modal' },
-        h('div', {}, 'Estado: ', h('b', { text: ot.estado_general }),
-          ' · Línea: ', h('b', { text: ot.linea_area || 'Placares' }),
-          ' · Modelo: ', h('b', { text: ot.modelo || '—' }),
-          ' · Metros: ', h('b', { text: FORMATO.metros(ot.metros_lineales) })),
-        h('div', {}, 'Fecha prometida: ', h('b', { text: ot.fecha_prometida ? FORMATO.fecha(ot.fecha_prometida) : '—' })),
-        h('div', {}, 'Progreso: ', h('b', { text: `${ot.progreso.sectores_finalizados} de ${ot.progreso.sectores_requeridos} sectores` }),
-          ' · Tiempo acumulado: ', h('b', { text: FORMATO.duracion(ot.minutos_acumulados) })),
-        h('div', { class: 'barra-progreso' }, h('span', { style: `width:${ot.progreso.porcentaje}%` }))
-      ),
-      bloqueChecks,
-      bloqueMateriales,
-      construirFlujoOT(ot),
-      h('h3', { class: 'titulo-seccion', style: 'font-size:.9rem; margin-top:16px;', text: 'REGISTROS DE TIEMPOS' }),
-      tabla
-    );
+    $('detalle-cuerpo').append(construirDetalleOT(ot, id));
 
     // Hoja de Ruta imprimible (Fase 7): guarda la OT y liga el botón.
     S.detalleActual = ot;
