@@ -11,9 +11,9 @@
    · No requiere a api.js para su estructura: sólo lo usa (si
      existe) para pintar la sesión y cerrarla.
    · Comportamiento por ancho (ver public/css/app.css):
-       > 1024px  Escritorio  : desplegado 260px; ☰ colapsa a rail 64px.
-       768-1023px Tabletas   : RAIL automático 64px; ☰ lo superpone.
-       < 768px   Celulares   : DRAWER desde el ☰ de la barra superior.
+       > 1024px  Escritorio  : desplegado 260px; colapsa a rail 64px.
+       768-1023px Tabletas   : RAIL automático 64px; lo superpone.
+       < 768px   Celulares   : DRAWER desde el de la barra superior.
    ============================================================ */
 
 (function () {
@@ -102,6 +102,8 @@
     grafico:  '<path d="M3 3v18h18"/><path d="M8 17v-5"/><path d="M13 17V8"/><path d="M18 17v-8"/>',
     salir:    '<path d="M12 3v9"/><path d="M7.5 6.5a7 7 0 1 0 9 0"/>',
     herramienta: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+    menu:      '<path d="M4 6h16M4 12h16M4 18h16"/>',
+    panel:     '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   };
 
   /**
@@ -151,7 +153,7 @@
       else if (k === 'text') e.textContent = v;
       // 'onclick' -> addEventListener('click'): el nombre del evento NO
       // lleva el prefijo 'on' (si no, el handler queda colgado y nunca se
-      // dispara: botón ☰, fondo del drawer y cerrar sesión muertos).
+      // dispara: botón , fondo del drawer y cerrar sesión muertos).
       else if (k.startsWith('on') && typeof v === 'function') e.addEventListener(k.slice(2), v);
       else if (v === true) e.setAttribute(k, '');
       else e.setAttribute(k, String(v));
@@ -304,7 +306,7 @@
     const expandidoVisual = mqEscritorio.matches ? railEnEscritorio : abierto;
     btn.setAttribute('aria-expanded', String(expandidoVisual));
     btn.setAttribute('aria-label', expandidoVisual ? 'Contraer menú' : 'Expandir menú');
-    btn.title = expandidoVisual ? 'Contraer menú (☰)' : 'Expandir menú (☰)';
+    btn.title = expandidoVisual ? 'Contraer menú' : 'Expandir menú';
 
     const movil = $('sb-menu-btn');
     if (movil) movil.setAttribute('aria-expanded', String(abierto));
@@ -364,9 +366,9 @@
             el('small', { id: 'sb-version', text: VERSION_RESPALDO }))),
         el('button', {
           class: 'sb-btn', id: 'sb-colapsar', type: 'button',
-          'aria-label': 'Contraer menú', text: '☰',
+          'aria-label': 'Contraer menú',
           onclick: alternar,
-        })),
+        }, iconoSvg('menu'))),
       menu,
       el('div', { class: 'sb-pie' },
         el('div', { class: 'sb-usuario' },
@@ -396,8 +398,8 @@
       topbar.prepend(el('button', {
         class: 'topbar-menu', id: 'sb-menu-btn', type: 'button',
         'aria-label': 'Abrir menú', 'aria-controls': 'sidebar', 'aria-expanded': 'false',
-        text: '☰', onclick: alternar,
-      }));
+        onclick: alternar,
+      }, iconoSvg('menu')));
     }
   }
 

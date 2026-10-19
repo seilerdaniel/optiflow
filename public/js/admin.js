@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function pintarSesion(u) {
   const chip = $('sesion-chip');
-  if (chip) { chip.hidden = false; chip.textContent = `👤 ${u.nombre} (${u.rol})`; }
+  if (chip) { chip.hidden = false; chip.textContent = `${u.nombre} (${u.rol})`; }
   // Perfil del pie del sidebar (nombre + rol + cerrar sesión).
   if (window.Sidebar) Sidebar.pintarSesion(u);
   const salir = $('sesion-salir');
@@ -258,7 +258,7 @@ function pintarKPIs(m) {
   pintarGraficoCausas(m);
 
   $('cuello-dia').textContent = m.cuello_botella
-    ? `🚧 ${m.cuello_botella.nombre_corto || m.cuello_botella.nombre_sector}`
+    ? `${m.cuello_botella.nombre_corto || m.cuello_botella.nombre_sector}`
     : 'Sin carga hoy';
   $('kpi-cuello-sub-top').textContent = m.periodo.dia_cuello_botella
     ? `Cuello de botella del ${FORMATO.fecha(m.periodo.dia_cuello_botella)}`
@@ -638,14 +638,14 @@ function pintarEstadoPeriodo(d, est) {
 
   if (est.futuro) { el.textContent = 'Periodo futuro · aún sin datos'; return; }
   if (!est.configurada) {
-    el.textContent = '⚠ Sin meta configurada para este mes';
+    el.textContent = 'Sin meta configurada para este mes';
     el.classList.add('aviso');
     return;
   }
   if (est.enCurso) { el.textContent = 'Mes en curso · en seguimiento'; return; }
 
   const cumplida = d.cortados >= d.meta.totales;
-  el.textContent = cumplida ? 'Mes cerrado · ✔ meta cumplida' : 'Mes cerrado · meta no alcanzada';
+  el.textContent = cumplida ? 'Mes cerrado · meta cumplida' : 'Mes cerrado · meta no alcanzada';
   el.classList.add(cumplida ? 'ok' : 'faltante');
 }
 
@@ -663,7 +663,7 @@ function textoProyeccion(d, est) {
   if (!est.configurada) {
     return est.enCurso
       ? `Sin meta configurada · ${metros(d.cortados)} cortados · ritmo ${ritmo}`
-        + ' · cargala con ⚙️ Ajustar Meta Mensual'
+        + ' · cargala con Ajustar Meta Mensual'
       : `Sin meta configurada · ${metros(d.cortados)} cortados · promedio ${ritmo}`;
   }
 
@@ -679,7 +679,7 @@ function textoProyeccion(d, est) {
   if (est.cerrado) {
     const cumplida = d.cortados >= d.meta.totales;
     const veredicto = cumplida
-      ? `✔ superó la meta en ${metros(d.cortados - d.meta.totales)}`
+      ? `superó la meta en ${metros(d.cortados - d.meta.totales)}`
       : `faltaron ${metros(d.meta.totales - d.cortados)}`;
     return `Resultado final del mes: ${metros(d.cortados)} · ${veredicto}`
       + ` · promedio ${ritmo}`;
@@ -708,7 +708,7 @@ function textoNotaGrafico(d, est) {
 
   const cumplida = d.cortados >= d.meta.totales;
   return cumplida
-    ? `✔ Meta cumplida con ${d.dias.transcurridos} de ${d.dias.totales} días · ${ritmo}`
+    ? `Meta cumplida con ${d.dias.transcurridos} de ${d.dias.totales} días · ${ritmo}`
     : `${d.dias.transcurridos} de ${d.dias.totales} días · ritmo ${ritmo}`
       + (d.dias.restantes > 0 && d.ritmo_necesario > 0
         ? ` · hacen falta ${metrosDia(d.ritmo_necesario)} el resto del mes`
@@ -931,7 +931,7 @@ async function guardarMetaCorte(ev) {
   marcarCargando(btn, true);
   try {
     const r = await API.post('/api/metricas/objetivo-corte', cuerpo);
-    Avisos.ok('✔ Meta mensual de corte actualizada.',
+    Avisos.ok('Meta mensual de corte actualizada.',
       `${etiquetaPeriodoLargo(r.periodo)} · ${FORMATO.metros(r.meta.totales)} en total`);
     Modal.cerrar('modal-meta-corte');
     // Sigue mirando el mismo mes: si se guardó un período histórico, el
@@ -1508,10 +1508,10 @@ function filaMaterial(mat) {
     autocomplete: 'off', value: m.observaciones || '',
   });
   const btnQuitar = h('button', {
-    type: 'button', class: 'btn btn-chico btn-peligro', text: '✕',
+    type: 'button', class: 'btn btn-chico btn-peligro',
     title: 'Quitar material', 'aria-label': 'Quitar material',
     onclick: (ev) => ev.currentTarget.closest('.fila-material').remove(),
-  });
+  }, iconoSvg('x'));
   return h('div', { class: 'fila-material fila-flex', style: 'gap:8px; margin-top:6px;' },
     nombre, cantidad, obs, btnQuitar);
 }
@@ -1590,7 +1590,7 @@ async function guardarOT(ev) {
   }
   try {
     const r = await API.post('/api/ordenes', payload);
-    Avisos.ok(`✔ OT ${r.numero_ot} creada`,
+    Avisos.ok(`OT ${r.numero_ot} creada`,
       materiales.length ? `${r.cliente} · ${materiales.length} material(es)` : `${r.cliente} · ${FORMATO.metros(r.metros_lineales)}`);
     $('form-ot').reset();
     limpiarMaterialesForm();
@@ -1622,14 +1622,14 @@ async function cargarOrdenes() {
 
 function chipsRequisitos(ot) {
   const defs = [
-    ['requiere_vidrio', 'Vidrio', 'chip-azul', '🪟'],
-    ['requiere_lustre', 'Lustre', 'chip-amarillo', '✨'],
-    ['requiere_herreria', 'Herrería', 'chip-gris', '🔩'],
-    ['requiere_especiales', 'Especiales', 'chip-rojo', '🛠'],
+    ['requiere_vidrio', 'Vidrio', 'chip-azul'],
+    ['requiere_lustre', 'Lustre', 'chip-amarillo'],
+    ['requiere_herreria', 'Herrería', 'chip-gris'],
+    ['requiere_especiales', 'Especiales', 'chip-rojo'],
   ];
   const activos = defs.filter(([k]) => ot[k]);
   if (!activos.length) return h('span', { class: 'texto-suave', text: '—' });
-  return activos.map(([, nombre, clase, icono]) => h('span', { class: `chip ${clase}`, text: `${icono} ${nombre}` }));
+  return activos.map(([, nombre, clase]) => h('span', { class: `chip ${clase}`, text: nombre }));
 }
 
 /* ------------------------------------------------------------------ */
@@ -1719,7 +1719,7 @@ function pintarTabla() {
         h('div', { style: 'margin-top:4px;' },
           h('span', { class: `chip ${CHIP_LINEA[ot.linea_area] || 'chip-gris'}`, text: ot.linea_area || 'Placares' })),
         ot.etapa_activa
-          ? h('div', {}, h('span', { class: 'chip chip-verde', text: '▶ EN CURSO' })) : null),
+          ? h('div', {}, h('span', { class: 'chip chip-verde', text: 'EN CURSO' })) : null),
       h('td', { text: ot.cliente }),
       h('td', { text: ot.modelo || '—' }),
       h('td', { class: 'num', text: FORMATO.metros(ot.metros_lineales) }),
@@ -1734,12 +1734,13 @@ function pintarTabla() {
       h('td', { class: 'num', text: FORMATO.duracion(ot.minutos_acumulados) }),
       h('td', {},
         h('div', { class: 'fila-acciones' },
-          h('button', { class: 'btn btn-chico', type: 'button', text: '👁 Ver', onclick: () => verDetalle(ot.id) }),
+          h('button', { class: 'btn btn-chico', type: 'button', onclick: () => verDetalle(ot.id) },
+            iconoSvg('eye'), ' Ver'),
           h('button', {
-            class: 'btn btn-chico btn-peligro', type: 'button', text: '🗑',
+            class: 'btn btn-chico btn-peligro', type: 'button',
             title: 'Eliminar OT', 'aria-label': `Eliminar OT ${ot.numero_ot}`,
             onclick: () => eliminarOT(ot),
-          })))
+          }, iconoSvg('trash'))))
     ));
   }
   estamparEtiquetas('tabla-ots');
@@ -1799,8 +1800,8 @@ function construirFlujoOT(ot) {
     },
       h('span', { class: 'flujo-nombre', text: s.nombre_corto || s.nombre_sector }),
       esCompartido ? h('span', { class: 'flujo-insignia', text: 'COMPARTIDO' }) : null,
-      finalizados.has(s.id) ? h('span', { class: 'flujo-estado', text: '✔' }) : null,
-      bloqueados[s.id] ? h('span', { class: 'flujo-estado', text: '🔒' }) : null
+      finalizados.has(s.id) ? h('span', { class: 'flujo-estado' }, iconoSvg('check')) : null,
+      bloqueados[s.id] ? h('span', { class: 'flujo-estado' }, iconoSvg('lock')) : null
     ));
   });
   return h('div', {},
@@ -1829,8 +1830,8 @@ async function verDetalle(id) {
     cuerpoDetalle.removeAttribute('aria-busy');
 
     const checks = h('div', { class: 'checks' },
-      [['requiere_vidrio', '🪟 Vidrio'], ['requiere_lustre', '✨ Lustre'],
-        ['requiere_herreria', '🔩 Herrería'], ['requiere_especiales', '🛠 Especiales']]
+      [['requiere_vidrio', 'Vidrio'], ['requiere_lustre', 'Lustre'],
+        ['requiere_herreria', 'Herrería'], ['requiere_especiales', 'Especiales']]
         .map(([k, texto]) => {
           const cb = h('input', { type: 'checkbox' });
           cb.checked = !!ot[k];
@@ -1842,7 +1843,7 @@ async function verDetalle(id) {
 
     const selLineaDetalle = h('select', {
       id: 'detalle-linea',
-      style: 'min-height:42px;padding:8px 12px;border:2px solid var(--borde);border-radius:10px;',
+      style: 'min-height:42px;padding:8px 12px;border:2px solid var(--borde);border-radius:var(--radio-md);',
     },
       lineasOT().map((l) => h('option', { value: l, text: l, selected: l === (ot.linea_area || 'Placares') })));
 
@@ -1857,7 +1858,7 @@ async function verDetalle(id) {
       checks,
       h('div', { class: 'fila-flex', style: 'margin-top:10px;' },
         h('button', {
-          class: 'btn btn-primario', type: 'button', text: '💾 Guardar requisitos',
+          class: 'btn btn-primario', type: 'button',
           onclick: async () => {
             const payload = { linea_area: selLineaDetalle.value };
             bloqueChecks.querySelectorAll('input[type=checkbox]').forEach((cb) => {
@@ -1870,7 +1871,7 @@ async function verDetalle(id) {
               verDetalle(id);
             } catch (e) { manejarError(e, 'Guardar requisitos'); }
           },
-        })));
+        }, iconoSvg('save'), ' Guardar requisitos')));
 
     // --- Materiales / placas: requeridas vs consumidas (Fase 3) ---
     const mats = ot.materiales || [];
@@ -1882,7 +1883,7 @@ async function verDetalle(id) {
         value: String(m.cantidad_consumida).replace('.', ','), title: 'Placas consumidas',
       });
       const btnGuardar = h('button', {
-        class: 'btn btn-chico', type: 'button', text: '💾',
+        class: 'btn btn-chico', type: 'button',
         title: 'Guardar consumo', 'aria-label': `Guardar consumo de ${m.material_nombre}`,
         onclick: async () => {
           try {
@@ -1892,7 +1893,7 @@ async function verDetalle(id) {
             verDetalle(id);
           } catch (e) { manejarError(e, 'Actualizar consumo'); }
         },
-      });
+      }, iconoSvg('save'));
       const completo = m.cantidad_consumida >= m.cantidad_placas;
       return h('tr', {},
         h('td', { text: m.material_nombre }),
@@ -2183,8 +2184,8 @@ function lineasOT() {
 }
 
 const ETIQUETA_LINEA = {
-  Placares: '📦 Placares', Cocinas: '🍳 Cocinas',
-  Compartido: '🤝 Compartido', General: '🌐 General',
+  Placares: 'Placares', Cocinas: 'Cocinas',
+  Compartido: 'Compartido', General: 'General',
 };
 
 /** Rellena los <select> de línea desde /api/meta (una sola fuente de verdad). */
@@ -2235,22 +2236,21 @@ function pintarTablaSectores() {
       h('td', { class: 'num', text: String(s.orden_flujo) }),
       h('td', {}, h('span', {
         class: `chip ${s.activo ? 'chip-verde' : 'chip-gris'}`,
-        text: s.activo ? (s.etapas_abiertas > 0 ? `● ${s.etapas_abiertas} en curso` : 'Activo') : 'Inactivo',
+        text: s.activo ? (s.etapas_abiertas > 0 ? `${s.etapas_abiertas} en curso` : 'Activo') : 'Inactivo',
       })),
       h('td', {},
         h('div', { class: 'fila-acciones' },
           h('button', {
-            class: 'btn btn-chico', type: 'button', text: '✏️ Editar',
+            class: 'btn btn-chico', type: 'button',
             title: 'Cambiar nombre, línea, orden o estado',
             onclick: () => editarSector(s),
-          }),
+          }, iconoSvg('pencil'), ' Editar'),
           h('button', {
             class: s.activo ? 'btn btn-chico btn-peligro' : 'btn btn-chico',
             type: 'button',
-            text: s.activo ? '⏸ Desactivar' : '▶ Activar',
             title: s.activo ? 'Lo oculta de la planta e impide fichar en él' : 'Vuelve a estar disponible en la Terminal',
             onclick: () => cambiarEstadoSector(s),
-          })))
+          }, iconoSvg(s.activo ? 'pause' : 'play'), s.activo ? ' Desactivar' : ' Activar')))
     ));
   }
   estamparEtiquetas('tabla-sectores');
@@ -2270,7 +2270,7 @@ async function agregarSector() {
 
   try {
     const r = await API.post('/api/sectores', payload);
-    Avisos.ok(`✔ Sector "${r.nombre_sector}" agregado`,
+    Avisos.ok(`Sector "${r.nombre_sector}" agregado`,
       `Línea ${r.linea_area} · posición ${r.orden_flujo} del flujo.`);
     input.value = '';
     $('sec-operarios').value = '';
@@ -2289,9 +2289,9 @@ async function editarSector(s) {
   if (!fila || fila.classList.contains('editando')) return;
   fila.classList.add('editando');
 
-  const ancho = 'width:100%;min-width:150px;padding:6px 8px;border:1px solid var(--borde);border-radius:8px;';
+  const ancho = 'width:100%;min-width:150px;padding:6px 8px;border:1px solid var(--borde);border-radius:var(--radio-sm);';
   const inpNombre = h('input', { type: 'text', value: s.nombre_sector, maxlength: '80', style: ancho, autocomplete: 'off' });
-  const selLinea = h('select', { style: 'padding:6px 8px;border:1px solid var(--borde);border-radius:8px;' },
+  const selLinea = h('select', { style: 'padding:6px 8px;border:1px solid var(--borde);border-radius:var(--radio-sm);' },
     lineasSector().map((l) => h('option', { value: l, text: l, selected: l === s.linea_area })));
   const inpOps = h('input', {
     type: 'text', value: s.operarios_sugeridos || '', maxlength: '300',
@@ -2299,7 +2299,7 @@ async function editarSector(s) {
   });
   const inpOrden = h('input', {
     type: 'number', min: '0', step: '1', value: String(s.orden_flujo),
-    style: 'width:76px;padding:6px 8px;border:1px solid var(--borde);border-radius:8px;text-align:center;',
+    style: 'width:76px;padding:6px 8px;border:1px solid var(--borde);border-radius:var(--radio-sm);text-align:center;',
   });
   const cbComp = h('input', { type: 'checkbox' });
   const cbActivo = h('input', { type: 'checkbox' });
@@ -2315,7 +2315,7 @@ async function editarSector(s) {
   celda(5).append(cbActivo, h('span', { class: 'texto-suave', style: 'margin-left:6px;font-size:.8rem;', text: 'Activo' }));
 
   const btnGuardar = h('button', {
-    class: 'btn btn-primario btn-chico', type: 'button', text: '💾 Guardar',
+    class: 'btn btn-primario btn-chico', type: 'button',
     onclick: async () => {
       const orden = inpOrden.value.trim();
       if (Number(orden) < 0 || (orden !== '' && !Number.isInteger(Number(orden)))) {
@@ -2330,18 +2330,18 @@ async function editarSector(s) {
           operarios_sugeridos: inpOps.value.trim(),
           activo: cbActivo.checked,
         });
-        Avisos.ok('✔ Sector actualizado', `${inpNombre.value.trim()} · ${selLinea.value}`);
+        Avisos.ok('Sector actualizado', `${inpNombre.value.trim()} · ${selLinea.value}`);
         await cargarSectores();
         await cargarOrdenes(); // el progreso del flujo depende del orden
       } catch (e) {
         manejarError(e, 'Actualizar sector');
       }
     },
-  });
+  }, iconoSvg('save'), ' Guardar');
   const btnCancelar = h('button', {
-    class: 'btn btn-chico', type: 'button', text: '✕ Cancelar',
+    class: 'btn btn-chico', type: 'button',
     onclick: () => pintarTablaSectores(),
-  });
+  }, iconoSvg('x'), ' Cancelar');
 
   celda(6).append(h('div', { class: 'fila-acciones' }, btnGuardar, btnCancelar));
   inpNombre.focus();
@@ -2360,7 +2360,7 @@ async function cambiarEstadoSector(s) {
 
   try {
     await API.put(`/api/sectores/${s.id}`, { activo: !s.activo });
-    Avisos.ok(`✔ Sector ${accion}do`, s.nombre_sector);
+    Avisos.ok(`Sector ${accion}do`, s.nombre_sector);
     await cargarSectores();
     await cargarOrdenes();
   } catch (e) {
@@ -2395,17 +2395,16 @@ function pintarTablaOperarios() {
     const etapaAbierta = op.etapas_abiertas > 0;
 
     const btnEditar = h('button', {
-      class: 'btn btn-chico', type: 'button', text: '✏️ Editar', title: 'Renombrar operario',
+      class: 'btn btn-chico', type: 'button', title: 'Renombrar operario',
       onclick: () => editarOperario(op),
-    });
+    }, iconoSvg('pencil'), ' Editar');
 
     const btnEstado = h('button', {
       class: op.activo ? 'btn btn-chico btn-peligro' : 'btn btn-chico',
       type: 'button',
-      text: op.activo ? '⏸ Desactivar' : '▶ Activar',
       title: op.activo ? 'Impide que inicie nuevas etapas' : 'Permite que inicie etapas',
       onclick: () => cambiarEstadoOperario(op),
-    });
+    }, iconoSvg(op.activo ? 'pause' : 'play'), op.activo ? ' Desactivar' : ' Activar');
 
     cuerpo.append(h('tr', {},
       h('td', { class: 'num', text: String(op.id) }),
@@ -2414,7 +2413,7 @@ function pintarTablaOperarios() {
       h('td', { text: op.ultima_actividad ? FORMATO.fechaHora(op.ultima_actividad) : '—' }),
       h('td', {}, h('span', {
         class: `chip ${op.activo ? (etapaAbierta ? 'chip-verde' : 'chip-azul') : 'chip-gris'}`,
-        text: op.activo ? (etapaAbierta ? '● En etapa' : 'Activo') : 'Inactivo',
+        text: op.activo ? (etapaAbierta ? 'En etapa' : 'Activo') : 'Inactivo',
       })),
       h('td', {},
         h('div', { class: 'fila-acciones' }, btnEditar, btnEstado))
@@ -2430,7 +2429,7 @@ async function agregarOperario() {
 
   try {
     await API.post('/api/operarios', { nombre });
-    Avisos.ok(`✔ Operario "${nombre}" registrado`);
+    Avisos.ok(`Operario "${nombre}" registrado`);
     input.value = '';
     await cargarOperarios();
   } catch (e) {
@@ -2449,7 +2448,7 @@ async function editarOperario(op) {
     const msg = r.registros_actualizados > 0
       ? `${r.registros_actualizados} registro(s) de tiempo actualizados con el nuevo nombre.`
       : 'Nombre actualizado.';
-    Avisos.ok(`✔ Operario renombrado a "${limpio}"`, msg);
+    Avisos.ok(`Operario renombrado a "${limpio}"`, msg);
     await cargarOperarios();
     await cargarOrdenes(); // por si había etapas activas con el nombre viejo
   } catch (e) {
@@ -2473,7 +2472,7 @@ async function cambiarEstadoOperario(op) {
 
   try {
     await API.put(`/api/operarios/${op.id}`, { activo: !op.activo });
-    Avisos.ok(`✔ Operario ${accion}do`, op.nombre);
+    Avisos.ok(`Operario ${accion}do`, op.nombre);
     await cargarOperarios();
   } catch (e) {
     manejarError(e, 'Cambiar estado de operario');
@@ -2484,7 +2483,7 @@ async function cambiarEstadoOperario(op) {
 /* Usuarios del sistema (credenciales, auditoría V-1) — sólo admin     */
 /* ------------------------------------------------------------------ */
 
-const ETIQUETAS_ROL = { admin: '🛡 Administrador', encargado: '📋 Encargado', operario: '👷 Operario' };
+const ETIQUETAS_ROL = { admin: 'Administrador', encargado: 'Encargado', operario: 'Operario' };
 
 async function cargarUsuarios() {
   try {
@@ -2512,15 +2511,15 @@ function pintarTablaUsuarios() {
       h('button', {
         class: 'btn btn-chico', type: 'button',
         onclick: () => cambiarClaveUsuario(u),
-      }, '🔑 Cambiar clave'),
+      }, iconoSvg('key'), ' Cambiar clave'),
       h('button', {
         class: 'btn btn-chico', type: 'button',
         onclick: () => cambiarWhatsAppUsuario(u),
-      }, '📱 WhatsApp'),
+      }, iconoSvg('phone'), ' WhatsApp'),
       h('button', {
         class: 'btn btn-chico', type: 'button',
         onclick: () => cambiarEstadoUsuario(u),
-      }, u.activo ? '⏸ Desactivar' : '▶ Activar'),
+      }, iconoSvg(u.activo ? 'pause' : 'play'), u.activo ? ' Desactivar' : ' Activar'),
       esYo ? h('span', { class: 'texto-suave', text: '(usted)' }) : null
     );
 
@@ -2532,8 +2531,8 @@ function pintarTablaUsuarios() {
       h('td', {}, u.telefono_whatsapp
         ? h('a', {
             href: `https://wa.me/${u.telefono_whatsapp}`, target: '_blank', rel: 'noopener',
-            text: `📱 ${u.telefono_whatsapp}`, 'aria-label': `WhatsApp de ${u.nombre}`,
-          })
+            'aria-label': `WhatsApp de ${u.nombre}`,
+          }, iconoSvg('phone', 'ico-svg ico-svg-inline'), ` ${u.telefono_whatsapp}`)
         : h('span', { class: 'texto-suave', text: '—' })),
       h('td', { text: u.ultimo_acceso ? FORMATO.fechaHora(u.ultimo_acceso) : '—' }),
       h('td', {}, h('span', { class: `chip ${u.activo ? 'chip-verde' : 'chip-rojo'}`, text: u.activo ? 'Activo' : 'Inactivo' })),
@@ -2565,7 +2564,7 @@ async function agregarUsuario() {
 
   try {
     await API.post('/api/usuarios', { usuario, nombre, password, rol, telefono_whatsapp });
-    Avisos.ok(`✔ Usuario "${usuario}" creado`, `Ya puede usar la Terminal de fichado.`);
+    Avisos.ok(`Usuario "${usuario}" creado`, `Ya puede usar la Terminal de fichado.`);
     $('usu-login').value = '';
     $('usu-nombre').value = '';
     $('usu-password').value = '';
@@ -2601,7 +2600,7 @@ async function cambiarWhatsAppUsuario(u) {
 
   try {
     await API.put(`/api/usuarios/${u.id}`, { telefono_whatsapp: limpio });
-    Avisos.ok('✔ WhatsApp actualizado', limpio ? `+${limpio.replace(/^\+/, '')}` : 'número eliminado');
+    Avisos.ok('WhatsApp actualizado', limpio ? `+${limpio.replace(/^\+/, '')}` : 'número eliminado');
     await cargarUsuarios();
   } catch (e) {
     manejarError(e, 'Actualizar WhatsApp');
@@ -2617,7 +2616,7 @@ async function cambiarClaveUsuario(u) {
   }
   try {
     await API.put(`/api/usuarios/${u.id}`, { password });
-    Avisos.ok('✔ Contraseña actualizada', u.usuario);
+    Avisos.ok('Contraseña actualizada', u.usuario);
   } catch (e) {
     manejarError(e, 'Cambiar contraseña');
   }
@@ -2635,7 +2634,7 @@ async function cambiarEstadoUsuario(u) {
 
   try {
     await API.put(`/api/usuarios/${u.id}`, { activo: !u.activo });
-    Avisos.ok(`✔ Usuario ${accion}do`, u.usuario);
+    Avisos.ok(`Usuario ${accion}do`, u.usuario);
     await cargarUsuarios();
   } catch (e) {
     manejarError(e, 'Cambiar estado de usuario');
@@ -2691,7 +2690,7 @@ function pintarTPM() {
   if (!maqs.length) {
     grid.append(h('div', {
       class: 'vacio',
-      text: 'Todavía no hay máquinas TPM. Presione "➕ Nueva máquina TPM" para dar de alta la primera.',
+      text: 'Todavía no hay máquinas TPM. Presione "Nueva máquina TPM" para dar de alta la primera.',
     }));
     return;
   }
@@ -2715,7 +2714,7 @@ function cartaTPM(m) {
     ),
 
     h('p', { class: 'tpm-tarea' },
-      h('span', { class: 'tpm-tarea-ico', 'aria-hidden': 'true', text: '🛠️' }),
+      h('span', { class: 'tpm-tarea-ico', 'aria-hidden': 'true' }, iconoSvg('wrench')),
       h('span', { text: m.tarea_mantenimiento })
     ),
 
@@ -2752,12 +2751,12 @@ function cartaTPM(m) {
         class: 'btn btn-primario tpm-btn', type: 'button',
         'aria-label': `Registrar service de ${m.nombre_maquina}`,
         onclick: () => abrirServiceTPM(m),
-      }, '🛠️ Registrar Service'),
+      }, iconoSvg('wrench'), ' Registrar Service'),
       h('button', {
         class: 'btn tpm-btn', type: 'button',
         'aria-label': `Configurar ${m.nombre_maquina}`,
         onclick: () => abrirConfigTPM(m),
-      }, '⚙️ Configurar')
+      }, iconoSvg('gear'), ' Configurar')
     )
   );
 }
@@ -2793,7 +2792,7 @@ function pintarHistorialTPM() {
 
 function abrirServiceTPM(m) {
   $('tpm-service-id').value = String(m.id);
-  $('tpm-service-titulo').textContent = `🛠️ Registrar service · ${m.nombre_maquina}`;
+  $('tpm-service-titulo').textContent = `Registrar service · ${m.nombre_maquina}`;
   $('tpm-service-resumen').textContent =
     `${m.nombre_sector || ''} — ${m.tarea_mantenimiento}\n` +
     `Lleva ${hsTPM(m.horas_desde_ultimo_mantenimiento)} de ${hsTPM(m.intervalo_horas_target)} ` +
@@ -2850,7 +2849,7 @@ function abrirConfigTPM(m) {
   }
 
   $('tpm-config-id').value = m ? String(m.id) : '';
-  $('tpm-config-titulo').textContent = m ? `⚙️ ${m.nombre_maquina}` : '⚙️ Nueva máquina TPM';
+  $('tpm-config-titulo').textContent = m ? `${m.nombre_maquina}` : 'Nueva máquina TPM';
   if (m) sel.value = String(m.sector_id);
   $('tpm-config-nombre').value = m ? m.nombre_maquina : '';
   $('tpm-config-tarea').value = m ? m.tarea_mantenimiento : '';

@@ -2,7 +2,7 @@
 
 /**
  * ============================================================
- *  OPTIFLOW - Soporte: botón [🐛 Reportar Bug] → WhatsApp
+ *  OPTIFLOW - Soporte: botón [Reportar Bug] → WhatsApp
  * ============================================================
  *
  * CERO dependencias npm: Vanilla JS + CSS nativo del proyecto. No carga
@@ -131,10 +131,10 @@ function detectarVista() {
  */
 function construirMensajeReporte({ usuario, pantalla, descripcion }) {
   return [
-    '🐛 *OPTIFLOW | REPORTE DE BUG*',
-    `👤 *Usuario:* ${usuario}`,
-    `📍 *Vista:* ${pantalla}`,
-    `📝 *Detalle:* ${descripcion}`,
+    '*OPTIFLOW | REPORTE DE BUG*',
+    `*Usuario:* ${usuario}`,
+    `*Vista:* ${pantalla}`,
+    `*Detalle:* ${descripcion}`,
   ].join('\n');
 }
 
@@ -197,7 +197,7 @@ async function enviarReporteBug() {
   a.click();
   setTimeout(() => a.remove(), 0);
 
-  Avisos.ok('✔ Reporte preparado', 'Se abrió WhatsApp; allí confirme el envío al analista.');
+  Avisos.ok('Reporte preparado', 'Se abrió WhatsApp; allí confirme el envío al analista.');
   if (campo) campo.value = '';
   Modal.cerrar(SopIDs.MODAL);
   return url;
@@ -230,8 +230,9 @@ function montarBoton() {
   btn.setAttribute('aria-label', 'Reportar bug o error al soporte');
   btn.setAttribute('aria-haspopup', 'dialog');
   btn.innerHTML =
-    '<span class="btn-bug-ico" aria-hidden="true">🐛</span>'
-    + '<span class="btn-bug-txt">Reportar Bug</span>';
+    '<span class="btn-bug-ico" aria-hidden="true">'
+    + '<svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M8 3v2M16 3v2"/><path d="M9 9h6a4 4 0 0 1 4 4v1a7 7 0 0 1-14 0v-1a4 4 0 0 1 4-4Z"/><path d="M12 9v9M8 13H3M21 13h-5M6 19l-2 2M18 19l2 2M7 5 5 3M17 5l2-2"/></svg>'
+    + '</span><span class="btn-bug-txt">Reportar Bug</span>';
   btn.addEventListener('click', abrirSoporte);
 
   // Antes de la navegación: el botón queda junto al reloj, fuera del menú.
@@ -253,8 +254,8 @@ function montarModal() {
     <div class="modal" style="width:min(560px,100%);" role="dialog"
          aria-modal="true" aria-labelledby="bug-titulo">
       <div class="modal-cabecera">
-        <h3 id="bug-titulo">🐛 Reportar Bug / Error</h3>
-        <button class="modal-cerrar" data-cerrar="${SopIDs.MODAL}" aria-label="Cerrar">✕</button>
+        <h3 id="bug-titulo"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 3v2M16 3v2"/><path d="M9 9h6a4 4 0 0 1 4 4v1a7 7 0 0 1-14 0v-1a4 4 0 0 1 4-4Z"/><path d="M12 9v9M8 13H3M21 13h-5M6 19l-2 2M18 19l2 2M7 5 5 3M17 5l2-2"/></svg>Reportar Bug / Error</h3>
+        <button class="modal-cerrar" data-cerrar="${SopIDs.MODAL}" aria-label="Cerrar"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
       <form id="form-reporte-bug" novalidate>
         <div class="modal-cuerpo">
@@ -278,20 +279,20 @@ function montarModal() {
           </label>
 
           <p class="texto-suave" id="bug-ayuda" style="margin:4px 0 0;">
-            ℹ El reporte se abre en <b>WhatsApp</b> hacia el Analista de Datos/Soporte
+            El reporte se abre en <b>WhatsApp</b> hacia el Analista de Datos/Soporte
             con el usuario y la vista ya cargados. Sólo falta confirmar el envío.
           </p>
           <p class="texto-suave bug-destino" id="bug-destino" style="margin:6px 0 0;" hidden></p>
         </div>
         <div class="modal-pie">
-          <button type="button" class="btn" data-cerrar="${SopIDs.MODAL}">Cancelar</button>
-          <button type="submit" class="btn btn-primario" id="bug-enviar">🚀 Enviar a Soporte por WhatsApp</button>
+          <button type="button" class="btn" data-cerrar="${SopIDs.MODAL}"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>Cancelar</button>
+          <button type="submit" class="btn btn-primario" id="bug-enviar"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Enviar a Soporte por WhatsApp</button>
         </div>
       </form>
     </div>`;
   document.body.appendChild(fondo);
 
-  // Cerrar por ✕ / Cancelar (mismo contrato data-cerrar del resto de la app).
+  // Cerrar por / Cancelar (mismo contrato data-cerrar del resto de la app).
   fondo.addEventListener('click', (e) => {
     const cerrar = e.target && e.target.closest ? e.target.closest('[data-cerrar]') : null;
     if (cerrar) Modal.cerrar(cerrar.getAttribute('data-cerrar'));
@@ -339,8 +340,8 @@ async function abrirSoporte() {
   if (elDest) {
     elDest.hidden = false;
     elDest.textContent = numero
-      ? `📲 Destino: +${numero}`
-      : '⚠ Sin número de soporte configurado: defina NUMERO_SOPORTE_ANALISTA.';
+      ? `Destino: +${numero}`
+      : 'Sin número de soporte configurado: defina NUMERO_SOPORTE_ANALISTA.';
   }
   if (elBtn) elBtn.disabled = !numero;
   if (elDet) elDet.focus();

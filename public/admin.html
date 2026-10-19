@@ -29,7 +29,7 @@
   </div>
   <div class="topbar-dcha">
     <div class="reloj"><span id="reloj-hora">--:--:--</span><small id="reloj-fecha">&nbsp;</small></div>
-    <span class="chip chip-gris" id="sesion-chip" hidden>👤 —</span>
+    <span class="chip chip-gris" id="sesion-chip" hidden>—</span>
     <nav class="nav" aria-label="Navegación principal">
       <a href="/" title="Terminal de Fichado" aria-label="Terminal de Fichado">
         <svg class="ico-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -62,7 +62,7 @@
   <!-- ============ DASHBOARD KPIs ============ -->
   <section class="panel ancho-completo panel-industrial" id="panel-kpis">
     <h2 class="panel-titulo">
-      <span class="etiqueta-titulo">📊 Dashboard de analítica integrada</span>
+      <span class="etiqueta-titulo"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 3v18h18"/><path d="M8 17v-5"/><path d="M13 17V8"/><path d="M18 17v-8"/></svg>Dashboard de analítica integrada</span>
       <span class="texto-suave" id="kpi-actualizado"><span class="spinner spinner-sm" aria-hidden="true"></span> Cargando métricas…</span>
     </h2>
 
@@ -98,8 +98,8 @@
         <div class="fila-flex" style="margin-bottom:10px;">
           <select id="filtro-linea-grafico" aria-label="Filtrar el gráfico por línea">
             <option value="">Ambas líneas</option>
-            <option value="Placares">📦 Placares</option>
-            <option value="Cocinas">🍳 Cocinas</option>
+            <option value="Placares">Placares</option>
+            <option value="Cocinas">Cocinas</option>
           </select>
           <span class="chip chip-gris" id="cuello-dia">Hoy</span>
         </div>
@@ -119,16 +119,16 @@
     <div class="dos-columnas" style="margin-top:18px;">
       <div class="kpi-ind acento-corte" id="tarjeta-corte">
         <div class="corte-cabecera">
-          <div class="kpi-titulo">🎯 Objetivo de corte</div>
+          <div class="kpi-titulo"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>Objetivo de corte</div>
 
           <!-- Selector de mes: se llena en JS con el mes en curso + los 12
                anteriores. `‹ ›` recorren la misma lista que el desplegable. -->
           <div class="corte-nav" role="group" aria-label="Elegir mes del objetivo">
             <button type="button" class="corte-nav-btn" id="btnPeriodoAnterior"
-                    aria-label="Mes anterior">‹</button>
+                    aria-label="Mes anterior"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg></button>
             <select id="selectPeriodoObjetivo" aria-label="Mes del objetivo a consultar"></select>
             <button type="button" class="corte-nav-btn" id="btnPeriodoSiguiente"
-                    aria-label="Mes siguiente">›</button>
+                    aria-label="Mes siguiente"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg></button>
           </div>
         </div>
 
@@ -148,12 +148,12 @@
 
         <div class="corte-lineas">
           <div class="corte-linea">
-            <span class="corte-linea-nom">📦 Placares</span>
+            <span class="corte-linea-nom">Placares</span>
             <b id="corte-placares">—</b>
             <div class="barra-mini"><i id="corte-placares-fill" style="width:0%; background:var(--linea-placares);"></i></div>
           </div>
           <div class="corte-linea">
-            <span class="corte-linea-nom">🍳 Cocinas</span>
+            <span class="corte-linea-nom">Cocinas</span>
             <b id="corte-cocinas">—</b>
             <div class="barra-mini"><i id="corte-cocinas-fill" style="width:0%; background:var(--linea-cocinas);"></i></div>
           </div>
@@ -163,7 +163,7 @@
           Proyección de cierre a fin de mes: —
         </p>
 
-        <button type="button" class="btn" id="btn-meta-corte">⚙️ Ajustar Meta Mensual</button>
+        <button type="button" class="btn" id="btn-meta-corte"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>Ajustar Meta Mensual</button>
       </div>
 
       <div class="grafico-envoltura">
@@ -180,7 +180,7 @@
          aria-busy="false" style="margin-top:18px;">
       <div class="objetivos-anio-cabecera">
         <div>
-          <h3 class="titulo-seccion" style="font-size:1rem; margin:0;">📅 Metas por período</h3>
+          <h3 class="titulo-seccion" style="font-size:1rem; margin:0;">Metas por período</h3>
           <p class="texto-suave" style="margin:2px 0 0;">
             Progreso real vs. objetivo mensual. El real de metros usa el mismo criterio de corte que la tarjeta superior.
           </p>
@@ -222,7 +222,7 @@
   <!-- ============ CARGA POR SECTOR (desglose del cuello de botella) ============ -->
   <section class="panel ancho-completo panel-industrial">
     <h2 class="panel-titulo">
-      <span class="etiqueta-titulo">🚧 Carga por sector y pausas</span>
+      <span class="etiqueta-titulo"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 3v18h18"/><path d="M8 17v-5"/><path d="M13 17V8"/><path d="M18 17v-8"/></svg>Carga por sector y pausas</span>
       <span class="texto-suave" id="kpi-cuello-sub-top"></span>
     </h2>
     <div class="dos-columnas">
@@ -250,15 +250,15 @@
   <!-- ============ SEGUIMIENTO POR SECTOR / AVANCE ============ -->
   <section class="panel ancho-completo">
     <h2 class="panel-titulo">
-      <span class="etiqueta-titulo">🔎 Seguimiento de OTs por sector y avance</span>
+      <span class="etiqueta-titulo"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>Seguimiento de OTs por sector y avance</span>
       <span class="texto-suave" id="resumen-seguimiento"></span>
     </h2>
 
     <div class="fila-flex" style="margin-bottom:12px;">
-      <select id="filtro-sector-seg" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:10px; background:#fff;">
+      <select id="filtro-sector-seg" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:var(--radio-md); background:#fff;">
         <option value="">Todos los sectores</option>
       </select>
-      <select id="filtro-avance" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:10px; background:#fff;">
+      <select id="filtro-avance" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:var(--radio-md); background:#fff;">
         <option value="">Todo el avance</option>
         <option value="sin-iniciar">Sin iniciar (0%)</option>
         <option value="en-curso">En curso (1–99%)</option>
@@ -291,7 +291,7 @@
   <!-- ============ FORMULARIO ALTA OT ============ -->
   <section class="panel">
     <h2 class="panel-titulo">
-      <span class="etiqueta-titulo"><span class="paso">+</span> Nueva orden de trabajo</span>
+      <span class="etiqueta-titulo"><span class="paso" aria-hidden="true"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 5v14M5 12h14"/></svg></span> Nueva orden de trabajo</span>
       <span class="chip chip-gris">Oficina técnica</span>
     </h2>
 
@@ -312,8 +312,8 @@
         <label class="campo">
           <span>Línea / área *</span>
           <select id="ot-linea" required>
-            <option value="Placares" selected>📦 Placares</option>
-            <option value="Cocinas">🍳 Cocinas</option>
+            <option value="Placares" selected>Placares</option>
+            <option value="Cocinas">Cocinas</option>
           </select>
           <small class="texto-suave" style="font-size:.75rem;">
             Define qué sectores debe recorrer la OT. No se puede cambiar una vez producida.
@@ -329,27 +329,27 @@
         </label>
 
         <div class="checks" id="checks-especiales">
-          <label class="check"><input type="checkbox" value="requiere_vidrio"> 🪟 Requiere Vidrio</label>
-          <label class="check"><input type="checkbox" value="requiere_lustre"> ✨ Requiere Lustre</label>
-          <label class="check"><input type="checkbox" value="requiere_herreria"> 🔩 Requiere Herrería</label>
-          <label class="check"><input type="checkbox" value="requiere_especiales"> 🛠 Requiere Especiales</label>
+          <label class="check"><input type="checkbox" value="requiere_vidrio"> Requiere Vidrio</label>
+          <label class="check"><input type="checkbox" value="requiere_lustre"> Requiere Lustre</label>
+          <label class="check"><input type="checkbox" value="requiere_herreria"> Requiere Herrería</label>
+          <label class="check"><input type="checkbox" value="requiere_especiales"> Requiere Especiales</label>
         </div>
       </div>
 
       <!-- Materiales / placas requeridas (Fase 3) -->
-      <fieldset class="materiales-bloque" id="materiales-bloque" style="margin-top:14px; border:1px solid var(--borde, #d8d4cc); border-radius:10px; padding:12px;">
-        <legend style="font-size:.85rem; font-weight:700; padding:0 6px;">🪵 Materiales / placas requeridas</legend>
+      <fieldset class="materiales-bloque" id="materiales-bloque" style="margin-top:14px; border:1px solid var(--borde, #d8d4cc); border-radius:var(--radio-md); padding:12px;">
+        <legend style="font-size:.85rem; font-weight:700; padding:0 6px;">Materiales / placas requeridas</legend>
         <div class="materiales-filas" id="materiales-filas"></div>
         <div class="fila-flex" style="margin-top:8px;">
-          <button type="button" class="btn btn-chico" id="btn-agregar-material">➕ Agregar material</button>
+          <button type="button" class="btn btn-chico" id="btn-agregar-material"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>Agregar material</button>
           <span class="espaciador"></span>
           <span class="texto-suave" style="font-size:.8rem;">Los campos vacíos se ignoran. Placas consumidas se carga luego en el detalle de la OT.</span>
         </div>
       </fieldset>
 
       <div class="fila-flex" style="margin-top:14px;">
-        <button type="submit" class="btn btn-primario">💾 Guardar OT</button>
-        <button type="reset" class="btn">Limpiar</button>
+        <button type="submit" class="btn btn-primario"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Guardar OT</button>
+        <button type="reset" class="btn"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>Limpiar</button>
         <span class="espaciador"></span>
         <span class="texto-suave">Los sectores especiales sólo se habilitan en el Terminal si la casilla está marcada.</span>
       </div>
@@ -359,7 +359,7 @@
   <!-- ============ ETAPAS ACTIVAS ============ -->
   <section class="panel">
     <h2 class="panel-titulo">
-      <span class="etiqueta-titulo">🕒 Etapas activas ahora</span>
+      <span class="etiqueta-titulo"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Etapas activas ahora</span>
       <span class="chip chip-verde" id="chip-activas">0</span>
     </h2>
     <ul class="lista-etapas" id="lista-activas">
@@ -371,17 +371,17 @@
   <!-- ============ LISTA DE OTs ============ -->
   <section class="panel ancho-completo" id="panel-ots">
     <h2 class="panel-titulo">
-      <span class="etiqueta-titulo">📋 Órdenes de trabajo</span>
+      <span class="etiqueta-titulo"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>Órdenes de trabajo</span>
       <span class="fila-flex">
-        <a class="btn btn-chico" href="/api/export/registros.csv" download>⬇ CSV (Power BI / Excel)</a>
-        <a class="btn btn-chico" href="/api/export/registros.json" target="_blank" rel="noopener">{"{"} JSON {"}"}</a>
+        <a class="btn btn-chico" href="/api/export/registros.csv" download><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>CSV (Power BI / Excel)</a>
+        <a class="btn btn-chico" href="/api/export/registros.json" target="_blank" rel="noopener"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>JSON</a>
       </span>
     </h2>
 
     <div class="fila-flex" style="margin-bottom:12px;">
-      <input type="search" id="filtro-ot" placeholder="🔍 Filtrar por OT, cliente o modelo…"
-             style="flex:1 1 260px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;">
-      <select id="filtro-estado" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:10px; background:#fff;">
+      <input type="search" id="filtro-ot" placeholder="Filtrar por OT, cliente o modelo…"
+             style="flex:1 1 260px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:var(--radio-md);">
+      <select id="filtro-estado" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:var(--radio-md); background:#fff;">
         <option value="">Todos los estados</option>
         <option>En Cola</option>
         <option>En Producción</option>
@@ -389,12 +389,12 @@
         <option>Finalizado</option>
       </select>
       <!-- Filtro rápido de línea: lo enlaza el sidebar (?linea=…) -->
-      <select id="filtro-linea" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:10px; background:#fff;"
+      <select id="filtro-linea" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:var(--radio-md); background:#fff;"
               aria-label="Filtrar por línea de producción">
         <option value="">Todas las líneas</option>
-        <option value="Placares">📦 Placares</option>
-        <option value="Cocinas">🍳 Cocinas</option>
-        <option value="compartidos">🤝 Requieren compartidos</option>
+        <option value="Placares">Placares</option>
+        <option value="Cocinas">Cocinas</option>
+        <option value="compartidos">Requieren compartidos</option>
       </select>
       <span class="espaciador"></span>
       <span class="texto-suave" id="resumen-ot"></span>
@@ -423,7 +423,7 @@
     </div>
 
     <p class="texto-suave" style="margin-top:10px;">
-      ℹ Exportación para Power BI: <code>GET /api/export/registros.csv</code>
+      Exportación para Power BI: <code>GET /api/export/registros.csv</code>
       (filtros opcionales <code>?desde=AAAA-MM-DD&amp;hasta=AAAA-MM-DD&amp;sector_id=&amp;estado=</code>).
       Véa <code>docs/POWERBI.md</code>.
     </p>
@@ -432,7 +432,7 @@
   <!-- ============ CATÁLOGO DE MATERIALES / PLACAS ============ -->
   <section class="panel ancho-completo panel-industrial" id="panel-materiales">
     <h2 class="panel-titulo">
-      <span class="etiqueta-titulo">🪵 Materiales / Placas</span>
+      <span class="etiqueta-titulo"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 8v8a2 2 0 0 1-1 1.73l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 16V8a2 2 0 0 1 1-1.73l7-4a2 2 0 0 1 2 0l7 4A2 2 0 0 1 21 8z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>Materiales / Placas</span>
       <span class="chip chip-gris" id="chip-materiales">0</span>
     </h2>
 
@@ -445,14 +445,14 @@
     <div class="kpis-grid" id="materiales-resumen" style="margin:12px 0;"></div>
 
     <div class="fila-flex" style="margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-      <input type="search" id="mat-filtro-nombre" placeholder="🔍 Filtrar por nombre de material…"
-             style="flex:1 1 240px; min-height:48px; padding:10px 14px; border:1.5px solid var(--border-color); border-radius:10px;"
+      <input type="search" id="mat-filtro-nombre" placeholder="Filtrar por nombre de material…"
+             style="flex:1 1 240px; min-height:48px; padding:10px 14px; border:1.5px solid var(--border-color); border-radius:var(--radio-md);"
              autocomplete="off">
-      <select id="mat-filtro-espesor" style="min-height:48px; padding:10px 12px; border:1.5px solid var(--border-color); border-radius:10px;"
+      <select id="mat-filtro-espesor" style="min-height:48px; padding:10px 12px; border:1.5px solid var(--border-color); border-radius:var(--radio-md);"
               aria-label="Filtrar por espesor">
         <option value="">Todos los espesores</option>
       </select>
-      <select id="mat-filtro-familia" style="min-height:48px; padding:10px 12px; border:1.5px solid var(--border-color); border-radius:10px;"
+      <select id="mat-filtro-familia" style="min-height:48px; padding:10px 12px; border:1.5px solid var(--border-color); border-radius:var(--radio-md);"
               aria-label="Filtrar por familia de material">
         <option value="">Todas las familias</option>
         <option value="Melamina">Melamina</option>
@@ -485,7 +485,7 @@
     </div>
 
     <p class="texto-suave" style="margin-top:10px;">
-      ℹ El catálogo se reconstruye de <code>ot_materiales</code> vía
+      El catálogo se reconstruye de <code>ot_materiales</code> vía
       <code>GET /api/materiales/catalogo</code>. El espesor se infiere del nombre
       (ej: <code>Melamina Blanca 18mm</code> → 18 mm); los materiales sin espesor
       explícito quedan en la fila "n/d".
@@ -495,7 +495,7 @@
   <!-- ============ TALLERES COMPARTIDOS ============ -->
   <section class="panel ancho-completo panel-industrial" id="panel-compartidos">
     <h2 class="panel-titulo">
-      <span class="etiqueta-titulo">🤝 Talleres Compartidos</span>
+      <span class="etiqueta-titulo"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Talleres Compartidos</span>
       <span class="chip chip-gris" id="chip-compartidos">0</span>
     </h2>
 
@@ -507,15 +507,15 @@
     <div class="kpis-grid" id="compartidos-resumen" style="margin:12px 0;"></div>
 
     <div class="fila-flex" style="margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-      <select id="comp-filtro-sector" style="min-height:48px; padding:10px 12px; border:1.5px solid var(--border-color); border-radius:10px;"
+      <select id="comp-filtro-sector" style="min-height:48px; padding:10px 12px; border:1.5px solid var(--border-color); border-radius:var(--radio-md);"
               aria-label="Filtrar por taller compartido">
         <option value="">Todos los talleres</option>
       </select>
-      <select id="comp-filtro-linea" style="min-height:48px; padding:10px 12px; border:1.5px solid var(--border-color); border-radius:10px;"
+      <select id="comp-filtro-linea" style="min-height:48px; padding:10px 12px; border:1.5px solid var(--border-color); border-radius:var(--radio-md);"
               aria-label="Filtrar por línea que demanda">
         <option value="">Ambas líneas</option>
-        <option value="Placares">📦 Placares</option>
-        <option value="Cocinas">🍳 Cocinas</option>
+        <option value="Placares">Placares</option>
+        <option value="Cocinas">Cocinas</option>
       </select>
       <span class="espaciador"></span>
       <span class="texto-suave" id="comp-resumen"></span>
@@ -541,7 +541,7 @@
     </div>
 
     <p class="texto-suave" style="margin-top:10px;">
-      ℹ Fuente: <code>GET /api/export/registros</code> filtrado por
+      Fuente: <code>GET /api/export/registros</code> filtrado por
       <code>linea_area = 'Compartido'</code> del sector. La columna "Minutos" es
       el tiempo de la etapa en ese taller; los tramos abiertos (en curso o
       pausado) se marcan en amarillo y su tiempo sigue corriendo.
@@ -551,27 +551,27 @@
   <!-- ============ SECTORES Y FLUJOS ============ -->
   <section class="panel ancho-completo" id="panel-sectores">
     <h2 class="panel-titulo">
-      <span class="etiqueta-titulo">🏭 Sectores y Flujos</span>
+      <span class="etiqueta-titulo"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 20h20"/><path d="M4 20V9l6 4V9l6 4V6h4v14"/><path d="M8 20v-4h4v4"/></svg>Sectores y Flujos</span>
       <span class="chip chip-gris" id="chip-sectores">0</span>
     </h2>
 
     <div class="fila-flex" style="margin-bottom:12px; flex-wrap: wrap; gap: 8px;">
       <input type="text" id="sec-nombre" placeholder="Nombre del sector / puesto" maxlength="80"
-             style="flex:1 1 240px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;"
+             style="flex:1 1 240px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:var(--radio-md);"
              autocomplete="off">
-      <select id="sec-linea" style="min-height:48px; padding:8px 12px; border:2px solid var(--borde); border-radius:10px;">
-        <option value="Placares">📦 Placares</option>
-        <option value="Cocinas">🍳 Cocinas</option>
-        <option value="Compartido">🤝 Compartido</option>
-        <option value="General">🌐 General</option>
+      <select id="sec-linea" style="min-height:48px; padding:8px 12px; border:2px solid var(--borde); border-radius:var(--radio-md);">
+        <option value="Placares">Placares</option>
+        <option value="Cocinas">Cocinas</option>
+        <option value="Compartido">Compartido</option>
+        <option value="General">General</option>
       </select>
       <label class="check" style="min-height:48px;">
         <input type="checkbox" id="sec-compartido"> Sector compartido
       </label>
       <input type="text" id="sec-operarios" placeholder="Operarios sugeridos (ej: Joel, Tiago)" maxlength="300"
-             style="flex:1 1 220px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;"
+             style="flex:1 1 220px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:var(--radio-md);"
              autocomplete="off">
-      <button type="button" class="btn btn-primario" id="btn-agregar-sector">➕ Agregar Sector</button>
+      <button type="button" class="btn btn-primario" id="btn-agregar-sector"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>Agregar Sector</button>
       <span class="espaciador"></span>
       <label class="check" style="min-height:48px;">
         <input type="checkbox" id="sec-filtro-inactivos"> Mostrar inactivos
@@ -598,7 +598,7 @@
     </div>
 
     <p class="texto-suave" style="margin-top:10px;">
-      ℹ El <b>orden</b> define la secuencia del flujo dentro de cada línea y cómo se muestran los sectores
+      El <b>orden</b> define la secuencia del flujo dentro de cada línea y cómo se muestran los sectores
       en la Terminal. Desactivar un sector lo oculta de la planta e impide fichar en él, pero conserva su
       historial. Los <i>operarios sugeridos</i> se muestran como pista en la Terminal (el alta es libre).
     </p>
@@ -607,7 +607,7 @@
   <!-- ============ MANTENIMIENTO PREVENTIVO (TPM) ============ -->
   <section class="panel ancho-completo panel-industrial" id="panel-tpm">
     <h2 class="panel-titulo">
-      <span class="etiqueta-titulo">🛠️ Mantenimiento Preventivo (TPM)</span>
+      <span class="etiqueta-titulo"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Mantenimiento Preventivo (TPM)</span>
       <span class="chip chip-gris" id="chip-tpm">0</span>
     </h2>
 
@@ -619,7 +619,7 @@
     </p>
 
     <div class="fila-flex" style="margin:12px 0; flex-wrap:wrap; gap:8px;">
-      <button type="button" class="btn btn-primario" id="btn-tpm-nueva">➕ Nueva máquina TPM</button>
+      <button type="button" class="btn btn-primario" id="btn-tpm-nueva"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>Nueva máquina TPM</button>
       <span class="espaciador"></span>
       <span class="texto-suave" id="tpm-resumen" style="margin:0;">—</span>
     </div>
@@ -629,7 +629,7 @@
     </div>
 
     <h3 class="titulo-seccion" style="font-size:.86rem; margin:20px 0 8px;">
-      📋 Histórico de mantenimientos realizados
+      Histórico de mantenimientos realizados
     </h3>
 
     <div class="tabla-envoltura">
@@ -651,7 +651,7 @@
     </div>
 
     <p class="texto-suave" style="margin-top:10px;">
-      ℹ Estados: <b class="tpm-txt-ok">OK</b> (menos del 80 % del intervalo),
+      Estados: <b class="tpm-txt-ok">OK</b> (menos del 80 % del intervalo),
       <b class="tpm-txt-advertencia">PRÓXIMO</b> (80–99 %) y
       <b class="tpm-txt-critico">VENCIDO</b> (100 % o más). Al registrar un service el
       contador vuelve a cero desde ese momento y el registro queda en el histórico.
@@ -662,15 +662,15 @@
   <!-- ============ GESTIÓN DE OPERARIOS ============ -->
   <section class="panel ancho-completo" id="panel-operarios">
     <h2 class="panel-titulo">
-      <span class="etiqueta-titulo">👷 Gestión de Operarios</span>
+      <span class="etiqueta-titulo"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Gestión de Operarios</span>
       <span class="chip chip-gris" id="chip-operarios">0</span>
     </h2>
 
     <div class="fila-flex" style="margin-bottom:12px;">
       <input type="text" id="op-nombre" placeholder="Nombre del operario" maxlength="80"
-             style="flex:1 1 240px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;"
+             style="flex:1 1 240px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:var(--radio-md);"
              autocomplete="off">
-      <button type="button" class="btn btn-primario" id="btn-agregar-operario">➕ Agregar Operario</button>
+      <button type="button" class="btn btn-primario" id="btn-agregar-operario"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>Agregar Operario</button>
       <span class="espaciador"></span>
       <label class="check" style="min-height:48px;">
         <input type="checkbox" id="op-filtro-inactivos"> Mostrar inactivos
@@ -696,7 +696,7 @@
     </div>
 
     <p class="texto-suave" style="margin-top:10px;">
-      ℹ Los operarios se sincronizan con la Terminal: si un operario escribe un nombre
+      Los operarios se sincronizan con la Terminal: si un operario escribe un nombre
       nuevo al iniciar una etapa, se registra automáticamente aquí.
       Desactivar un operario impide que inicie nuevas etapas (pero su historial se conserva).
     </p>
@@ -705,7 +705,7 @@
   <!-- ============ USUARIOS DEL SISTEMA (credenciales de acceso) ============ -->
   <section class="panel ancho-completo" id="panel-usuarios" hidden>
     <h2 class="panel-titulo">
-      <span class="etiqueta-titulo">🔐 Usuarios del sistema</span>
+      <span class="etiqueta-titulo"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Usuarios del sistema</span>
       <span class="chip chip-gris" id="chip-usuarios">0</span>
     </h2>
 
@@ -713,30 +713,30 @@
       Credenciales para usar la Terminal de fichado y este panel. Cree un usuario
       por operario (rol <b>operario</b>): cada fichaje quedará vinculado a quien lo hizo.
       El <b>WhatsApp</b> (formato internacional sin signos, ej. 5491123456789) queda en el
-      maestro de teléfonos para las alertas de planta; puede editarlo con 📱 en la tabla.
+      maestro de teléfonos para las alertas de planta; puede editarlo con en la tabla.
     </p>
 
     <div class="fila-flex" style="margin:12px 0; flex-wrap:wrap; gap:10px;">
       <input type="text" id="usu-login" placeholder="Usuario (minúsculas)" maxlength="40"
              autocapitalize="none" spellcheck="false"
-             style="flex:1 1 170px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;"
+             style="flex:1 1 170px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:var(--radio-md);"
              autocomplete="off">
       <input type="text" id="usu-nombre" placeholder="Nombre visible" maxlength="80"
-             style="flex:1 1 180px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;"
+             style="flex:1 1 180px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:var(--radio-md);"
              autocomplete="off">
       <input type="password" id="usu-password" placeholder="Contraseña (mín. 6)" maxlength="200"
-             style="flex:1 1 170px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;"
+             style="flex:1 1 170px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:var(--radio-md);"
              autocomplete="new-password">
       <input type="text" id="usu-whatsapp" placeholder="WhatsApp (ej. 5491123456789)" maxlength="32"
              inputmode="tel" autocapitalize="none" spellcheck="false"
-             style="flex:1 1 200px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:10px;"
+             style="flex:1 1 200px; min-height:48px; padding:10px 14px; border:2px solid var(--borde); border-radius:var(--radio-md);"
              autocomplete="off">
-      <select id="usu-rol" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:10px; background:#fff;">
+      <select id="usu-rol" style="min-height:48px; padding:10px 12px; border:2px solid var(--borde); border-radius:var(--radio-md); background:#fff;">
         <option value="operario">Operario (terminal)</option>
         <option value="encargado">Encargado (gestión)</option>
         <option value="admin">Administrador</option>
       </select>
-      <button type="button" class="btn btn-primario" id="btn-agregar-usuario">➕ Crear usuario</button>
+      <button type="button" class="btn btn-primario" id="btn-agregar-usuario"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>Crear usuario</button>
     </div>
 
     <div class="tabla-envoltura">
@@ -760,7 +760,7 @@
     </div>
 
     <p class="texto-suave" style="margin-top:10px;">
-      ℹ Los usuarios autenticados en la Terminal pueden iniciar, pausar, reanudar y
+      Los usuarios autenticados en la Terminal pueden iniciar, pausar, reanudar y
       finalizar etapas. Sólo los <b>administradores</b> gestionan usuarios y las
       acciones críticas del panel.
     </p>
@@ -773,13 +773,13 @@
   <div class="modal" style="width:min(900px,100%);" role="dialog" aria-modal="true" aria-labelledby="detalle-titulo">
     <div class="modal-cabecera">
       <h3 id="detalle-titulo" aria-live="polite">Detalle de OT</h3>
-      <button class="modal-cerrar" data-cerrar="modal-detalle" aria-label="Cerrar">✕</button>
+      <button class="modal-cerrar" data-cerrar="modal-detalle" aria-label="Cerrar"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="modal-cuerpo" id="detalle-cuerpo"></div>
     <div class="modal-pie">
-      <button class="btn" data-cerrar="modal-detalle">Cerrar</button>
-      <button class="btn btn-primario" id="detalle-hoja-ruta" type="button">🖨️ Imprimir Hoja de Ruta</button>
-      <a class="btn btn-chico" id="detalle-csv" href="#" download>⬇ Exportar CSV de esta OT</a>
+      <button class="btn" data-cerrar="modal-detalle"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>Cerrar</button>
+      <button class="btn btn-primario" id="detalle-hoja-ruta" type="button"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir Hoja de Ruta</button>
+      <a class="btn btn-chico" id="detalle-csv" href="#" download><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>Exportar CSV de esta OT</a>
     </div>
   </div>
 </div>
@@ -788,8 +788,8 @@
 <div class="modal-fondo" id="modal-tpm-service">
   <div class="modal" style="width:min(540px,100%);" role="dialog" aria-modal="true" aria-labelledby="tpm-service-titulo">
     <div class="modal-cabecera">
-      <h3 id="tpm-service-titulo">🛠️ Registrar service</h3>
-      <button class="modal-cerrar" data-cerrar="modal-tpm-service" aria-label="Cerrar">✕</button>
+      <h3 id="tpm-service-titulo">Registrar service</h3>
+      <button class="modal-cerrar" data-cerrar="modal-tpm-service" aria-label="Cerrar"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <form id="form-tpm-service" novalidate>
       <div class="modal-cuerpo">
@@ -809,14 +809,14 @@
         </label>
 
         <p class="texto-suave" style="margin:4px 0 0;">
-          ℹ El contador de horas desde el último service vuelve a <b>0</b>. El acumulado
+          El contador de horas desde el último service vuelve a <b>0</b>. El acumulado
           histórico de horas de la máquina se conserva íntegro y el service queda en el
           histórico.
         </p>
       </div>
       <div class="modal-pie">
-        <button type="button" class="btn" data-cerrar="modal-tpm-service">Cancelar</button>
-        <button type="submit" class="btn btn-primario" id="tpm-service-guardar">✅ Registrar service</button>
+        <button type="button" class="btn" data-cerrar="modal-tpm-service"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>Cancelar</button>
+        <button type="submit" class="btn btn-primario" id="tpm-service-guardar"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Registrar service</button>
       </div>
     </form>
   </div>
@@ -826,8 +826,8 @@
 <div class="modal-fondo" id="modal-tpm-config">
   <div class="modal" style="width:min(560px,100%);" role="dialog" aria-modal="true" aria-labelledby="tpm-config-titulo">
     <div class="modal-cabecera">
-      <h3 id="tpm-config-titulo">⚙️ Configurar máquina TPM</h3>
-      <button class="modal-cerrar" data-cerrar="modal-tpm-config" aria-label="Cerrar">✕</button>
+      <h3 id="tpm-config-titulo">Configurar máquina TPM</h3>
+      <button class="modal-cerrar" data-cerrar="modal-tpm-config" aria-label="Cerrar"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <form id="form-tpm-config" novalidate>
       <div class="modal-cuerpo">
@@ -873,8 +873,8 @@
         </label>
       </div>
       <div class="modal-pie">
-        <button type="button" class="btn" data-cerrar="modal-tpm-config">Cancelar</button>
-        <button type="submit" class="btn btn-primario" id="tpm-config-guardar">💾 Guardar máquina</button>
+        <button type="button" class="btn" data-cerrar="modal-tpm-config"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>Cancelar</button>
+        <button type="submit" class="btn btn-primario" id="tpm-config-guardar"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Guardar máquina</button>
       </div>
     </form>
   </div>
@@ -884,8 +884,8 @@
 <div class="modal-fondo" id="modal-meta-corte">
   <div class="modal" style="width:min(520px,100%);" role="dialog" aria-modal="true" aria-labelledby="meta-corte-titulo">
     <div class="modal-cabecera">
-      <h3 id="meta-corte-titulo">⚙️ Ajustar meta mensual de corte</h3>
-      <button class="modal-cerrar" data-cerrar="modal-meta-corte" aria-label="Cerrar">✕</button>
+      <h3 id="meta-corte-titulo"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>Ajustar meta mensual de corte</h3>
+      <button class="modal-cerrar" data-cerrar="modal-meta-corte" aria-label="Cerrar"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <form id="form-meta-corte" novalidate>
       <div class="modal-cuerpo">
@@ -939,8 +939,8 @@
         </small>
       </div>
       <div class="modal-pie">
-        <button type="button" class="btn" data-cerrar="modal-meta-corte">Cancelar</button>
-        <button type="submit" class="btn btn-primario" id="meta-corte-guardar">💾 Guardar meta</button>
+        <button type="button" class="btn" data-cerrar="modal-meta-corte"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>Cancelar</button>
+        <button type="submit" class="btn btn-primario" id="meta-corte-guardar"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Guardar meta</button>
       </div>
     </form>
   </div>

@@ -29,7 +29,7 @@
   </div>
   <div class="topbar-dcha">
     <div class="reloj"><span id="reloj-hora">--:--:--</span><small id="reloj-fecha">&nbsp;</small></div>
-    <span class="chip chip-gris" id="sesion-chip" hidden>👤 —</span>
+    <span class="chip chip-gris" id="sesion-chip" hidden>—</span>
     <nav class="nav" aria-label="Navegación principal">
       <a href="/" class="activo" title="Terminal de Fichado" aria-label="Terminal de Fichado">
         <svg class="ico-nav" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -73,7 +73,7 @@
 
     <div class="buscador-ot">
       <input type="search" id="buscador-ot" autocomplete="off" spellcheck="false"
-             placeholder="🔍  Buscar por N° de OT o cliente…" aria-label="Buscar orden de trabajo">
+             placeholder="Buscar por N° de OT o cliente…" aria-label="Buscar orden de trabajo">
       <div class="resultados-ot" id="resultados-ot" role="listbox"></div>
     </div>
 
@@ -129,7 +129,7 @@
     <div id="bloque-ultimo-operario"></div>
 
     <p class="texto-suave" style="margin-top:14px;">
-      ⚠ Un operario sólo puede tener <b>una etapa abierta</b> a la vez: si dejó una sin finalizar,
+      Un operario sólo puede tener <b>una etapa abierta</b> a la vez: si dejó una sin finalizar,
       el sistema le avisará.
     </p>
   </section>
@@ -205,8 +205,8 @@
 <div class="modal-fondo" id="modal-pausa">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titulo-pausa">
     <div class="modal-cabecera">
-      <h3 id="titulo-pausa">⏸ Pausar etapa</h3>
-      <button class="modal-cerrar" data-cerrar="modal-pausa" aria-label="Cerrar">✕</button>
+      <h3 id="titulo-pausa"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>Pausar etapa</h3>
+      <button class="modal-cerrar" data-cerrar="modal-pausa" aria-label="Cerrar"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="modal-cuerpo">
       <div class="resumen-modal" id="resumen-pausa"></div>
@@ -219,7 +219,7 @@
       </label>
     </div>
     <div class="modal-pie">
-      <button class="btn" data-cerrar="modal-pausa">Cancelar</button>
+      <button class="btn" data-cerrar="modal-pausa"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>Cancelar</button>
       <button class="btn btn-primario" id="btn-confirmar-pausa">Confirmar pausa</button>
     </div>
   </div>
@@ -229,8 +229,8 @@
 <div class="modal-fondo" id="modal-finalizar">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titulo-finalizar">
     <div class="modal-cabecera">
-      <h3 id="titulo-finalizar">■ Finalizar etapa</h3>
-      <button class="modal-cerrar" data-cerrar="modal-finalizar" aria-label="Cerrar">✕</button>
+      <h3 id="titulo-finalizar"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>Finalizar etapa</h3>
+      <button class="modal-cerrar" data-cerrar="modal-finalizar" aria-label="Cerrar"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="modal-cuerpo">
       <div class="resumen-modal" id="resumen-finalizar"></div>
@@ -242,7 +242,7 @@
         descontando el tiempo en pausa.</p>
     </div>
     <div class="modal-pie">
-      <button class="btn" data-cerrar="modal-finalizar">Cancelar</button>
+      <button class="btn" data-cerrar="modal-finalizar"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>Cancelar</button>
       <button class="btn btn-peligro" id="btn-confirmar-finalizar">Sí, finalizar</button>
     </div>
   </div>
@@ -252,7 +252,7 @@
 <div class="modal-fondo modal-bloqueante" id="modal-login">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titulo-login">
     <div class="modal-cabecera">
-      <h3 id="titulo-login">🔐 Iniciar sesión en Optiflow</h3>
+      <h3 id="titulo-login"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Iniciar sesión en Optiflow</h3>
     </div>
     <div class="modal-cuerpo">
       <p class="texto-suave" style="margin-top:0;">

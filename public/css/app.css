@@ -124,10 +124,11 @@ a { color: var(--acento); }
   position: sticky;
   top: 0;
   z-index: 50;
+  min-width: 0;             /* permite que los hijos con elipsis encojan */
   box-shadow: 0 2px 8px rgba(0, 0, 0, .18);
 }
 
-.marca { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 220px; }
+.marca { display: flex; align-items: center; gap: 12px; min-width: 0; overflow: hidden; flex: 1 1 220px; }
 .marca .escudo {
   width: 44px; height: 44px;
   border-radius: var(--radio-sm);
@@ -146,7 +147,7 @@ a { color: var(--acento); }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-.topbar-dcha { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+.topbar-dcha { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; max-width: 100%; }
 
 .reloj {
   background: rgba(255, 255, 255, .12);
@@ -182,6 +183,38 @@ a { color: var(--acento); }
   box-shadow: inset 0 -3px 0 var(--estado-cian, #22B8CF);
 }
 .nav .ico-nav { flex: none; width: 18px; height: 18px; display: block; }
+.nav-txt { white-space: nowrap; }
+
+/* Iconografía SVG compartida (R21). Todos los iconos heredan el color del
+   texto y se alinean como flex-item: nunca generan saltos de línea base. */
+.ico-svg {
+  width: 18px; height: 18px;
+  flex: none; display: inline-block;
+  vertical-align: middle;
+}
+.ico-svg-inline { margin-right: 4px; }
+.etiqueta-titulo .ico-svg { margin-right: 8px; color: currentColor; }
+.kpi-titulo .ico-svg { width: 1.05em; height: 1.05em; margin-right: 6px; }
+.paso .ico-svg { width: 14px; height: 14px; margin-right: 0; color: currentColor; }
+.corte-nav-btn .ico-svg { width: 20px; height: 20px; }
+.btn-bug-ico, .tpm-tarea-ico, .flujo-estado, .aviso-tipo, .banner-escaneo-icono {
+  display: inline-flex; align-items: center; justify-content: center;
+}
+#bug-titulo .ico-svg, .modal-cabecera h3 .ico-svg { margin-right: 8px; }
+.btn > .ico-svg, .btn-chico > .ico-svg { width: 17px; height: 17px; }
+.modal-cerrar > .ico-svg { width: 20px; height: 20px; }
+.etiqueta-titulo > .ico-svg { width: 1.08em; height: 1.08em; color: var(--acento); }
+.aviso-tipo > .ico-svg { width: 20px; height: 20px; }
+.chip > .ico-svg {
+  width: 1em; height: 1em; display: inline-block;
+  vertical-align: -.12em; margin-right: 4px;
+}
+.banner-escaneo-icono > .ico-svg { width: 24px; height: 24px; }
+.btn-bug-ico > .ico-svg { width: 18px; height: 18px; }
+.btn-bug-txt { line-height: 1; }
+.sb-btn .sb-ico svg, .topbar-menu .sb-ico svg { width: 22px; height: 22px; }
+/* En el rail lateral el icono no debe perder el centrado. */
+.sb-btn, .topbar-menu { display: inline-flex; align-items: center; justify-content: center; }
 
 /* ------------------------------ Layout ------------------------------- */
 .contenedor {
@@ -338,7 +371,7 @@ a { color: var(--acento); }
 .ficha-ot-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 
 .barra-progreso {
-  height: 8px; background: #dfe7ef; border-radius: 999px; overflow: hidden; margin-top: 10px;
+  height: 8px; background: #dfe7ef; border-radius: var(--radio-pill); overflow: hidden; margin-top: 10px;
 }
 .barra-progreso > span { display: block; height: 100%; background: var(--verde); transition: width .4s; }
 
@@ -401,7 +434,7 @@ a { color: var(--acento); }
   position: absolute; top: -8px; right: -6px;
   background: var(--rojo); color: #fff;
   font-size: .68rem; font-weight: 800;
-  border-radius: 999px; padding: 3px 7px;
+  border-radius: var(--radio-pill); padding: 3px 7px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, .3);
 }
 .sector .badge.mio { background: var(--verde); }
@@ -517,7 +550,7 @@ a { color: var(--acento); }
 }
 /* Icono de acción: SVG inline normalizado (trazo 2px, currentColor).
    inline-flex + centrado garantiza alineación perfecta con el texto y
-   evita el "salto" de baseline de los glifos Unicode (▶ ⏸ ⏵ ■). */
+   evita el "salto" de baseline de los glifos Unicode. */
 .accion .icono {
   font-size: 1.7rem; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
@@ -656,6 +689,7 @@ a { color: var(--acento); }
 .modal-cerrar {
   border: 0; background: #eef2f6; border-radius: var(--radio-sm);
   width: var(--touch-min); height: var(--touch-min); font-size: 1.2rem; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
   touch-action: manipulation;
   transition: background-color var(--motion-fast) ease;
 }
@@ -780,7 +814,7 @@ a { color: var(--acento); }
   gap: 10px; align-items: center; margin-bottom: 8px;
 }
 .carga-nombre { font-size: .82rem; font-weight: 700; }
-.carga-barra { height: 16px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+.carga-barra { height: 16px; background: #e2e8f0; border-radius: var(--radio-pill); overflow: hidden; }
 .carga-barra > span { display: block; height: 100%; background: var(--acento); transition: width .4s; }
 .carga-fila.top .carga-barra > span { background: var(--rojo); }
 .carga-fila.top .carga-nombre { color: var(--rojo-osc); }
@@ -836,7 +870,7 @@ a { color: var(--acento); }
 .flujo-insignia {
   font-size: .58rem; font-weight: 800; letter-spacing: .6px;
   background: var(--amarillo); color: #3b2c00;
-  border-radius: 999px; padding: 2px 6px;
+  border-radius: var(--radio-pill); padding: 2px 6px;
 }
 .flujo-estado { font-size: .8rem; }
 
@@ -1234,7 +1268,7 @@ a { color: var(--acento); }
 .sb-menu::-webkit-scrollbar-track { background: transparent; }
 .sb-menu::-webkit-scrollbar-thumb {
   background: var(--border-color, #3F4248);
-  border-radius: 999px;
+  border-radius: var(--radio-pill);
 }
 .sb-menu::-webkit-scrollbar-thumb:hover {
   background: var(--estado-cian, #22B8CF);
@@ -1328,7 +1362,7 @@ a { color: var(--acento); }
 .sb-salir {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   width: 100%; min-height: 44px;
-  border-radius: 10px;
+  border-radius: var(--radio-md);
   border: 1px solid var(--ind-borde);
   background: transparent;
   color: var(--ind-texto);
@@ -1342,7 +1376,7 @@ a { color: var(--acento); }
 .topbar-menu {
   display: none;
   width: 46px; height: 46px; flex: none;
-  border-radius: 10px;
+  border-radius: var(--radio-md);
   border: 1px solid rgba(255, 255, 255, .28);
   background: rgba(255, 255, 255, .12);
   color: #fff;
@@ -1602,7 +1636,7 @@ a { color: var(--acento); }
   background: var(--bg-card);
   border: 1.5px solid var(--border-color);
   color: var(--texto-claro);
-  border-radius: 10px;
+  border-radius: var(--radio-md);
   min-height: 48px;
   padding: 10px 12px;
 }
@@ -1663,6 +1697,7 @@ a { color: var(--acento); }
 .reloj, .kpi-valor, .ficha-ot-num {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
 }
 
 /* ============================================================
@@ -1704,11 +1739,15 @@ a { color: var(--acento); }
 .campo input:focus-visible, .campo select:focus-visible, .campo textarea:focus-visible,
 .buscador-ot input[type="search"]:focus-visible,
 .panel-industrial select:focus-visible,
-.panel-industrial input:focus-visible {
+.panel-industrial input:focus-visible,
+.cp-input:focus-visible {
   outline: 3px solid var(--estado-cian);
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(34, 184, 207, .20);
 }
+/* El buscador del command palette está sobre fondo oscuro y anula el
+   outline base; el anillo cian se dibuja hacia adentro para no recortarse. */
+.cp-input:focus-visible { outline-offset: -3px; }
 /* Modo de alto contraste de Windows: los bordes y el foco usan colores del sistema. */
 @media (forced-colors: active) {
   .btn, .accion, .chip, .modal, .corte-nav-btn, .modal-cerrar, .resultado-ot {
@@ -1999,7 +2038,7 @@ a { color: var(--acento); }
 .btn-bug-txt { line-height: 1; }
 
 @media (max-width: 767px) {
-  /* Sólo emoji + tooltip nativo (title=) y objetivo táctil ≥44px,
+  /* Sólo icono + tooltip nativo (title=) y objetivo táctil ≥44px,
      exactamente como le pasa a .nav-txt en este mismo breakpoint. */
   .btn-bug {
     min-width: 44px;
@@ -2009,7 +2048,7 @@ a { color: var(--acento); }
   .btn-bug-txt { display: none; }
 }
 
-/* Línea "📲 Destino: +549…" dentro del modal: se ve sólo si está informada. */
+/* Línea "Destino: +549…" dentro del modal: se ve sólo si está informada. */
 .bug-destino {
   font-family: var(--mono);
   font-size: .82rem;
@@ -2072,14 +2111,14 @@ a { color: var(--acento); }
 /* --- Barra de progreso general (0..100) --- */
 .barra-avance {
   height: 16px; margin-top: 12px;
-  border-radius: 999px;
+  border-radius: var(--radio-pill);
   background: rgba(255, 255, 255, .05);
   border: 1px solid var(--border-color);
   overflow: hidden;
 }
 .barra-avance > i {
   display: block; height: 100%;
-  border-radius: 999px;
+  border-radius: var(--radio-pill);
   background: var(--estado-cian);
   transition: width .45s ease, background-color .2s ease;
 }
@@ -2103,14 +2142,14 @@ a { color: var(--acento); }
   font-size: .86rem; font-weight: 700; color: var(--texto-claro);
 }
 .barra-mini {
-  height: 8px; border-radius: 999px;
+  height: 8px; border-radius: var(--radio-pill);
   background: rgba(255, 255, 255, .05);
   border: 1px solid var(--border-color);
   overflow: hidden;
 }
 .barra-mini > i {
   display: block; height: 100%;
-  border-radius: 999px;
+  border-radius: var(--radio-pill);
   transition: width .45s ease;
 }
 

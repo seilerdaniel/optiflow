@@ -23,10 +23,10 @@ const S = {
 
 /** Etiquetas visibles de las líneas de área. */
 const ETIQUETAS_LINEA = {
-  Placares: '📦 Placares',
-  Cocinas: '🍳 Cocinas',
-  Compartido: '🤝 Talleres compartidos',
-  General: '🌐 General',
+  Placares: 'Placares',
+  Cocinas: 'Cocinas',
+  Compartido: 'Talleres compartidos',
+  General: 'General',
 };
 
 const $ = (id) => document.getElementById(id);
@@ -95,7 +95,10 @@ async function arrancar() {
 
 function pintarSesion(u) {
   const chip = $('sesion-chip');
-  if (chip) { chip.hidden = false; chip.textContent = `👤 ${u.nombre}`; }
+  if (chip) {
+    chip.hidden = false;
+    chip.replaceChildren(iconoSvg('user', 'ico-svg ico-svg-inline'), document.createTextNode(u.nombre));
+  }
   // Perfil del pie del sidebar (nombre + rol + cerrar sesión).
   if (window.Sidebar) Sidebar.pintarSesion(u);
   const salir = $('sesion-salir');
@@ -293,7 +296,7 @@ function chipEstado(estado) {
  *   3. destaca la LÍNEA (Placares azul / Cocinas rojo),
  *   4. queda lista para que el encargado elija el Sector y pulse
  *      "Iniciar etapa" (verde).
- * El botón "✕ Cambiar OT" de la ficha libera el modo escaneo.
+ * El botón "Cambiar OT" de la ficha libera el modo escaneo.
  */
 function otDesdeParametro() {
   try {
@@ -329,7 +332,7 @@ async function aplicarEscaneoQR() {
 function bloquearBuscador() {
   const inp = $('buscador-ot');
   inp.value = '';
-  inp.placeholder = '🔒 OT cargada por QR — use «✕ Cambiar OT» para cambiar';
+  inp.placeholder = 'OT cargada por QR — use «Cambiar OT» para cambiar';
   inp.disabled = true;
   inp.classList.add('bloqueado-qr');
 }
@@ -337,7 +340,7 @@ function bloquearBuscador() {
 function liberarBuscador() {
   const inp = $('buscador-ot');
   inp.disabled = false;
-  inp.placeholder = '🔍  Buscar por N° de OT o cliente…';
+  inp.placeholder = 'Buscar por N° de OT o cliente…';
   inp.classList.remove('bloqueado-qr');
 }
 
@@ -353,12 +356,13 @@ function mostrarBannerEscaneo(texto, tipo) {
   b.className = `banner-escaneo ${tipo === 'error' ? 'error' : 'ok'}`;
   b.innerHTML = '';
   b.append(
-    h('span', { class: 'banner-escaneo-icono', text: tipo === 'error' ? '⚠️' : '📲' }),
+    h('span', { class: 'banner-escaneo-icono', 'aria-hidden': 'true' },
+      iconoSvg(tipo === 'error' ? 'alert' : 'check')),
     h('span', { class: 'banner-escaneo-texto', text: texto }),
     h('button', {
-      class: 'btn btn-chico', type: 'button', text: '✕ Cambiar OT',
+      class: 'btn btn-chico', type: 'button',
       onclick: cambiarOT,
-    })
+    }, iconoSvg('x'), ' Cambiar OT')
   );
 }
 
@@ -406,11 +410,11 @@ function pintarFichaOT() {
 
   const chips = h('div', { class: 'ficha-ot-chips' },
     h('span', { class: `chip ${chipEstado(ot.estado_general)}`, text: ot.estado_general }),
-    h('span', { class: 'chip chip-gris', text: `⭐ ${ot.modelo || 'Sin modelo'}` }),
-    h('span', { class: 'chip chip-gris', text: `📏 ${FORMATO.metros(ot.metros_lineales)}` }),
+    h('span', { class: 'chip chip-gris', text: `Modelo: ${ot.modelo || 'Sin modelo'}` }),
+    h('span', { class: 'chip chip-gris', text: `Metros: ${FORMATO.metros(ot.metros_lineales)}` }),
     ot.fecha_prometida
       ? h('span', { class: new Date(ot.fecha_prometida) < new Date(new Date().toDateString()) && ot.estado_general !== 'Finalizado' ? 'chip chip-rojo' : 'chip chip-azul',
-        text: `📅 Prometida: ${FORMATO.fecha(ot.fecha_prometida)}` })
+        text: `Prometida: ${FORMATO.fecha(ot.fecha_prometida)}` })
       : null
   );
 
@@ -430,13 +434,14 @@ function pintarFichaOT() {
         h('span', { class: 'ficha-ot-cli', text: ot.cliente })),
       crearQRFicha(ot),
       h('span', { class: 'espaciador' }),
-      h('button', { class: 'btn btn-chico', type: 'button', onclick: cambiarOT, text: '✕ Cambiar OT' })
+      h('button', { class: 'btn btn-chico', type: 'button', onclick: cambiarOT },
+        iconoSvg('x'), ' Cambiar OT')
     ),
     chips,
     especiales.length
       ? h('div', { class: 'ficha-ot-chips' },
         h('span', { class: 'texto-suave', text: 'Sectores especiales requeridos:' }),
-        especiales.map(([, nombre, clase]) => h('span', { class: `chip ${clase}`, text: `✔ ${nombre}` })))
+        especiales.map(([, nombre, clase]) => h('span', { class: `chip ${clase}`, text: `${nombre}` })))
       : h('div', { class: 'ficha-ot-chips' },
         h('span', { class: 'texto-suave', text: 'Sin sectores especiales requeridos.' })),
     h('div', { class: 'ficha-ot-datos' },
@@ -494,7 +499,7 @@ function construirSectores() {
         h('span', { class: 'nombre-sector', text: s.nombre_corto || s.nombre_sector }),
         h('span', { class: 'mini', text: s.es_compartido ? 'Sector compartido' : 'Sector único' }),
         s.operarios_sugeridos
-          ? h('span', { class: 'etiqueta-operarios', text: `👤 ${s.operarios_sugeridos}` })
+          ? h('span', { class: 'etiqueta-operarios', text: `${s.operarios_sugeridos}` })
           : null,
         s.clave_especial ? h('span', { class: 'etiqueta-requerido', text: 'Especial' }) : null
       ));
@@ -636,7 +641,7 @@ function pintarEstadoVivo() {
         S.sectorId
           ? 'Listo para iniciar: presione el botón verde.'
           : 'Toque un sector para comenzar a fichar.',
-        umbral ? h('div', { class: 'texto-suave', style: 'margin-top:6px;', text: `⏱ Límite de referencia: ${FORMATO.duracion(umbral)} por etapa.` }) : null
+        umbral ? h('div', { class: 'texto-suave', style: 'margin-top:6px;', text: `Límite de referencia: ${FORMATO.duracion(umbral)} por etapa.` }) : null
       )
     );
     $('chip-estado').textContent = 'Sin etapa';
@@ -692,11 +697,11 @@ function aplicarUmbralTiempo() {
   if (minutos >= umbral) {
     cont.classList.add('excedido');
     aviso.hidden = false;
-    aviso.textContent = `⚠ TIEMPO EXCEDIDO: supera el límite de ${FORMATO.duracion(umbral)} en ${(etapa.nombre_sector || '')}. Avise al encargado.`;
+    aviso.textContent = `TIEMPO EXCEDIDO: supera el límite de ${FORMATO.duracion(umbral)} en ${(etapa.nombre_sector || '')}. Avise al encargado.`;
   } else if (minutos >= umbral * 0.75) {
     cont.classList.add('advertencia');
     aviso.hidden = false;
-    aviso.textContent = `⏱ Atención: quedan ${FORMATO.duracion(umbral - minutos)} del límite de ${FORMATO.duracion(umbral)}.`;
+    aviso.textContent = `Atención: quedan ${FORMATO.duracion(umbral - minutos)} del límite de ${FORMATO.duracion(umbral)}.`;
   }
 }
 
@@ -736,15 +741,18 @@ function pintarListaEtapas() {
     const excede = !pausado && umbral && minutosDeEtapa(e, RelojServidor.ahora()) >= umbral;
     lista.append(h('li', {},
       h('span', { class: `chip ${pausado ? 'chip-amarillo' : 'chip-verde'}`, text: pausado ? 'PAUSA' : 'CURSO' }),
-      excede ? h('span', { class: 'chip chip-rojo', text: '⚠ EXCEDE' }) : null,
+      excede ? h('span', { class: 'chip chip-rojo', text: 'EXCEDE' }) : null,
       h('span', { class: 'et-sector', text: e.nombre_sector || '' }),
       h('span', { class: 'texto-suave', text: e.operario_nombre }),
       h('span', { class: 'et-ops' },
         h('span', { 'data-crono-etapa': e.id, class: 'texto-suave', text: '00:00:00' }),
         pausado
-          ? h('button', { class: 'btn btn-chico', type: 'button', onclick: () => accionReanudar(e.id), text: '⏵ Reanudar' })
-          : h('button', { class: 'btn btn-chico', type: 'button', onclick: () => abrirModalPausa(e), text: '⏸ Pausar' }),
-        h('button', { class: 'btn btn-chico btn-peligro', type: 'button', onclick: () => abrirModalFinalizar(e), text: '■ Fin' })
+          ? h('button', { class: 'btn btn-chico', type: 'button', onclick: () => accionReanudar(e.id) },
+            iconoSvg('play'), ' Reanudar')
+          : h('button', { class: 'btn btn-chico', type: 'button', onclick: () => abrirModalPausa(e) },
+            iconoSvg('pause'), ' Pausar'),
+        h('button', { class: 'btn btn-chico btn-peligro', type: 'button', onclick: () => abrirModalFinalizar(e) },
+          iconoSvg('stop'), ' Fin')
       )
     ));
   }
@@ -802,7 +810,7 @@ function actualizarPistaOperario() {
     p.textContent = '';
   } else {
     p.style.display = 'block';
-    p.textContent = '🆕 Nombre nuevo: se registrará automáticamente como operario al iniciar la etapa.';
+    p.textContent = 'Nombre nuevo: se registrará automáticamente como operario al iniciar la etapa.';
   }
 }
 
@@ -824,13 +832,13 @@ function renderBotones() {
   $('btn-finalizar').disabled = !etapa;
 
   const msg = $('mensaje-accion');
-  if (!hayOT) msg.textContent = '① Primero seleccione la orden de trabajo.';
-  else if (!haySector) msg.textContent = '② Ahora toque el sector donde se realiza el trabajo.';
-  else if (!operarioOk && !etapa) msg.textContent = '③ Escriba el nombre del operario responsable.';
-  else if (enProceso) msg.textContent = '✔ Etapa en curso. Puede pausarla o finalizarla cuando termine.';
-  else if (pausado) msg.textContent = '⏸ Etapa pausada: reanúdela o finalícela.';
+  if (!hayOT) msg.textContent = 'Primero seleccione la orden de trabajo.';
+  else if (!haySector) msg.textContent = 'Ahora toque el sector donde se realiza el trabajo.';
+  else if (!operarioOk && !etapa) msg.textContent = 'Escriba el nombre del operario responsable.';
+  else if (enProceso) msg.textContent = 'Etapa en curso. Puede pausarla o finalizarla cuando termine.';
+  else if (pausado) msg.textContent = 'Etapa pausada: reanúdela o finalícela.';
   else if (etapa) msg.textContent = '';
-  else msg.textContent = '✔ Todo listo: presione INICIAR ETAPA.';
+  else msg.textContent = 'Todo listo: presione INICIAR ETAPA.';
 }
 
 /* ------------------------------------------------------------------ */
@@ -889,7 +897,7 @@ async function accionIniciar() {
         sector_id: S.sectorId,
         operario_nombre: S.operario.trim(),
       });
-      Avisos.ok('✔ Etapa iniciada',
+      Avisos.ok('Etapa iniciada',
         `${r.registro.numero_ot} · ${r.registro.nombre_sector} · ${r.registro.operario_nombre}`);
       await Promise.all([refrescar(), cargarRegistros()]);
       await actualizarFichaOT();
@@ -962,7 +970,7 @@ async function confirmarPausa() {
       observacion: $('obs-pausa').value,
     });
     Modal.cerrar('modal-pausa');
-    Avisos.aviso('⏸ Etapa pausada', `Motivo: ${r.registro.motivo_pausa}`);
+    Avisos.aviso('Etapa pausada', `Motivo: ${r.registro.motivo_pausa}`);
     await Promise.all([refrescar(), cargarRegistros()]);
     confirmarExitoSensorial();
   } catch (e) {
@@ -975,7 +983,7 @@ async function confirmarPausa() {
 async function accionReanudar(id) {
   try {
     const r = await API.post(`/api/registros/${id}/reanudar`, {});
-    Avisos.ok('⏵ Etapa reanudada', `${r.registro.numero_ot} · ${r.registro.nombre_sector}`);
+    Avisos.ok('Etapa reanudada', `${r.registro.numero_ot} · ${r.registro.nombre_sector}`);
     await Promise.all([refrescar(), cargarRegistros()]);
     confirmarExitoSensorial();
   } catch (e) {
@@ -1006,7 +1014,7 @@ async function confirmarFinalizar() {
   try {
     const r = await API.post(`/api/registros/${id}/finalizar`, { observacion: $('obs-finalizar').value });
     Modal.cerrar('modal-finalizar');
-    Avisos.ok('✔ Etapa finalizada',
+    Avisos.ok('Etapa finalizada',
       `${r.registro.numero_ot} · ${r.registro.nombre_sector} · Duración: ${FORMATO.duracion(r.registro.duracion_minutos)}`);
     await Promise.all([refrescar(), cargarRegistros()]);
     await actualizarFichaOT();
@@ -1146,7 +1154,7 @@ function pintarAlertaTPM() {
   cont.hidden = false;
   cont.append(
     h('div', { class: 'alerta-tpm-cab' },
-      h('strong', { class: 'alerta-tpm-tit', text: '⚠️ ALERTA TPM' }),
+      h('strong', { class: 'alerta-tpm-tit', text: 'ALERTA TPM' }),
       h('button', {
         class: 'alerta-tpm-cerrar', type: 'button',
         'aria-label': 'Descartar alerta de mantenimiento',
@@ -1154,7 +1162,7 @@ function pintarAlertaTPM() {
           for (const m of vencidas) S.tpmDescartadas.add(m.id);
           pintarAlertaTPM();
         },
-      }, '✕')
+      }, iconoSvg('x'))
     ),
     ...vencidas.map((m) => h('p', { class: 'alerta-tpm-txt' },
       `La máquina ${m.nombre_maquina} superó las ${Math.round(m.horas_desde_ultimo_mantenimiento)} hs de uso. ` +
