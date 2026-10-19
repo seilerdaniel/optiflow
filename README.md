@@ -59,8 +59,9 @@ vercel env add SUPABASE_DB_URL
 vercel --prod
 ```
 
-`vercel.json` ya apunta `/api/*` a la función serverless `api/[...slug].js` y sirve `public/`
-como sitio estático. No hay build: el front es HTML/CSS/JS puro.
+`vercel.json` sirve `public/` como sitio estático y expone dos Serverless Functions:
+`api/[...slug].js` (catch-all de `/api/*`) y `api/admin.js` (guardián de `/admin`,
+que exige sesión). No hay build: el front es HTML/CSS/JS puro.
 
 ### 2.4 Ejecutar en local / red de planta
 

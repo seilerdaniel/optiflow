@@ -11,9 +11,13 @@
  *  (`servirEstatico`) nunca se ejecutaba en la nube. En local sí
  *  funcionaba, porque ahí TODO pasa por `http.createServer` -> `manejar`.
  *
- *  SOLUCIÓN: `vercel.json` declara `/admin` y `/admin.html` como
- *  `beforeFiles` (rewrites que corren ANTES del filesystem estático) y
- *  apuntan acá. Esta Function es la única puerta de entrada al panel:
+ *  SOLUCIÓN: `vercel.json` protege las DOS puertas del panel con reglas
+ *  válidas (array, no el objeto `beforeFiles`/`afterFiles` que sólo existe
+ *  en Next.js y hace fallar el build de Vercel):
+ *    · `/admin.html` (existe en public/ y el CDN lo serviría estático) ->
+ *      REDIRECT 307 a `/admin`, que se evalúa ANTES del filesystem.
+ *    · `/admin` (no existe como archivo estático) -> REWRITE a `/api/admin`.
+ *  Esta Function es la única puerta de entrada al panel:
  *    · sin cookie de sesión válida -> 302 a /login.html (sin HTML alguno)
  *    · con sesión                  -> sirve el panel
  *
@@ -34,7 +38,10 @@ const { HEADERS_SEGURIDAD } = require('../server/server.js');
 
 // Path literal (nft lo empaqueta). NO refactorizar a `path.join(__dirname, '..',
 // RUTAS[n])` ni equivalentes: rompería el rastreo de archivos del bundler.
-const ARCHIVO_ADMIN = path.join(__dirname, '..', 'public', 'admin.html');
+// `vercel.json` además fuerza `public/admin.html` con `includeFiles`, así que
+// el archivo viaja en el bundle aunque nft no lo detecte por su cuenta.
+const ARCHIVO_ADMIN = path.join(__dirname, '../public/admin.html');
+const ARCHIVO_ADMIN_ALT = path.join(process.cwd(), 'public', 'admin.html');
 
 /** Destino conservado tras el login (?siguiente=…). */
 const DESTINO = '/admin';
@@ -64,11 +71,20 @@ module.exports = async function handler(req, res) {
     return res.end();
   }
 
-  let html;
-  try {
-    html = fs.readFileSync(ARCHIVO_ADMIN);
-  } catch (e) {
-    console.error('[admin] No se pudo leer admin.html:', e && e.message);
+  let html = null;
+  let errorLectura = null;
+  // Lectura resiliente: el path primario es el que nft/`includeFiles` empaqueta;
+  // el alterno cubre runtimes que montan el proyecto con otro `cwd`.
+  for (const archivo of [ARCHIVO_ADMIN, ARCHIVO_ADMIN_ALT]) {
+    try {
+      html = fs.readFileSync(archivo);
+      break;
+    } catch (e) {
+      errorLectura = e;
+    }
+  }
+  if (!html) {
+    console.error('[admin] No se pudo leer admin.html:', errorLectura && errorLectura.message);
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8', ...HEADERS_SEGURIDAD });
     return res.end(JSON.stringify({ error: 'No se pudo cargar el panel de administración.' }));
   }

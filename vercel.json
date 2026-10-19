@@ -1,16 +1,20 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
   "outputDirectory": "public",
   "functions": {
-    "api/[...slug].js": {
-      "memory": 1024,
-      "maxDuration": 10
-    },
-    "api/admin.js": {
-      "memory": 512,
-      "maxDuration": 10
+    "api/*.js": {
+      "maxDuration": 10,
+      "includeFiles": "{server/*.js,server/lib/**,server/routes/**,public/admin.html,supabase_schema.sql,package.json}"
     }
   },
+  "redirects": [
+    {
+      "source": "/admin.html",
+      "destination": "/admin",
+      "permanent": false
+    }
+  ],
   "headers": [
     {
       "source": "/sw.js",
@@ -31,22 +35,10 @@
       ]
     }
   ],
-  "rewrites": {
-    "beforeFiles": [
-      {
-        "source": "/admin",
-        "destination": "/api/admin"
-      },
-      {
-        "source": "/admin.html",
-        "destination": "/api/admin"
-      }
-    ],
-    "afterFiles": [
-      {
-        "source": "/api/:path*",
-        "destination": "/api/[...slug]"
-      }
-    ]
-  }
+  "rewrites": [
+    {
+      "source": "/admin",
+      "destination": "/api/admin"
+    }
+  ]
 }
