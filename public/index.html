@@ -138,16 +138,36 @@
   <section class="ancho-completo">
     <div class="acciones">
       <button id="btn-iniciar" class="accion accion-iniciar" disabled>
-        <span class="icono">▶</span> Iniciar etapa
+        <span class="icono" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" focusable="false">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+        </span> Iniciar etapa
       </button>
       <button id="btn-pausar" class="accion accion-pausar" disabled>
-        <span class="icono">⏸</span> Pausar etapa
+        <span class="icono" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" focusable="false">
+            <rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>
+          </svg>
+        </span> Pausar etapa
       </button>
       <button id="btn-reanudar" class="accion accion-reanudar" disabled>
-        <span class="icono">⏵</span> Reanudar
+        <span class="icono" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" focusable="false">
+            <path d="M6 5v14l9-7z"/><path d="M18 5v14"/>
+          </svg>
+        </span> Reanudar
       </button>
       <button id="btn-finalizar" class="accion accion-finalizar" disabled>
-        <span class="icono">■</span> Finalizar etapa
+        <span class="icono" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" focusable="false">
+            <rect x="6" y="6" width="12" height="12" rx="2"/>
+          </svg>
+        </span> Finalizar etapa
       </button>
     </div>
     <p class="texto-suave" id="mensaje-accion" style="margin:10px 2px 0; min-height:1.2em;"></p>

@@ -423,7 +423,14 @@ a { color: var(--acento); }
   transition: all 0.15s ease;
   padding: 10px;
 }
-.accion .icono { font-size: 1.7rem; line-height: 1; }
+/* Icono de acción: SVG inline normalizado (trazo 2px, currentColor).
+   inline-flex + centrado garantiza alineación perfecta con el texto y
+   evita el "salto" de baseline de los glifos Unicode (▶ ⏸ ⏵ ■). */
+.accion .icono {
+  font-size: 1.7rem; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.accion .icono svg { width: 28px; height: 28px; display: block; }
 .accion:hover:not(:disabled) { filter: brightness(1.08); }
 .accion:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0, 0, 0, .2); }
 .accion:disabled { opacity: .38; cursor: not-allowed; box-shadow: none; }
@@ -773,6 +780,23 @@ a { color: var(--acento); }
   }
   /* El botón ☰ (drawer) mantiene objetivo táctil cómodo. */
   .topbar-menu { width: 44px; height: 44px; }
+}
+
+/* ============================================================
+   ULTRA-MÓVIL (<420px) · Topbar sin desbordamiento
+   ------------------------------------------------------------
+   En teléfonos muy angostos (320–419px) el reloj + chip + 3 iconos
+   de nav pueden superar el ancho. Se compacta la marca y el chip;
+   la nav conserva sus 44px táctiles. El subtítulo ya está oculto
+   y el nombre completo del usuario sigue disponible en el drawer.
+   ============================================================ */
+@media (max-width: 420px) {
+  .topbar { padding: 8px 8px; gap: 6px 8px; }
+  .marca { gap: 6px; }
+  .marca .escudo { width: 32px; height: 32px; font-size: .8rem; }
+  .marca h1 { font-size: .94rem; letter-spacing: .8px; }
+  .reloj { font-size: .82rem; padding: 3px 6px; }
+  #sesion-chip { max-width: 24vw; }
 }
 
 /* ============================================================
