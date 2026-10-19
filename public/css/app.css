@@ -310,7 +310,7 @@ a { color: var(--acento); }
   font-size: .95rem;
   line-height: 1.15;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  transition: transform .06s, background .15s, border-color .15s;
+  transition: all 0.15s ease;
   touch-action: manipulation;
 }
 .sector:hover:not(:disabled) { border-color: var(--acento); background: #eef6ff; }
@@ -420,7 +420,7 @@ a { color: var(--acento); }
   cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
   box-shadow: 0 3px 0 rgba(0, 0, 0, .18);
-  transition: filter .12s, transform .06s;
+  transition: all 0.15s ease;
   padding: 10px;
 }
 .accion .icono { font-size: 1.7rem; line-height: 1; }
@@ -443,10 +443,11 @@ a { color: var(--acento); }
   font-size: .7rem; letter-spacing: 1px; text-transform: uppercase;
   position: sticky; top: 0;
 }
+.tabla tbody tr { transition: background 0.15s ease; }
 .tabla tbody tr:hover { background: #f7fbff; }
 .tabla .num { font-variant-numeric: tabular-nums; text-align: right; }
 .tabla select.estado-select {
-  min-height: 42px; padding: 6px 8px; border-radius: 8px;
+  min-height: 42px; padding: 6px 8px; border-radius: var(--radio-md);
   border: 1.5px solid var(--borde); background: #fff; font-weight: 600; font-size: .85rem;
 }
 .fila-acciones { display: flex; gap: 6px; }
@@ -461,6 +462,7 @@ a { color: var(--acento); }
   font-weight: 700;
   cursor: pointer;
   display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+  transition: all 0.15s ease;
   touch-action: manipulation;
 }
 .btn:hover { background: #f3f7fb; }
@@ -482,7 +484,7 @@ a { color: var(--acento); }
 /* Filas de materiales (alta de OT y detalle) — Fase 3 */
 .fila-material input[type="text"] {
   min-height: 40px; padding: 8px 10px; font-size: .88rem;
-  border: 1px solid var(--borde); border-radius: 8px; background: #fff;
+  border: 1px solid var(--borde); border-radius: var(--radio-md); background: #fff;
 }
 .fila-material .mat-nombre { flex: 3 1 180px; }
 .fila-material .mat-cantidad { flex: 1 1 80px; max-width: 110px; }
@@ -567,7 +569,7 @@ a { color: var(--acento); }
 .aviso {
   background: var(--azul);
   color: #fff;
-  border-radius: 12px;
+  border-radius: var(--radio);
   padding: 14px 16px;
   box-shadow: 0 8px 26px rgba(0, 0, 0, .3);
   font-weight: 600;
@@ -656,7 +658,7 @@ a { color: var(--acento); }
 .flujo-flecha { color: var(--texto-suave); font-weight: 700; }
 .flujo-nodo {
   display: inline-flex; align-items: center; gap: 7px;
-  border: 1.5px solid var(--borde); border-radius: 9px;
+  border: 1.5px solid var(--borde); border-radius: var(--radio-pill);
   background: #fff; padding: 6px 10px; font-size: .8rem; font-weight: 700;
 }
 .flujo-nodo.ok { background: #dcfce7; border-color: #bbf7d0; color: var(--verde-osc); }
@@ -702,7 +704,7 @@ a { color: var(--acento); }
 .banner-escaneo {
   display: flex; align-items: center; gap: 12px;
   padding: 12px 16px; margin: 0 0 14px;
-  border-radius: 12px; font-weight: 600;
+  border-radius: var(--radio); font-weight: 600;
   border: 2px solid transparent;
 }
 .banner-escaneo.ok {
@@ -946,7 +948,7 @@ a { color: var(--acento); }
 }
 .sb-escudo {
   width: 38px; height: 38px; flex: none;
-  border-radius: 9px;
+  border-radius: var(--radio-sm);
   background: linear-gradient(145deg, var(--ind-placares), #1b5fb0);
   color: #fff;
   display: grid; place-items: center;
@@ -974,7 +976,7 @@ a { color: var(--acento); }
 .sb-btn:hover { background: var(--ind-hover); }
 .sb-btn:focus-visible,
 .sb-item:focus-visible,
-.sb-salir:focus-visible { outline: 2px solid var(--ind-placares); outline-offset: 2px; }
+.sb-salir:focus-visible { outline: 3px solid var(--estado-cian); outline-offset: 2px; }
 
 /* --------------------------- Menú ------------------------------- */
 /*
@@ -1297,7 +1299,7 @@ a { color: var(--acento); }
   border-radius: var(--radio-ind);
   padding: 16px 18px;
   min-width: 0;
-  transition: transform .15s ease, border-color .15s ease;
+  transition: all 0.15s ease;
 }
 .kpi-ind:hover { transform: translateY(-2px); border-color: var(--texto-apagado); }
 .kpi-ind .kpi-titulo {
@@ -1384,8 +1386,11 @@ a { color: var(--acento); }
 .chip-pausa   { color: var(--estado-pausa); }
 .chip-alerta  { color: var(--estado-alerta); }
 
-/* Codigos de OT y cronometros siempre monoespaciados. */
-.mono, .ot-codigo, .cronometro, .num {
+/* Codigos de OT, relojes, cronometros y KPI: SIEMPRE monoespaciados y con
+   cifras tabulares. Cualquier numero que se refresque en vivo (reloj, timer,
+   contador de planta) queda con ancho fijo y no "baila" al cambiar. */
+.mono, .ot-codigo, .cronometro, .num,
+.reloj, .kpi-valor, .ficha-ot-num {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
 }
