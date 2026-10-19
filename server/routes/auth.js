@@ -71,10 +71,17 @@ function claveIntento(req) {
 /* ------------------------------------------------------------------ */
 
 async function login({ req, res, body }) {
-  const usuario = String(body.usuario || '').trim().toLowerCase();
-  const password = String(body.password || '');
+  // Normalización defensiva: `manejar` siempre entrega un objeto, pero un
+  // runtime serverless (o una prueba directa) podría omitirlo. Así el peor
+  // caso es un 400 JSON estructurado y nunca un TypeError -> 500.
+  const datos = body && typeof body === 'object' ? body : {};
+  const usuario = String(datos.usuario || '').trim().toLowerCase();
+  const password = String(datos.password || '');
   if (!usuario || !password) {
-    throw new ApiError(400, 'Debe indicar usuario y contraseña.');
+    throw new ApiError(400, 'Debe indicar usuario y contraseña.', {
+      codigo: 'E_CREDENCIALES',
+      campos: ['usuario', 'password'],
+    });
   }
 
   const clave = claveIntento(req);
@@ -97,7 +104,10 @@ async function login({ req, res, body }) {
   await db.run('UPDATE usuarios SET ultimo_acceso = ? WHERE id = ?;', db.ahoraUTC(), fila.id);
 
   res.setHeader('Set-Cookie', auth.cookieSesion(token, req));
-  return { status: 200, data: { usuario: publicarUsuario(fila), expira_en } };
+  return {
+    status: 200,
+    data: { ok: true, usuario: publicarUsuario(fila), expira_en },
+  };
 }
 
 async function logout({ req, res }) {
@@ -107,11 +117,13 @@ async function logout({ req, res }) {
   return { status: 200, data: { ok: true } };
 }
 
-async function usuarioActual({ req }) {
-  const sesion = await auth.sesionDe(db, req);
+async function usuarioActual({ req } = {}) {
+  // 200 SIEMPRE con `usuario: null` cuando no hay sesión: el frontend usa
+  // esta respuesta para decidir si muestra el login. Nunca un 404.
+  const sesion = await auth.sesionDe(db, req || {});
   return {
     status: 200,
-    data: { usuario: sesion ? publicarUsuario(sesion.usuario) : null },
+    data: { ok: true, usuario: sesion ? publicarUsuario(sesion.usuario) : null },
   };
 }
 

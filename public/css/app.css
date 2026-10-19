@@ -454,7 +454,8 @@ a { color: var(--acento); }
 .campo {
   display: block; margin-bottom: 12px;
 }
-.campo > span {
+.campo > span,
+.campo > label {
   display: block; font-size: .78rem; font-weight: 700; letter-spacing: .6px;
   text-transform: uppercase; color: var(--texto-suave); margin-bottom: 6px;
 }
@@ -2607,3 +2608,114 @@ a { color: var(--acento); }
   .cp-input { min-height: 52px; font-size: 1.2rem; }
   .cp-atajo { display: none; }
 }
+
+/* ============================================================
+   LOGIN INDUSTRIAL (R23)
+   ------------------------------------------------------------
+   · Isologo SVG de flujo + "Optiflow" (sin candado genérico).
+   · Modal con max-height 90vh y overflow hidden: sin scroll interno.
+   · Botón de ojo nativo para mostrar/ocultar la contraseña.
+   · CTA "Entrar" en la paleta de línea Placares, target de 56px.
+   ============================================================ */
+.login-cabecera {
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--borde);
+}
+.login-marca { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.login-isologo {
+  width: 46px; height: 46px; flex: none;
+  display: grid; place-items: center;
+  border-radius: var(--radio-md);
+  background: linear-gradient(145deg, var(--linea-placares), #164a78);
+  color: #fff;
+  box-shadow: inset 0 -3px 0 var(--estado-cian);
+}
+.login-isologo .ico-svg { width: 26px; height: 26px; }
+.login-titulo {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: 2px;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--texto);
+}
+.login-subtitulo {
+  margin: 2px 0 0;
+  font-size: .78rem; font-weight: 700; letter-spacing: .9px;
+  text-transform: uppercase; color: var(--texto-suave);
+}
+
+/* Ojo nativo dentro del campo de contraseña. */
+.campo-password { position: relative; }
+.campo-password > input { padding-right: 56px; }
+.btn-ojo {
+  position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+  width: 44px; height: 44px; min-width: 44px; padding: 0;
+  border: 0; border-radius: var(--radio-sm); background: transparent;
+  color: var(--texto-suave); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  touch-action: manipulation;
+}
+.btn-ojo:hover { background: #eef2f6; color: var(--texto); }
+.btn-ojo:focus-visible { outline: 3px solid var(--estado-cian); outline-offset: 2px; }
+.btn-ojo[aria-pressed="true"] { color: var(--linea-placares); }
+.btn-ojo .ico-svg { width: 21px; height: 21px; }
+
+/* Página /login.html */
+.login .tarjeta-login { padding: 18px 20px; }
+.login .tarjeta-login .campo { margin-bottom: 10px; }
+.login .login-ayuda { margin: 10px 0 0; font-size: .82rem; line-height: 1.35; }
+
+/* CTA "Entrar" industrial (target táctil de 56px). */
+#btn-entrar, #btn-login {
+  min-height: 56px;
+  background: var(--linea-placares);
+  border: 2px solid var(--linea-placares);
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  box-shadow: inset 0 -4px 0 var(--estado-cian), 0 8px 18px rgba(15, 47, 79, .20);
+}
+#btn-entrar:hover:not(:disabled), #btn-login:hover:not(:disabled) {
+  background: #1a63bb;
+  border-color: var(--estado-cian);
+  filter: brightness(1.05);
+}
+#btn-entrar:active:not(:disabled), #btn-login:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 0 -2px 0 var(--estado-cian), 0 4px 10px rgba(15, 47, 79, .18);
+}
+
+/* Modal de login: alto acotado y CERO scroll interno. */
+#modal-login .modal {
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+#modal-login .modal-cabecera { padding: 14px 18px; flex: 0 0 auto; }
+#modal-login .modal-cuerpo { padding: 12px 18px 6px; overflow: hidden; flex: 1 1 auto; }
+#modal-login .modal-pie { padding: 12px 18px; flex: 0 0 auto; }
+#modal-login .modal-cuerpo .campo { margin-bottom: 10px; }
+#modal-login .modal-cuerpo > p.texto-suave { margin-bottom: 10px; }
+#modal-login .modal-pie .btn { min-width: 160px; }
+#modal-login .login-titulo { font-size: 1.2rem; }
+
+/* Pantallas bajas: compactar sin generar barra interna. */
+@media (max-height: 620px) {
+  #modal-login .modal-cabecera { padding: 10px 16px; }
+  #modal-login .modal-cuerpo { padding: 8px 16px 4px; }
+  #modal-login .modal-pie { padding: 8px 16px; }
+  #modal-login .modal-cuerpo > p.texto-suave { display: none; }
+  #modal-login .login-isologo { width: 38px; height: 38px; }
+  #modal-login .login-isologo .ico-svg { width: 22px; height: 22px; }
+  #modal-login .login-titulo { font-size: 1.1rem; }
+  #modal-login .campo > span, #modal-login .campo > label { margin-bottom: 4px; }
+}
+
+/* Sidebar: iconoSvg() envuelve el SVG en .sb-ico; dimensionarlo dentro
+   de .sb-escudo para que el isologo llene la insignia como .escudo. */
+.sb-escudo .sb-ico { width: 62%; height: 62%; display: flex; align-items: center; justify-content: center; }
+.sb-escudo .sb-ico svg { width: 100%; height: 100%; display: block; }

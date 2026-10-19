@@ -121,6 +121,7 @@ function abrirLogin(trasEntrar) {
   if (err) err.textContent = '';
   const pass = $('login-password');
   if (pass) pass.value = '';
+  configurarOjoPassword(pass, $('btn-ojo-password'));
   Modal.abrir('modal-login');
   const usuario = $('login-usuario');
   if (usuario) usuario.focus();

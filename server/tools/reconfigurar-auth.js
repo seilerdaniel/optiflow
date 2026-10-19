@@ -28,14 +28,20 @@
  *   scrypt (node:crypto) con los MISMOS parámetros que server/lib/auth.js
  *   (N=16384, keylen=64, salt de 16 bytes), en hex. Se verifica al final
  *   con `auth.verificarPassword`, la misma función que invoca el login.
+ *
+ * CREDENCIALES:
+ *   Se pueden sobreescribir por entorno (recomendado en producción):
+ *     OPTIFLOW_ADMIN_USER=admin
+ *     OPTIFLOW_ADMIN_PASSWORD=1369ringo
+ *   Si no existen, se usan los valores por defecto de esta instalación.
  */
 
 const crypto = require('node:crypto');
 const db = require('../db');
 const auth = require('../lib/auth');
 
-const USUARIO = 'admin';
-const PASSWORD = 'AdminSeguro123';
+const USUARIO = (process.env.OPTIFLOW_ADMIN_USER || 'admin').trim().toLowerCase();
+const PASSWORD = process.env.OPTIFLOW_ADMIN_PASSWORD || '1369ringo';
 const ROL = 'admin';
 
 // Idénticos a server/lib/auth.js (SCRYPT_OPS / SCRYPT_KEYLEN).

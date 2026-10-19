@@ -221,6 +221,8 @@ const RUTAS = [
   })],
 
   // --- Autenticación (públicas: login/logout/consulta de sesión) ---
+  // `normalizarPathname()` hace que /api/auth/login/ (barra final) y las
+  // barras duplicadas resuelvan a estas mismas rutas, sin 404 espurios.
   ['POST', '/api/auth/login', authRuta.login],
   ['POST', '/api/auth/logout', authRuta.logout],
   ['GET', '/api/auth/usuario', authRuta.usuarioActual],
@@ -311,6 +313,21 @@ function compilarRutas() {
 
 const RUTAS_COMPILADAS = compilarRutas();
 
+/**
+ * Canoniza el pathname antes de enrutar.
+ *
+ * Vercel puede entregar `/api/auth/login/` (barra final) o, si un proxy
+ * intermedio duplica separadores, `/api//auth/login`. Las dos formas deben
+ * resolver al mismo handler y nunca caer en un 404 espurio. Sólo se colapsan
+ * barras y se quita la barra final; NO se altera mayúsculas/minúsculas
+ * (las rutas son sensibles a mayúsculas por diseño).
+ */
+function normalizarPathname(pathname) {
+  let p = String(pathname || '/').replace(/\/{2,}/g, '/');
+  if (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1);
+  return p || '/';
+}
+
 function enrutar(metodo, pathname) {
   let coincideRuta = false;
   for (const ruta of RUTAS_COMPILADAS) {
@@ -399,7 +416,7 @@ async function manejar(req, res) {
   } catch {
     return sendJson(res, 400, { error: 'URL inválida' }, { ...HEADERS_SEGURIDAD, ...cabecerasCORS(req) });
   }
-  const pathname = url.pathname;
+  const pathname = normalizarPathname(url.pathname);
   const cors = () => cabecerasCORS(req);
 
   try {
@@ -423,7 +440,15 @@ async function manejar(req, res) {
 
     if (pathname.startsWith('/api/')) {
       const ruta = enrutar(req.method, pathname);
-      if (!ruta) throw new ApiError(404, `Endpoint no encontrado: ${req.method} ${pathname}`);
+      if (!ruta) {
+        // 404 estructurado (nunca HTML de Vercel/Node): el cliente siempre
+        // recibe JSON con un código estable y las rutas de auth públicas,
+        // que son las que más se consultan al diagnosticar un despliegue.
+        throw new ApiError(404, `Endpoint no encontrado: ${req.method} ${pathname}`, {
+          codigo: 'E_RUTA',
+          rutas_auth: ['POST /api/auth/login', 'GET /api/auth/usuario'],
+        });
+      }
 
       // Middleware de sesión/autorización (auditoría V-1): se aplica ANTES de
       // leer el cuerpo para no consumir bandwidth de peticiones no autorizadas.

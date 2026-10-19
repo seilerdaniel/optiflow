@@ -100,6 +100,10 @@
     capas:    '<path d="m12 2 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
     fabrica:  '<path d="M2 20h20"/><path d="M4 20V9l6 4V9l6 4V6h4v14"/><path d="M8 20v-4h4v4"/>',
     grafico:  '<path d="M3 3v18h18"/><path d="M8 17v-5"/><path d="M13 17V8"/><path d="M18 17v-8"/>',
+    // Isologo de flujo industrial (dos chevrones + nodo final). Debe existir
+    // también acá: `iconoSvg('flujo')` es local a este módulo y, sin la clave,
+    // caía al reloj de respaldo en `.sb-escudo`.
+    flujo:    '<path d="M3 6l5.5 6L3 18"/><path d="M10 6l5.5 6L10 18"/><circle cx="20.5" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
     salir:    '<path d="M12 3v9"/><path d="M7.5 6.5a7 7 0 1 0 9 0"/>',
     herramienta: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
     menu:      '<path d="M4 6h16M4 12h16M4 18h16"/>',

@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const err = $('login-error');
 
   $('login-usuario').focus();
+  configurarOjoPassword($('login-password'), $('btn-ojo-password'));
 
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();

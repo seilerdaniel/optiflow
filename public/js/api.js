@@ -92,6 +92,7 @@ const ICONOS_UI = {
   save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>',
   trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/>',
   eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  eyeOff: '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-10-8-10-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="m2 2 20 20"/>',
   pencil: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
   pause: '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>',
   play: '<path d="M8 5v14l11-7Z"/>',
@@ -132,6 +133,36 @@ function iconoSvg(nombre, clase) {
   svg.setAttribute('focusable', 'false');
   svg.innerHTML = ICONOS_UI[nombre] || ICONOS_UI.info;
   return svg;
+}
+
+/**
+ * Conecta el botón de ojo con el input de contraseña (mostrar/ocultar).
+ * El botón debe contener dos SVG: `.ico-ojo` y `.ico-ojo-off`.
+ * Es idempotente: llamarlo dos veces no duplica listeners.
+ */
+function configurarOjoPassword(input, boton) {
+  if (!input || !boton || boton.dataset.ojoListo === '1') return;
+  boton.dataset.ojoListo = '1';
+
+  const actualizar = () => {
+    const visible = input.type === 'text';
+    const etiqueta = visible ? 'Ocultar contraseña' : 'Mostrar contraseña';
+    boton.setAttribute('aria-pressed', visible ? 'true' : 'false');
+    boton.setAttribute('aria-label', etiqueta);
+    boton.title = etiqueta;
+    const ojo = boton.querySelector('.ico-ojo');
+    const ojoOff = boton.querySelector('.ico-ojo-off');
+    if (ojo) ojo.hidden = visible;
+    if (ojoOff) ojoOff.hidden = !visible;
+  };
+
+  boton.addEventListener('click', (ev) => {
+    ev.preventDefault(); // no envía el formulario ni dispara el label
+    input.type = input.type === 'password' ? 'text' : 'password';
+    actualizar();
+    input.focus({ preventScroll: true });
+  });
+  actualizar();
 }
 
 const FORMATO = {
