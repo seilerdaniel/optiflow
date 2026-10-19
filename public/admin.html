@@ -959,9 +959,15 @@
      aria-modal="true" aria-label="Buscador global de órdenes de trabajo">
   <div class="cp-caja">
     <div class="cp-campo">
-      <span class="cp-icono" aria-hidden="true">⌕</span>
+      <span class="cp-icono" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+      </span>
       <input type="text" id="cp-input" class="cp-input"
-             placeholder="Buscar OT por número, cliente o modelo…"
+             placeholder="Buscar OT por número, cliente o sector…"
              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
              role="combobox" aria-expanded="false" aria-controls="cp-lista"
              aria-autocomplete="list" aria-label="Buscar orden de trabajo">

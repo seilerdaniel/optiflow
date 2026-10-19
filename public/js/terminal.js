@@ -853,7 +853,10 @@ function renderBotones() {
  * envuelto en try/catch: la vibration NUNCA debe romper el fichado.
  */
 function vibrarExito() {
-  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+  // Guarda doble: la API puede faltar por completo (desktop/tablet vieja) o
+  // existir pero no ser invocable. Sólo vibra si el navegador la expone.
+  if (typeof navigator === 'undefined' || !('vibrate' in navigator)
+    || typeof navigator.vibrate !== 'function') return;
   try {
     navigator.vibrate([100, 50, 100]);
   } catch { /* soporte ausente o bloqueado: se ignora deliberadamente */ }

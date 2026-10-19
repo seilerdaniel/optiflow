@@ -2280,10 +2280,10 @@ a { color: var(--acento); }
   background: rgba(18, 20, 22, .8);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
-  /* Alineado arriba (tipo Spotlight/Raycast): el input queda a la altura
-     de la mirada y no tapa el panel de KPIs con el mouse. */
-  align-items: flex-start;
-  padding: min(12vh, 110px) 16px 16px;
+  /* Centrado en escritorio; la media query de 640px lo sube arriba para
+     que el teclado en pantalla no tape la lista de resultados. */
+  align-items: center;
+  padding: 16px;
   z-index: 200;              /* por encima de los modales comunes (100) */
 }
 
@@ -2313,6 +2313,14 @@ a { color: var(--acento); }
   line-height: 1;
   color: var(--estado-cian, #22B8CF);
   user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.cp-icono svg {
+  width: 26px;
+  height: 26px;
+  display: block;
 }
 .cp-input {
   flex: 1 1 auto;

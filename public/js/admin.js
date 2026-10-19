@@ -2979,13 +2979,14 @@ const CommandPalette = {
   },
 
   /**
-   * Filtra en memoria por número de OT, cliente o modelo (sin acentos ni
-   * mayúsculas). Con consulta vacía muestra las primeras OTs de la lista,
+   * Filtra en memoria por número de OT, cliente, modelo o sector (sin acentos
+   * ni mayúsculas). Con consulta vacía muestra las primeras OTs de la lista,
    * que es lo que el usuario quiere ver al pulsar Ctrl+K "a ciegas".
    */
   buscar(texto) {
     const q = FORMATO.normalizar(String(texto || '').trim());
     const base = Array.isArray(S.ordenes) ? S.ordenes : [];
+    const sectores = new Map((S.sectores || []).map((s) => [s.id, s]));
 
     if (!q) {
       this.resultados = base.slice(0, 8);
@@ -2994,10 +2995,37 @@ const CommandPalette = {
         FORMATO.normalizar(ot.numero_ot).includes(q)
         || FORMATO.normalizar(ot.cliente).includes(q)
         || FORMATO.normalizar(ot.modelo || '').includes(q)
+        || this._coincideSector(ot, q, sectores)
       )).slice(0, 12);
     }
     this.indice = 0;
     this.pintar();
+  },
+
+  /**
+   * ¿La OT coincide por sector? `S.ordenes` no trae el nombre plano: se
+   * resuelve contra el catálogo ya cargado (`S.sectores`) usando los IDs
+   * requeridos y, si hay etapa activa, contra el nombre del propio registro.
+   */
+  _coincideSector(ot, q, sectores) {
+    for (const id of (ot.sectores_requeridos || [])) {
+      const s = sectores.get(id);
+      if (s && FORMATO.normalizar(`${s.nombre_sector || ''} ${s.nombre_corto || ''}`).includes(q)) {
+        return true;
+      }
+    }
+    const activa = ot.etapa_activa;
+    return !!activa
+      && FORMATO.normalizar(`${activa.nombre_sector || ''} ${activa.nombre_corto || ''}`).includes(q);
+  },
+
+  /** Sector visible de la fila: el activo si lo hay; si no, el primero requerido. */
+  _sectorDeOT(ot) {
+    const activa = ot.etapa_activa;
+    if (activa) return activa.nombre_corto || activa.nombre_sector || '';
+    const primero = (ot.sectores_requeridos || [])[0];
+    const s = (S.sectores || []).find((x) => x.id === primero);
+    return s ? (s.nombre_corto || s.nombre_sector) : '';
   },
 
   mover(paso) {
@@ -3042,7 +3070,7 @@ const CommandPalette = {
       h('span', { class: 'cp-num', text: ot.numero_ot }),
       h('span', { class: 'cp-desc' },
         h('span', { class: 'cp-cliente', text: ot.cliente }),
-        h('span', { class: 'cp-meta', text: [ot.modelo, ot.linea_area || 'Placares'].filter(Boolean).join(' · ') }))
+        h('span', { class: 'cp-meta', text: [ot.modelo, this._sectorDeOT(ot) || ot.linea_area || 'Placares'].filter(Boolean).join(' · ') }))
       );
       // mouseenter cambia la selección; click la confirma.
       fila.addEventListener('mouseenter', () => { this.indice = i; this.pintar(); });
