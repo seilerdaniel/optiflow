@@ -2188,7 +2188,7 @@ function imprimirHojaRuta(ot) {
   const hoja = h('div', { class: `hoja-ruta ${claseLinea}` },
     h('div', { class: 'hoja-cabecera' },
       h('div', { class: 'hoja-marca' },
-        h('div', { class: 'hoja-escudo', text: 'OF' }),
+        h('div', { class: 'hoja-escudo' }, iconoSvg('flujo')),
         h('div', {},
           h('h1', { text: 'HOJA DE RUTA' }),
           h('p', { text: 'Optiflow · De Otro Tiempo · Control de Trazabilidad' }))),

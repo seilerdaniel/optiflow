@@ -45,6 +45,7 @@ const SHELL = [
   '/js/admin.js',
   '/js/lib/chart.umd.min.js',
   '/manifest.json',
+  '/icons/optiflow-mark.svg',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/icon-maskable-512.png',

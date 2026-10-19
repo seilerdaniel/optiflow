@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Optiflow">
+  <rect width="64" height="64" rx="14" fill="#0f2f4f"/>
+  <circle cx="32" cy="32" r="21" fill="#1d6fd1"/>
+  <g fill="none" stroke="#ffffff" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 21.5l10.5 10.5L16 42.5"/>
+    <path d="M28.5 21.5L39 32l-10.5 10.5"/>
+  </g>
+  <circle cx="47" cy="32" r="3" fill="#ffffff"/>
+</svg>

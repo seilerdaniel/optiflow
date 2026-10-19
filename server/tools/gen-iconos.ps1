@@ -55,16 +55,32 @@ function Dibujar-Icono([int]$tam, [string]$ruta, [bool]$maskable) {
   $pincelCirculo = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 29, 111, 209)) # #1d6fd1
   $g.FillEllipse($pincelCirculo, ($cx - $r), ($cy - $r), ($r * 2), ($r * 2))
 
-  # Monograma "OF" en blanco, centrado.
-  $fuente = New-Object System.Drawing.Font('Segoe UI', [float]($tam * 0.34), [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-  $pincelTexto = [System.Drawing.Brushes]::White
-  $formato = New-Object System.Drawing.StringFormat
-  $formato.Alignment = [System.Drawing.StringAlignment]::Center
-  $formato.LineAlignment = [System.Drawing.StringAlignment]::Center
-  $g.DrawString('OF', $fuente, $pincelTexto, (New-Object System.Drawing.RectangleF(0, 0, $tam, $tam)), $formato)
+  # Marca de flujo industrial (sin monograma de letras): dos chevrones
+  # encadenados + nodo final, que leen como proceso/trazabilidad en movimiento.
+  $pluma = New-Object System.Drawing.Pen([System.Drawing.Color]::White, [float]($tam * 0.072))
+  $pluma.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+  $pluma.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+  $pluma.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
+
+  $dx = [float]($tam * 0.16)      # separación horizontal entre chevrones
+  $alto = [float]($tam * 0.24)    # alto total del chevrón
+  $punta = [float]($tam * 0.07)   # profundidad de la punta
+  for ($i = 0; $i -lt 2; $i++) {
+    $bx = $cx + (($i - 1) * $dx)
+    $g.DrawLines($pluma, @(
+      (New-Object System.Drawing.PointF(($bx - $punta), ($cy - $alto / 2))),
+      (New-Object System.Drawing.PointF(($bx + $punta), $cy)),
+      (New-Object System.Drawing.PointF(($bx - $punta), ($cy + $alto / 2)))
+    ))
+  }
+  $radioNodo = [float]($tam * 0.030)
+  $nx = $cx + [float]($tam * 0.245)
+  $pincelNodo = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
+  $g.FillEllipse($pincelNodo, ($nx - $radioNodo), ($cy - $radioNodo), ($radioNodo * 2), ($radioNodo * 2))
 
   $bmp.Save($ruta, [System.Drawing.Imaging.ImageFormat]::Png)
-  $g.Dispose(); $bmp.Dispose(); $pincelCirculo.Dispose(); $fuente.Dispose(); $degradado.Dispose()
+  $g.Dispose(); $bmp.Dispose(); $pincelCirculo.Dispose(); $pincelNodo.Dispose()
+  $pluma.Dispose(); $degradado.Dispose()
   Write-Host "  [OK] $ruta ($tam x $tam)"
 }
 

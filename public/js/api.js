@@ -113,6 +113,9 @@ const ICONOS_UI = {
   bug: '<path d="M8 3v2M16 3v2"/><path d="M9 9h6a4 4 0 0 1 4 4v1a7 7 0 0 1-14 0v-1a4 4 0 0 1 4-4Z"/><path d="M12 9v9M8 13H3M21 13h-5M6 19l-2 2M18 19l2 2M7 5 5 3M17 5l2-2"/>',
   send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
   scan: '<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M7 12h10"/>',
+  // Marca de flujo industrial: dos chevrones encadenados + nodo final, que
+  // leen como proceso/trazabilidad en movimiento (sin monograma de letras).
+  flujo: '<path d="M3 6l5.5 6L3 18"/><path d="M10 6l5.5 6L10 18"/><circle cx="20.5" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
 };
 
 /** Crea un SVG inline normalizado. El nombre debe existir en ICONOS_UI. */

@@ -360,7 +360,7 @@
     const sidebar = el('aside', { class: 'sidebar', id: 'sidebar', 'aria-label': 'Menú lateral de Optiflow' },
       el('div', { class: 'sb-cabecera' },
         el('a', { class: 'sb-marca', href: '/', title: 'Optiflow · Terminal de fichado' },
-          el('span', { class: 'sb-escudo', 'aria-hidden': 'true', text: 'OF' }),
+          el('span', { class: 'sb-escudo', 'aria-hidden': 'true' }, iconoSvg('flujo')),
           el('span', { class: 'sb-marca-txt' },
             el('b', { text: 'OPTIFLOW' }),
             el('small', { id: 'sb-version', text: VERSION_RESPALDO }))),
