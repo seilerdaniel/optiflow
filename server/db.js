@@ -1150,6 +1150,22 @@ function mapMaterial(row) {
   };
 }
 
+/**
+ * Resumen de placas de una lista ya mapeada con `mapMaterial`.
+ * Función pura: la usan tanto el detalle como el listado batch de OTs.
+ */
+function resumenMateriales(materiales) {
+  const requeridas = Math.round((materiales || []).reduce((a, m) => a + m.cantidad_placas, 0) * 100) / 100;
+  const consumidas = Math.round((materiales || []).reduce((a, m) => a + m.cantidad_consumida, 0) * 100) / 100;
+  return {
+    lineas: (materiales || []).length,
+    placas_requeridas: requeridas,
+    placas_consumidas: consumidas,
+    placas_restantes: Math.max(0, Math.round((requeridas - consumidas) * 100) / 100),
+    porcentaje_consumo: requeridas > 0 ? Math.round((consumidas / requeridas) * 100) : 0,
+  };
+}
+
 /** Operario del maestro. */
 function mapOperario(row) {
   if (!row) return null;
@@ -1350,6 +1366,7 @@ module.exports = {
   mapSector,
   mapRegistro,
   mapMaterial,
+  resumenMateriales,
   mapOperario,
   mapUsuario,
   mapNoConformidad,

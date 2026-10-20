@@ -104,10 +104,29 @@ Definiciones: **Lead time** = inicio de Corte → fin de Embalaje Final (sólo O
                   "finalizados_ids": [1,2] },
     "minutos_acumulados": 134.5,
     "etapa_activa": { ...registro abierto o null... },
-    "sectores_bloqueados": { "5": "Requiere finalizar: Corte, Enfiladora" }
+    "sectores_bloqueados": { "5": "Requiere finalizar: Corte, Enfiladora" },
+    "sector_actual": { "id": 3, "sector_id": 3, "nombre_sector": "Armado de Cajoneras",
+                       "nombre_corto": "Armado", "estado_etapa": "En Proceso" },
+    "etapas_completadas": [1,2],
+    "materiales": [ ...filas de ot_materiales... ],
+    "resumen_materiales": { "lineas": 2, "placas_requeridas": 16,
+                            "placas_consumidas": 4, "placas_restantes": 12,
+                            "porcentaje_consumo": 25 },
+    "alertas": [ { "id": 8, "sector_id": 1, "tipo_falla": "Error de veta",
+                   "estado": "Pendiente", "fecha_registro": "2026-10-20T13:05:00.000Z" } ],
+    "alertas_abiertas": 1
   }]
 }
 ```
+* sin parámetros devuelve todas las OTs, igual que antes. Acepta filtros
+  opcionales `?linea_area=Placares|Cocinas`, `?estado=...` y `?q=texto`
+  (busca en `numero_ot`, `cliente` y `modelo`).
+* el servidor hace **3 consultas fijas** (OTs + sectores, etapas batch,
+  materiales + no conformidades batch) y cruza todo en memoria con `Map`
+  indexados por `ot_id`; no hay consultas por OT.
+* `materiales`, `resumen_materiales`, `alertas`, `sector_actual` y
+  `etapas_completadas` son campos aditivos: los consumidores anteriores siguen
+  usando `progreso`, `etapa_activa` y `sectores_bloqueados`.
 
 ### `POST /api/ordenes`
 ```json
