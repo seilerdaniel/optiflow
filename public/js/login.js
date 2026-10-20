@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    err.textContent = '';
+    mostrarErrorLogin(err, null);
     $('login-usuario').removeAttribute('aria-invalid');
     $('login-password').removeAttribute('aria-invalid');
     btn.disabled = true;
@@ -42,10 +42,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       Avisos.ok(`Bienvenido/a, ${r.usuario.nombre}`);
       setTimeout(() => { location.href = destinoPostLogin(); }, 350);
     } catch (e) {
-      err.textContent = e.message || 'No se pudo iniciar sesión.';
-      $('login-password').value = '';
-      $('login-password').setAttribute('aria-invalid', 'true');
-      $('login-password').focus();
+      mostrarErrorLogin(err, e);
+      if (e.status === 409) {
+        // Las credenciales son válidas: la cuenta sólo está abierta en otro
+        // dispositivo. No se marca la contraseña como incorrecta.
+        $('login-password').removeAttribute('aria-invalid');
+      } else {
+        $('login-password').value = '';
+        $('login-password').setAttribute('aria-invalid', 'true');
+        $('login-password').focus();
+      }
       btn.disabled = false;
       btn.textContent = 'Entrar';
       marcarCargando(btn, false);

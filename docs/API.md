@@ -33,13 +33,17 @@ Base: `http://<servidor>:<puerto>` (por defecto `http://localhost:3000`)
 * Contraseñas: **scrypt** con salt aleatorio (columnas `password_hash`/`password_salt`).
 * Roles: `operario` (fichar en terminal), `encargado` (gestión de planta),
   `admin` (gestión + usuarios del sistema).
+* **Sesión única activa:** un usuario no puede tener dos sesiones vigentes. El
+  login limpia sus sesiones vencidas/cerradas y, si queda una activa, responde
+  `409` sin crear otra. El `logout` elimina la fila de `sesiones` para liberar
+  el cupo de inmediato.
 * Primer arranque con tabla `usuarios` vacía: se crea `admin` (o `OPTIFLOW_ADMIN_USER`)
   con `OPTIFLOW_ADMIN_PASSWORD` o con una clave aleatoria impresa **una sola vez**.
 
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
-| POST | `/api/auth/login` | pública | `{ usuario, password }` → setea cookie y devuelve `{ usuario, expira_en }`. `401` genérico si falla; `429` tras varios intentos. |
-| POST | `/api/auth/logout` | pública | Cierra la sesión vigente y borra la cookie |
+| POST | `/api/auth/login` | pública | `{ usuario, password }` → setea cookie y devuelve `{ usuario, expira_en }`. `401` genérico si falla; `429` tras varios intentos; `409` si el usuario ya tiene una sesión activa en otro dispositivo. |
+| POST | `/api/auth/logout` | pública | Borra **físicamente** la sesión vigente de `sesiones` (libera el cupo) y borra la cookie |
 | GET | `/api/auth/usuario` | pública | `{ usuario: {...} }` o `{ usuario: null }` (siempre `200`) |
 | GET | `/api/usuarios` | `encargado`+ | Lista de usuarios del sistema |
 | POST | `/api/usuarios` | `admin` | Alta: `{ usuario, nombre, password, rol, activo? }` |

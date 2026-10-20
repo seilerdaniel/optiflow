@@ -26,6 +26,12 @@ const {
 
 const ROLES = Object.freeze(['admin', 'encargado', 'operario']);
 
+/**
+ * Mensaje público del rechazo por concurrencia. Se mantiene textual porque la
+ * UI lo usa para destacar el aviso y porque forma parte del contrato HTTP 409.
+ */
+const MSG_SESION_ACTIVA = 'El usuario ya tiene una sesión activa en otro dispositivo. Por favor, cierre la sesión anterior antes de ingresar.';
+
 function publicarUsuario(u) {
   return { id: u.id, usuario: u.usuario, nombre: u.nombre, rol: u.rol };
 }
@@ -100,8 +106,38 @@ async function login({ req, res, body }) {
   }
   auth.registrarExito(clave);
 
-  const { token, expira_en } = await auth.crearSesion(db, fila.id, req);
-  await db.run('UPDATE usuarios SET ultimo_acceso = ? WHERE id = ?;', db.ahoraUTC(), fila.id);
+  /*
+   * SESIÓN ÚNICA ACTIVA POR USUARIO.
+   *
+   * El advisory lock por usuario serializa dos logins simultáneos (aunque
+   * lleguen a distintas instancias serverless): el segundo espera el COMMIT
+   * del primero y ya ve la sesión recién insertada, por lo que también
+   * responde 409. Sin el lock, ambos podrían pasar el SELECT antes de que
+   * cualquiera inserte y quedarían dos sesiones vigentes.
+   */
+  const resultado = await db.transaccion(async () => {
+    const ahora = db.ahoraUTC();
+
+    // 1) Borrado preventivo: vencidas y cerradas lógicamente de ESTE usuario.
+    await auth.limpiarSesionesVencidas(db, fila.id, ahora);
+
+    // 2) ¿Queda alguna sesión vigente? Entonces el cupo está ocupado.
+    const activa = await auth.sesionActivaDe(db, fila.id, ahora);
+    if (activa) return { activa: true };
+
+    // 3) Cupo libre: se inserta el nuevo token y se registra el acceso.
+    const sesion = await auth.crearSesion(db, fila.id, req);
+    await db.run('UPDATE usuarios SET ultimo_acceso = ? WHERE id = ?;', ahora, fila.id);
+    return { activa: false, sesion };
+  }, [[db.LOCK_USUARIO, fila.id]]);
+
+  // El rechazo se lanza FUERA de la transacción para que el borrado preventivo
+  // de sesiones vencidas quede confirmado incluso cuando el cupo está ocupado.
+  if (resultado.activa) {
+    throw new ApiError(409, MSG_SESION_ACTIVA, { codigo: 'E_SESION_ACTIVA' });
+  }
+
+  const { token, expira_en } = resultado.sesion;
 
   res.setHeader('Set-Cookie', auth.cookieSesion(token, req));
   return {
@@ -111,8 +147,10 @@ async function login({ req, res, body }) {
 }
 
 async function logout({ req, res }) {
-  const sesion = await auth.sesionDe(db, req);
-  if (sesion) await auth.cerrarSesion(db, sesion.token);
+  // Borrado FÍSICO del token presentado: libera el cupo de inmediato aunque
+  // la sesión estuviera vencida o ya cerrada lógicamente.
+  const token = auth.leerCookie(req, auth.NOMBRE_COOKIE);
+  if (token) await auth.cerrarSesion(db, token);
   res.setHeader('Set-Cookie', auth.cookieBorrado(req));
   return { status: 200, data: { ok: true } };
 }

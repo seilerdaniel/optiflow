@@ -141,7 +141,7 @@ function pintarSesion(u) {
  */
 function abrirLogin(trasEntrar) {
   const err = $('login-error');
-  if (err) err.textContent = '';
+  mostrarErrorLogin(err, null);
   const pass = $('login-password');
   if (pass) pass.value = '';
   configurarOjoPassword(pass, $('btn-ojo-password'));
@@ -155,7 +155,7 @@ function abrirLogin(trasEntrar) {
 
   const intentar = async () => {
     if (btn.disabled) return;
-    if (err) err.textContent = '';
+    mostrarErrorLogin(err, null);
     btn.disabled = true;
     marcarCargando(btn, true);
     btn.textContent = 'Verificando…';
@@ -168,8 +168,11 @@ function abrirLogin(trasEntrar) {
       if (trasEntrar) await trasEntrar();
       else await refrescar();
     } catch (e) {
-      if (err) err.textContent = e.message || 'No se pudo iniciar sesión.';
-      if (pass) {
+      mostrarErrorLogin(err, e);
+      if (e.status === 409) {
+        // Credenciales válidas, pero la cuenta ya está abierta en otro equipo.
+        if (pass) pass.removeAttribute('aria-invalid');
+      } else if (pass) {
         pass.value = '';
         pass.setAttribute('aria-invalid', 'true');
         pass.focus();

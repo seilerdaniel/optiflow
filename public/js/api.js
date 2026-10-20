@@ -55,6 +55,39 @@ const API = {
   logout() { return this.post('/api/auth/logout', {}); },
 };
 
+/**
+ * Pinta el error del login respetando el tipo de respuesta.
+ * El 409 por sesión única activa se destaca en naranja/rojo para que el
+ * operario entienda que la cuenta está abierta en otra computadora.
+ */
+function mostrarErrorLogin(el, error) {
+  if (!el) return;
+  const conflicto = !!(error && Number(error.status) === 409);
+  el.textContent = error ? String(error.message || 'No se pudo iniciar sesión.') : '';
+  el.classList.toggle('login-error-sesion', conflicto);
+
+  if (conflicto) {
+    el.dataset.tipo = 'sesion-activa';
+    el.style.color = '#8a2c00';
+    el.style.background = '#fff1e6';
+    el.style.border = '2px solid #d97706';
+    el.style.borderLeft = '6px solid #b91c1c';
+    el.style.padding = '10px 12px';
+    el.style.borderRadius = '10px';
+    el.style.fontWeight = '700';
+    el.style.boxShadow = '0 3px 12px rgba(185, 28, 28, .18)';
+  } else {
+    delete el.dataset.tipo;
+    el.style.color = '#b11d1d';
+    el.style.background = '';
+    el.style.border = '0';
+    el.style.padding = '0';
+    el.style.borderRadius = '';
+    el.style.fontWeight = '';
+    el.style.boxShadow = '';
+  }
+}
+
 /** Crea un elemento DOM de forma segura (sin innerHTML con datos del usuario). */
 function h(tag, attrs, ...hijos) {
   const e = document.createElement(tag);

@@ -1013,15 +1013,16 @@ async function run(sql, ...params) {
  * [clase, id] que se toman como ADVISORY LOCKS de transacción ANTES de
  * ejecutar `fn`. `pg_advisory_xact_lock` libera los locks SOLO al hacer
  * COMMIT/ROLLBACK, así que dos peticiones que disputan el mismo sector /
- * OT / operario quedan serializadas aunque lleguen en paralelo desde
+ * OT / operario / usuario quedan serializadas aunque lleguen en paralelo desde
  * distintas instancias serverless. Las claves se ordenan y deduplican para
  * evitar deadlocks entre transacciones que toman los mismos recursos.
  *
- * Clases de lock (constantés): 1 = sector, 2 = OT, 3 = operario.
+ * Clases de lock: 1 = sector, 2 = OT, 3 = operario, 4 = usuario.
  */
 const LOCK_SECTOR = 1;
 const LOCK_OT = 2;
 const LOCK_OPERARIO = 3;
+const LOCK_USUARIO = 4;
 
 async function transaccion(fn, claves) {
   const cliente = await abrirConexion();
@@ -1346,6 +1347,7 @@ module.exports = {
   LOCK_SECTOR,
   LOCK_OT,
   LOCK_OPERARIO,
+  LOCK_USUARIO,
   /** Clave int32 determinística de un operario para advisory locks. */
   claveLockOperario: (nombre) => auth.clave32(claveNormalizada(nombre)),
   ahoraUTC,

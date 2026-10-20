@@ -189,19 +189,43 @@ async function crearSesion(db_, usuarioId, req) {
   usuarioId, hashToken(token), ip,
   ua ? String(ua).slice(0, 300) : null, ahora, expira, ahora);
 
-  // Limpieza oportunista de sesiones vencidas (barato: sólo al hacer login).
-  await db_.run(`DELETE FROM sesiones WHERE expira_en < ?;`,
-    new Date(Date.now() - 86400000).toISOString());
-
   return { token, expira_en: expira };
 }
 
-/** Cierra (invalida) la sesión del token dado. Idempotente. */
+/**
+ * Borra las sesiones que ya no pueden autenticar a un usuario:
+ * vencidas o cerradas lógicamente (filas históricas previas al logout físico).
+ * Se ejecuta dentro de la transacción de login, antes de comprobar el cupo.
+ */
+async function limpiarSesionesVencidas(db_, usuarioId, ahora) {
+  const corte = ahora || db_.ahoraUTC();
+  const r = await db_.run(
+    `DELETE FROM sesiones
+      WHERE usuario_id = ?
+        AND (expira_en <= ? OR cerrada_en IS NOT NULL);`,
+    usuarioId, corte
+  );
+  return r.changes;
+}
+
+/** Devuelve la sesión vigente del usuario, o undefined si no tiene ninguna. */
+async function sesionActivaDe(db_, usuarioId, ahora) {
+  return db_.get(
+    `SELECT id FROM sesiones
+      WHERE usuario_id = ?
+        AND expira_en > ?
+        AND cerrada_en IS NULL
+      LIMIT 1;`,
+    usuarioId, ahora || db_.ahoraUTC()
+  );
+}
+
+/** Borra físicamente la sesión del token dado. Idempotente. */
 async function cerrarSesion(db_, token) {
   if (!token) return false;
   const r = await db_.run(
-    'UPDATE sesiones SET cerrada_en = ? WHERE token_hash = ? AND cerrada_en IS NULL;',
-    db_.ahoraUTC(), hashToken(token)
+    'DELETE FROM sesiones WHERE token_hash = ?;',
+    hashToken(token)
   );
   return r.changes > 0;
 }
@@ -280,6 +304,8 @@ module.exports = {
   cookieBorrado,
   sesionDe,
   crearSesion,
+  limpiarSesionesVencidas,
+  sesionActivaDe,
   cerrarSesion,
   asegurarAdminInicial,
   permitirIntento,
