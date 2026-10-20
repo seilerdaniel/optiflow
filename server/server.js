@@ -37,6 +37,7 @@ const exportador = require('./routes/export');
 const metricas = require('./routes/metricas');
 const materiales = require('./routes/materiales');
 const tpm = require('./routes/tpm');
+const qms = require('./routes/qms');
 const cronRuta = require('./routes/cron');
 const notificaciones = require('./lib/notificaciones');
 const authRuta = require('./routes/auth');
@@ -205,6 +206,8 @@ const RUTAS = [
       estados_abiertos: db.ESTADOS_ABIERTOS,
       motivos_pausa: db.MOTIVOS_PAUSA,
       motivos_reproceso: db.MOTIVOS_REPROCESO,
+      tipos_falla_qms: db.TIPOS_FALLA_QMS,
+      estados_qms: db.ESTADOS_QMS,
       umbrales_minutos: db.UMBRALES_MINUTOS,
       claves_especiales: db.CLAVES_ESPECIALES,
       lineas_ot: db.LINEAS_OT,
@@ -285,6 +288,23 @@ const RUTAS = [
   // de encargado/admin, no del operario que fiche en la terminal.
   ['POST', '/api/tpm/mantenimiento', tpm.registrarMantenimiento, { auth: 'gestion' }],
   ['POST', '/api/tpm/configurar', tpm.configurar, { auth: 'gestion' }],
+
+  // --- Control de Calidad / No Conformidades / Reprocesos (QMS) ---
+  // Lectura para planta y oficina técnica. El alta la puede hacer cualquier
+  // usuario autenticado desde la Terminal (el operario/encargado que detecta
+  // la falla); la resolución exige rol de gestión (admin/encargado).
+  // El POST acepta una foto comprimida en el dispositivo: se le da un límite
+  // de cuerpo mayor que el resto de la API, pero acotado para no exponer el
+  // endpoint a uploads arbitrarios.
+  ['GET', '/api/qms/no-conformidades', qms.listar, { auth: 'usuario' }],
+  ['POST', '/api/qms/no-conformidades', qms.crear, {
+    auth: 'usuario',
+    bodyMax: 6 * 1024 * 1024,
+  }],
+  ['PATCH', '/api/qms/no-conformidades/:id/resolver', qms.resolver, {
+    auth: 'gestion',
+    bodyMax: 64 * 1024,
+  }],
 
   // --- Tareas programadas de notificación (disparador externo) ---
   // Modo 'cron': sesión de gestión O token estático OPTIFLOW_CRON_TOKEN.
@@ -431,7 +451,7 @@ async function manejar(req, res) {
       res.writeHead(204, {
         ...HEADERS_SEGURIDAD,
         ...cabecerasCORS(req),
-        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+        'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, X-Optiflow-Token',
         'Access-Control-Max-Age': '86400',
       });
@@ -461,7 +481,11 @@ async function manejar(req, res) {
 
       let body = {};
       if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
-        body = await readBody(req);
+        // Algunas rutas (QMS con foto) necesitan un límite de cuerpo mayor.
+        // El resto conserva el tope global de 1 MB de lib/http.js.
+        body = await readBody(req, ruta.op && ruta.op.bodyMax
+          ? { max: ruta.op.bodyMax }
+          : undefined);
       }
       const salida = await ruta.handler({ params: ruta.params, query: queryToObject(url), body, req, res });
 

@@ -62,6 +62,10 @@
 
     { seccion: 'Administración y métricas' },
     {
+      clave: 'calidad', href: '/admin#panel-qms', ico: 'calidad',
+      texto: 'Control de Calidad', sub: 'No conformidades · FTT · evidencias',
+    },
+    {
       clave: 'operarios', href: '/admin#panel-operarios', ico: 'casco',
       texto: 'Operarios', sub: 'Maestro de personal',
     },
@@ -106,6 +110,7 @@
     flujo:    '<path d="M3 6l5.5 6L3 18"/><path d="M10 6l5.5 6L10 18"/><circle cx="20.5" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
     salir:    '<path d="M12 3v9"/><path d="M7.5 6.5a7 7 0 1 0 9 0"/>',
     herramienta: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+    calidad:   '<path d="M12 2 4 6v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6l-8-4Z"/><path d="m9 12 2 2 4-4"/>',
     menu:      '<path d="M4 6h16M4 12h16M4 18h16"/>',
     panel:     '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   };
@@ -135,6 +140,7 @@
   /** Anclas de admin -> clave de ítem activo. */
   const ANCLAS = {
     'panel-ots': 'ots',
+    'panel-qms': 'calidad',
     'panel-operarios': 'operarios',
     'panel-sectores': 'sectores',
     'panel-tpm': 'tpm',

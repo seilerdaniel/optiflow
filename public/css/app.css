@@ -2719,3 +2719,256 @@ a { color: var(--acento); }
    de .sb-escudo para que el isologo llene la insignia como .escudo. */
 .sb-escudo .sb-ico { width: 62%; height: 62%; display: flex; align-items: center; justify-content: center; }
 .sb-escudo .sb-ico svg { width: 100%; height: 100%; display: block; }
+
+/* ============================================================
+   QMS · CONTROL DE CALIDAD, NO CONFORMIDADES Y REPROCESOS
+   ============================================================ */
+
+/* --- Captura de evidencia en la Terminal / modal QMS --- */
+.qms-evidencia {
+  margin: 4px 0 14px;
+  padding: 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radio-md);
+  background: #f5f9ff;
+}
+.qms-evidencia[hidden] { display: none !important; }
+.qms-evidencia-cabecera {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+.qms-evidencia-cabecera b { color: var(--azul); }
+.qms-btn-foto {
+  width: 100%;
+  min-height: 52px;
+  margin: 4px 0 8px;
+  font-size: 1rem;
+}
+.qms-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-md);
+}
+.qms-preview[hidden] { display: none !important; }
+.qms-preview img {
+  flex: 0 0 auto;
+  width: 132px;
+  height: 99px;
+  object-fit: cover;
+  border-radius: var(--radio-sm);
+  border: 1px solid var(--borde);
+  background: #dce5ee;
+}
+.qms-preview-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.qms-preview-info .texto-suave { font-size: .78rem; }
+
+/* --- Barra de filtros del panel (superficie industrial oscura) --- */
+.qms-barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 8px 0 16px;
+}
+.qms-filtro {
+  flex: 0 1 220px;
+  min-width: 170px;
+  margin: 0;
+}
+.panel-industrial .campo > span { color: var(--texto-dim); }
+.qms-filtro select { min-height: 48px; }
+.qms-barra .btn { min-height: 48px; }
+#qms-actualizado { margin-left: auto; font-size: .76rem; }
+
+/* --- KPIs QMS --- */
+.qms-kpi-causa {
+  font-size: clamp(1rem, 2.1vw, 1.35rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+/* --- Galería de tarjetas fotográficas --- */
+.qms-galeria {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+  gap: 14px;
+  min-height: 80px;
+}
+.qms-galeria > .vacio {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 24px;
+  text-align: center;
+  color: var(--texto-apagado-aa);
+}
+.qms-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+}
+.qms-miniatura {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border: 0;
+  background: #dce5ee;
+  cursor: zoom-in;
+  overflow: hidden;
+}
+.qms-miniatura:disabled { cursor: default; }
+.qms-miniatura img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .2s ease;
+}
+.qms-miniatura:not(:disabled):hover img { transform: scale(1.03); }
+.qms-sin-foto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  color: #64748b;
+  font-size: .82rem;
+  font-weight: 700;
+}
+.qms-sin-foto .ico-svg { width: 34px; height: 34px; }
+.qms-card-cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  padding: 12px;
+  color: var(--texto);
+}
+.qms-card-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.qms-card-cab .texto-suave { font-size: .72rem; }
+.qms-badge {
+  border: 1px solid transparent;
+  border-radius: var(--radio-pill);
+  padding: 4px 9px;
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.qms-badge-pendiente { background: #fef3c7; color: #7a4f00; border-color: #fde68a; }
+.qms-badge-proceso   { background: #fee2e2; color: var(--rojo-osc); border-color: #fecaca; }
+.qms-badge-ok        { background: #dcfce7; color: var(--verde-osc); border-color: #bbf7d0; }
+.qms-badge-gris      { background: #e9eef3; color: #475569; border-color: #d5dee7; }
+.qms-card-titulo {
+  margin: 0;
+  color: var(--azul);
+  font-size: 1rem;
+  line-height: 1.2;
+}
+.qms-card-tipo {
+  margin: 0;
+  font-size: .84rem;
+  font-weight: 700;
+}
+.qms-card-obs {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--texto-suave);
+  font-size: .8rem;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.qms-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--texto-suave);
+  font-size: .74rem;
+}
+.qms-accion {
+  padding: 7px 9px;
+  border-left: 3px solid var(--acento);
+  border-radius: 6px;
+  background: #f2f7fc;
+  font-size: .78rem;
+}
+.qms-card-pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.qms-card-pie .texto-suave { font-size: .72rem; }
+.qms-card-pie .btn { min-height: var(--touch-min); }
+.qms-error {
+  min-height: 1.2em;
+  margin: 4px 0 0;
+  color: var(--danger-strong);
+  font-size: .82rem;
+  font-weight: 700;
+}
+
+/* --- Modal de foto ampliada --- */
+.qms-modal-foto { width: min(960px, 100%); }
+.qms-modal-foto-cuerpo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: #0b1722;
+}
+.qms-modal-foto-cuerpo img {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: var(--radio-sm);
+  background: #000;
+}
+.qms-modal-foto-cuerpo p {
+  margin: 0;
+  color: #cbd5e1;
+  text-align: center;
+  font-size: .82rem;
+}
+
+/* La ficha de la Terminal es angosta: el botón QMS no debe desbordar. */
+.btn-qms-ficha { white-space: nowrap; }
+
+@media (max-width: 560px) {
+  .qms-preview { align-items: flex-start; }
+  .qms-preview img { width: 96px; height: 72px; }
+  .qms-barra { align-items: stretch; }
+  .qms-filtro { flex: 1 1 100%; min-width: 0; }
+  #qms-actualizado { margin-left: 0; }
+  .qms-galeria { grid-template-columns: 1fr; }
+}

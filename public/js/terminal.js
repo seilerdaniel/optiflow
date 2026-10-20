@@ -19,6 +19,9 @@ const S = {
   escaneo: false,        // true cuando la OT llegó por QR (?ot=…) y el busq. está bloqueado
   tpm: [],               // máquinas activas + estado de mantenimiento (/api/tpm/estado)
   tpmDescartadas: new Set(), // ids de máquinas cuya alerta descartó el operario
+  usuario: null,         // sesión vigente (para encargado_reporta)
+  fotoPausa: null,       // { dataUrl, bytes, ... } evidencia del modal de pausa
+  fotoNC: null,          // { dataUrl, bytes, ... } evidencia del reporte QMS
 };
 
 /** Etiquetas visibles de las líneas de área. */
@@ -27,6 +30,25 @@ const ETIQUETAS_LINEA = {
   Cocinas: 'Cocinas',
   Compartido: 'Talleres compartidos',
   General: 'General',
+};
+
+/** Catálogo QMS de respaldo (el servidor lo expone en /api/meta). */
+const TIPOS_FALLA_QMS = [
+  'Rotura de placa / Astillado',
+  'Error de veta',
+  'Defecto de laca / Lustre',
+  'Falla de mecanizado / Cota',
+  'Error de plano',
+  'Otro',
+];
+
+/** Traducción motivo de pausa -> tipo de falla QMS (la más representativa). */
+const MOTIVO_A_TIPO_FALLA = {
+  'Rotura de placa': 'Rotura de placa / Astillado',
+  'Error de plano': 'Error de plano',
+  'Ajuste de herramienta': 'Falla de mecanizado / Cota',
+  'Falta de herrajes': 'Otro',
+  'Otro': 'Otro',
 };
 
 const $ = (id) => document.getElementById(id);
@@ -94,6 +116,7 @@ async function arrancar() {
 /* ------------------------------------------------------------------ */
 
 function pintarSesion(u) {
+  S.usuario = u || null;
   const chip = $('sesion-chip');
   if (chip) {
     chip.hidden = false;
@@ -205,6 +228,13 @@ function ligarEventos() {
   });
   $('btn-confirmar-pausa').addEventListener('click', confirmarPausa);
   $('btn-confirmar-finalizar').addEventListener('click', confirmarFinalizar);
+
+  // QMS: captura fotográfica desde la cámara trasera (HTML5 nativo).
+  llenarSelectTiposFalla($('tipo-falla-pausa'));
+  llenarSelectTiposFalla($('nc-tipo-falla'));
+  conectarCapturaFoto('pausa', (foto) => { S.fotoPausa = foto; });
+  conectarCapturaFoto('nc', (foto) => { S.fotoNC = foto; });
+  $('form-no-conformidad').addEventListener('submit', confirmarNoConformidad);
 }
 
 /* ------------------------------------------------------------------ */
@@ -435,6 +465,12 @@ function pintarFichaOT() {
         h('span', { class: 'ficha-ot-cli', text: ot.cliente })),
       crearQRFicha(ot),
       h('span', { class: 'espaciador' }),
+      h('button', {
+        class: 'btn btn-chico btn-qms-ficha',
+        type: 'button',
+        title: 'Reportar una no conformidad con foto de evidencia',
+        onclick: abrirModalNoConformidad,
+      }, '📸 Reportar NC'),
       h('button', { class: 'btn btn-chico', type: 'button', onclick: cambiarOT },
         iconoSvg('x'), ' Cambiar OT')
     ),
@@ -927,6 +963,10 @@ function abrirModalPausa(etapa) {
     h('div', { class: 'texto-suave', text: `Inicio: ${FORMATO.hora(etapa.fecha_hora_inicio)}` })
   );
   $('obs-pausa').value = '';
+  S.fotoPausa = null;
+  limpiarCapturaFoto('pausa');
+  $('bloque-evidencia-pausa').hidden = true;
+  $('tipo-falla-pausa').value = 'Otro';
   document.querySelectorAll('#motivos-pausa input').forEach((i) => { i.checked = false; });
   document.querySelectorAll('#motivos-pausa .motivo').forEach((l) => l.classList.remove('marcado'));
   // Fase 2: la confirmación queda bloqueada hasta elegir un motivo obligatorio.
@@ -956,6 +996,14 @@ function construirMotivosPausa() {
       $('btn-confirmar-pausa').disabled = false;
       const pista = $('pista-pausa');
       if (pista) pista.textContent = '';
+
+      // Los motivos de reproceso/falla piden evidencia fotográfica QMS.
+      const conEvidencia = esMotivoConEvidencia(i.value);
+      $('bloque-evidencia-pausa').hidden = !conEvidencia;
+      if (conEvidencia) {
+        const sel = $('tipo-falla-pausa');
+        sel.value = MOTIVO_A_TIPO_FALLA[i.value] || 'Otro';
+      }
     });
   });
 }
@@ -967,20 +1015,251 @@ async function confirmarPausa() {
     return;
   }
   const id = Number($('btn-confirmar-pausa').dataset.etapa);
+  const motivo = elegido.value;
+  const observacion = $('obs-pausa').value;
   $('btn-confirmar-pausa').disabled = true;
   try {
     const r = await API.post(`/api/registros/${id}/pausar`, {
-      motivo_pausa: elegido.value,
-      observacion: $('obs-pausa').value,
+      motivo_pausa: motivo,
+      observacion,
     });
     Modal.cerrar('modal-pausa');
-    Avisos.aviso('Etapa pausada', `Motivo: ${r.registro.motivo_pausa}`);
+
+    let detalle = `Motivo: ${r.registro.motivo_pausa}`;
+    let errorQms = null;
+    if (esMotivoConEvidencia(motivo)) {
+      // El helper captura sus propios errores: si falla el reporte QMS,
+      // la pausa ya confirmada NO se revierte ni dispara el catch de abajo.
+      const qms = await registrarNcPausaSeguro(r.registro, motivo, observacion);
+      if (qms.nc) detalle += ` · NC #${qms.nc.id} registrada`;
+      else if (qms.error) errorQms = qms.error;
+    }
+
+    Avisos.aviso('Etapa pausada', detalle);
     await Promise.all([refrescar(), cargarRegistros()]);
     confirmarExitoSensorial();
+    // El fallo del reporte QMS se informa DESPUÉS de confirmar la pausa:
+    // la operación de planta ya quedó guardada y no debe parecer fallida.
+    if (errorQms) {
+      Avisos.error('Pausa guardada, pero la NC no se pudo registrar', errorQms.message);
+    }
   } catch (e) {
     manejarError(e, 'Pausar etapa');
   } finally {
     $('btn-confirmar-pausa').disabled = false;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* QMS: evidencia fotográfica y reporte de No Conformidad              */
+/* ------------------------------------------------------------------ */
+
+/** Catálogo de fallas que expone el servidor (con respaldo local). */
+function tiposFallaQMS() {
+  return (S.meta && Array.isArray(S.meta.tipos_falla_qms) && S.meta.tipos_falla_qms.length)
+    ? S.meta.tipos_falla_qms
+    : TIPOS_FALLA_QMS;
+}
+
+function llenarSelectTiposFalla(sel) {
+  if (!sel) return;
+  const previo = sel.value;
+  sel.innerHTML = '';
+  for (const t of tiposFallaQMS()) sel.append(h('option', { value: t, text: t }));
+  if (previo) sel.value = previo;
+}
+
+/** Motivos que exigen/piden evidencia: reprocesos y ajustes de mecanizado. */
+function esMotivoConEvidencia(motivo) {
+  const reprocesos = (S.meta && Array.isArray(S.meta.motivos_reproceso))
+    ? S.meta.motivos_reproceso
+    : ['Error de plano', 'Rotura de placa'];
+  return reprocesos.includes(motivo) || motivo === 'Ajuste de herramienta';
+}
+
+/**
+ * Conecta un botón táctil con su input de cámara y la miniatura de preview.
+ * `clave` es 'pausa' o 'nc'; los IDs siguen el patrón btn-foto-<clave>,
+ * input-foto-<clave>, preview-foto-<clave>, img-foto-<clave>, etc.
+ */
+function conectarCapturaFoto(clave, alCambiar) {
+  const btn = $(`btn-foto-${clave}`);
+  const input = $(`input-foto-${clave}`);
+  const preview = $(`preview-foto-${clave}`);
+  const img = $(`img-foto-${clave}`);
+  const peso = $(`peso-foto-${clave}`);
+  const quitar = $(`btn-quitar-foto-${clave}`);
+  if (!btn || !input || !preview || !img || !peso) return;
+  if (btn.dataset.capturaLista === '1') return;
+  btn.dataset.capturaLista = '1';
+
+  btn.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    input.click(); // en móvil abre la cámara trasera por capture="environment"
+  });
+
+  input.addEventListener('change', async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    btn.disabled = true;
+    marcarCargando(btn, true);
+    try {
+      const foto = await comprimirImagen(file, { maxLado: 1280, maxChars: 900000 });
+      img.src = foto.dataUrl;
+      preview.hidden = false;
+      peso.textContent = `${pesoFoto(foto.bytes)} · ${foto.ancho}×${foto.alto}px`;
+      alCambiar(foto);
+    } catch (e) {
+      manejarError(e, 'Procesar foto');
+      limpiarCapturaFoto(clave);
+    } finally {
+      btn.disabled = false;
+      marcarCargando(btn, false);
+      input.value = '';
+    }
+  });
+
+  if (quitar) {
+    quitar.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      limpiarCapturaFoto(clave);
+    });
+  }
+}
+
+function limpiarCapturaFoto(clave) {
+  const input = $(`input-foto-${clave}`);
+  const preview = $(`preview-foto-${clave}`);
+  const img = $(`img-foto-${clave}`);
+  const peso = $(`peso-foto-${clave}`);
+  if (input) input.value = '';
+  if (img) img.removeAttribute('src');
+  if (preview) preview.hidden = true;
+  if (peso) peso.textContent = '';
+  if (clave === 'pausa') S.fotoPausa = null;
+  if (clave === 'nc') S.fotoNC = null;
+}
+
+/** Modal de reporte QMS desde la ficha de la OT seleccionada. */
+function abrirModalNoConformidad(ev) {
+  if (ev) ev.preventDefault();
+  if (!S.ot) {
+    Avisos.aviso('Seleccione primero una OT');
+    return;
+  }
+
+  const resumen = $('nc-resumen');
+  resumen.innerHTML = '';
+  resumen.append(
+    h('div', {}, 'OT: ', h('b', { text: `${S.ot.numero_ot} · ${S.ot.cliente}` })),
+    h('div', { class: 'texto-suave', text: `Modelo: ${S.ot.modelo || 'Sin modelo'} · Línea: ${S.ot.linea_area || 'Placares'}` })
+  );
+
+  const sel = $('nc-sector');
+  sel.innerHTML = '';
+  const linea = S.ot.linea_area || 'Placares';
+  const candidatos = S.sectores.filter((s) => s.activo !== false && sectorAplicaALinea(s, linea));
+  const opciones = candidatos.length ? candidatos : S.sectores.filter((s) => s.activo !== false);
+  for (const s of opciones) {
+    sel.append(h('option', {
+      value: String(s.id),
+      text: `${s.nombre_sector}${s.es_compartido ? ' (compartido)' : ''}`,
+    }));
+  }
+  if (S.sectorId && opciones.some((s) => s.id === S.sectorId)) sel.value = String(S.sectorId);
+
+  $('nc-tipo-falla').value = 'Otro';
+  $('nc-observacion').value = '';
+  $('nc-reporta').value = (S.usuario && (S.usuario.nombre || S.usuario.usuario)) || '';
+  S.fotoNC = null;
+  limpiarCapturaFoto('nc');
+  Modal.abrir('modal-no-conformidad');
+}
+
+async function confirmarNoConformidad(ev) {
+  ev.preventDefault();
+  if (!S.ot) {
+    Avisos.aviso('Seleccione primero una OT');
+    return;
+  }
+  const sectorId = Number($('nc-sector').value);
+  const tipoFalla = $('nc-tipo-falla').value;
+  if (!sectorId || !tipoFalla) {
+    Avisos.aviso('Complete el sector y el tipo de falla');
+    return;
+  }
+
+  const btn = $('btn-confirmar-nc');
+  btn.disabled = true;
+  marcarCargando(btn, true);
+  try {
+    const body = {
+      ot_id: S.ot.id,
+      sector_id: sectorId,
+      tipo_falla: tipoFalla,
+      observacion: $('nc-observacion').value,
+      encargado_reporta: $('nc-reporta').value,
+      operario_responsable: S.operario || null,
+    };
+    if (S.fotoNC && S.fotoNC.dataUrl) body.foto_base64 = S.fotoNC.dataUrl;
+
+    const r = await API.post('/api/qms/no-conformidades', body);
+    Modal.cerrar('modal-no-conformidad');
+    Avisos.ok('No conformidad registrada',
+      `OT ${S.ot.numero_ot} · ${r.no_conformidad.tipo_falla}${r.etapa && r.etapa.pausada ? ' · etapa pausada' : ''}`);
+    confirmarExitoSensorial();
+    // La NC ya quedó guardada. Un fallo al refrescar la pantalla no debe
+    // hacer que el operario crea que el alta falló y la reporte dos veces.
+    try {
+      await Promise.all([refrescar(), cargarRegistros()]);
+      await actualizarFichaOT();
+    } catch (e) {
+      console.error('Actualizar pantalla tras NC', e);
+    }
+  } catch (e) {
+    manejarError(e, 'Registrar no conformidad');
+  } finally {
+    btn.disabled = false;
+    marcarCargando(btn, false);
+  }
+}
+
+/** Alta automática de la NC cuando la pausa fue por reproceso. */
+async function reportarNoConformidadDesdePausa(registro, motivo, observacion) {
+  const otId = (S.ot && S.ot.id) || (registro && registro.ot_id);
+  const sectorId = (registro && registro.sector_id) || S.sectorId;
+  if (!otId || !sectorId) return null;
+
+  const sel = $('tipo-falla-pausa');
+  const tipoFalla = (sel && sel.value) || MOTIVO_A_TIPO_FALLA[motivo] || 'Otro';
+  const body = {
+    ot_id: otId,
+    sector_id: sectorId,
+    tipo_falla: tipoFalla,
+    observacion,
+    operario_responsable: (registro && registro.operario_nombre) || S.operario || null,
+    encargado_reporta: (S.usuario && (S.usuario.nombre || S.usuario.usuario)) || null,
+    estado: 'En Reproceso',
+    // La pausa ya se confirmó por el endpoint de registros: QMS detecta la
+    // etapa Pausado (no inserta un segundo evento) y deja la OT en Detenido.
+  };
+  if (S.fotoPausa && S.fotoPausa.dataUrl) body.foto_base64 = S.fotoPausa.dataUrl;
+
+  const r = await API.post('/api/qms/no-conformidades', body);
+  await actualizarFichaOT();
+  return r.no_conformidad;
+}
+
+/**
+ * Variante tolerante a fallos del reporte automático: devuelve { nc, error }
+ * en lugar de lanzar, para que una caída de QMS no afecte el fichado.
+ */
+async function registrarNcPausaSeguro(registro, motivo, observacion) {
+  try {
+    const nc = await reportarNoConformidadDesdePausa(registro, motivo, observacion);
+    return { nc, error: null };
+  } catch (error) {
+    return { nc: null, error };
   }
 }
 

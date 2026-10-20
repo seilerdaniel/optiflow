@@ -23,6 +23,8 @@ const S = {
   periodosBase: null,    // mes a partir del cual se armó el desplegable
   objetivosAnio: null,   // comparativo anual de metas (12 meses)
   anioObjetivos: null,   // año elegido en el selector anual
+  qms: null,             // no conformidades + resumen del mes
+  qmsFiltros: { estado: '', sector_id: '' },
 };
 
 const $ = (id) => document.getElementById(id);
@@ -55,8 +57,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     pintarTablaSectores();
     await cargarOrdenes();
     await Promise.all([cargarActivas(), cargarMetricas(), cargarOperarios()]);
-    // Paneles dedicados: catálogo de placas, talleres compartidos y TPM.
-    await Promise.all([cargarMateriales(), cargarCompartidos(), cargarTPM()]);
+    // Paneles dedicados: catálogo de placas, talleres compartidos, TPM y QMS.
+    await Promise.all([cargarMateriales(), cargarCompartidos(), cargarTPM(), cargarQMS()]);
     // Comparativo anual de metas (tiene try/catch propio: si falla, el resto
     // del panel sigue funcionando).
     await cargarObjetivosAnio();
@@ -74,6 +76,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setInterval(cargarMetricas, 30000);
   setInterval(cargarSectores, 60000); // refleja cambios de sectores hechos en otra sesión
   setInterval(cargarTPM, 60000);      // las horas netas avanzan con el fichado de planta
+  setInterval(cargarQMS, 60000);      // no conformidades reportadas desde la Terminal
 });
 
 /* ------------------------------------------------------------------ */
@@ -165,6 +168,17 @@ function ligarEventos() {
     ev.target.closest('.check').classList.toggle('marcado', ev.target.checked);
   });
 
+  // Control de Calidad / QMS: filtros, refresco y resolución.
+  ['qms-filtro-estado', 'qms-filtro-sector'].forEach((id) => {
+    $(id).addEventListener('change', () => {
+      S.qmsFiltros.estado = $('qms-filtro-estado').value;
+      S.qmsFiltros.sector_id = $('qms-filtro-sector').value;
+      cargarQMS();
+    });
+  });
+  $('btn-qms-refresh').addEventListener('click', cargarQMS);
+  $('form-qms-resolver').addEventListener('submit', guardarResolucionQMS);
+
   // Objetivo mensual de corte: ajuste de metas. El endpoint exige rol de
   // gestión (admin/encargado), así que a un operario ni siquiera se le ofrece
   // el botón: ahorrar un 403 que sólo confundiría.
@@ -208,6 +222,23 @@ function poblarFiltroSectorSeguimiento() {
     sel.append(h('option', {
       value: String(s.id),
       text: `${s.nombre_sector}${s.es_compartido ? ' (compartido)' : ''}`,
+    }));
+  }
+  if (previo) sel.value = previo;
+  poblarFiltroSectorQMS();
+}
+
+/** Mismo catálogo de sectores para el filtro del panel de Calidad. */
+function poblarFiltroSectorQMS() {
+  const sel = $('qms-filtro-sector');
+  if (!sel) return;
+  const previo = sel.value;
+  sel.innerHTML = '';
+  sel.append(h('option', { value: '', text: 'Todos los sectores' }));
+  for (const s of S.sectores) {
+    sel.append(h('option', {
+      value: String(s.id),
+      text: `${s.nombre_sector}${s.activo === false ? ' (inactivo)' : ''}`,
     }));
   }
   if (previo) sel.value = previo;
@@ -3219,3 +3250,217 @@ const CommandPalette = {
     });
   },
 };
+
+/* ------------------------------------------------------------------ */
+/* Panel dedicado: Control de Calidad / No Conformidades (QMS)         */
+/* ------------------------------------------------------------------ */
+
+const ETIQUETAS_ESTADO_QMS = {
+  Pendiente: 'Pendiente',
+  'En Reproceso': 'En Reproceso',
+  Resuelto: 'Resuelto',
+  Descartado: 'Descartado',
+};
+
+function puedeResolverQMS() {
+  return !!(S.usuario && ['admin', 'encargado'].includes(S.usuario.rol));
+}
+
+function claseEstadoQMS(estado) {
+  if (estado === 'Resuelto') return 'qms-badge-ok';
+  if (estado === 'Descartado') return 'qms-badge-gris';
+  if (estado === 'En Reproceso') return 'qms-badge-proceso';
+  return 'qms-badge-pendiente';
+}
+
+async function cargarQMS() {
+  const galeria = $('qms-galeria');
+  if (!galeria) return;
+  galeria.setAttribute('aria-busy', 'true');
+
+  const params = new URLSearchParams();
+  params.set('limite', '60');
+  if (S.qmsFiltros.estado) params.set('estado', S.qmsFiltros.estado);
+  if (S.qmsFiltros.sector_id) params.set('sector_id', S.qmsFiltros.sector_id);
+
+  try {
+    const d = await API.get(`/api/qms/no-conformidades?${params.toString()}`);
+    S.qms = d;
+    pintarQMS();
+    $('qms-actualizado').textContent = `Actualizado ${FORMATO.hora(new Date().toISOString())}`;
+  } catch (e) {
+    manejarError(e, 'Cargar no conformidades');
+    galeria.innerHTML = '';
+    galeria.append(h('p', { class: 'vacio', text: 'No se pudieron cargar las no conformidades.' }));
+  } finally {
+    galeria.removeAttribute('aria-busy');
+  }
+}
+
+function pintarQMS() {
+  if (!S.qms) return;
+  const r = S.qms.resumen || {};
+  const ftt = r.ftt || {};
+  const causa = r.tipo_mas_recurrente;
+
+  $('qms-total-mes').textContent = String(r.total_mes || 0);
+  $('qms-total-sub').textContent = `${r.desde || '—'} → ${r.hasta || '—'}`;
+
+  $('qms-ftt').textContent = (ftt.porcentaje === null || ftt.porcentaje === undefined)
+    ? '—'
+    : `${Number(ftt.porcentaje).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`;
+  $('qms-ftt-sub').textContent = ftt.evaluadas
+    ? `${ftt.conformes}/${ftt.evaluadas} OTs sin no conformidad`
+    : 'Sin OTs evaluadas este mes';
+
+  $('qms-causa').textContent = causa ? causa.tipo_falla : 'Sin datos';
+  $('qms-causa').title = causa ? causa.tipo_falla : '';
+  $('qms-causa-sub').textContent = causa
+    ? `${causa.cantidad} caso${causa.cantidad === 1 ? '' : 's'} en el mes`
+    : 'Sin no conformidades en el período';
+
+  const abiertas = Number(r.abiertas || 0);
+  $('qms-abiertas').textContent = String(abiertas);
+  $('qms-abiertas-sub').textContent = `${r.pendientes || 0} pendientes · ${r.en_reproceso || 0} en reproceso`;
+  $('chip-qms').textContent = `${abiertas} abierta${abiertas === 1 ? '' : 's'}`;
+
+  const galeria = $('qms-galeria');
+  galeria.innerHTML = '';
+  const lista = S.qms.no_conformidades || [];
+  if (!lista.length) {
+    galeria.append(h('p', {
+      class: 'vacio',
+      text: 'No hay no conformidades para los filtros seleccionados.',
+    }));
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  for (const nc of lista) frag.append(tarjetaQMS(nc));
+  galeria.append(frag);
+}
+
+function tarjetaQMS(nc) {
+  const tieneFoto = esFotoSegura(nc.foto_url);
+  const miniatura = h('button', {
+    class: `qms-miniatura${tieneFoto ? '' : ' qms-miniatura-vacia'}`,
+    type: 'button',
+    'aria-label': tieneFoto
+      ? `Ampliar foto de la no conformidad de la OT ${nc.numero_ot}`
+      : `Sin foto de evidencia para la OT ${nc.numero_ot}`,
+    title: tieneFoto ? 'Ampliar foto de evidencia' : 'Sin foto de evidencia',
+  },
+  tieneFoto
+    ? h('img', {
+      src: nc.foto_url,
+      alt: `Evidencia de ${nc.tipo_falla} en ${nc.nombre_sector || 'sector'}`,
+      loading: 'lazy',
+      decoding: 'async',
+    })
+    : h('span', { class: 'qms-sin-foto' }, iconoSvg('camera'), 'Sin foto')
+  );
+  if (tieneFoto) miniatura.addEventListener('click', () => abrirFotoQMS(nc));
+  else miniatura.disabled = true;
+
+  const puedeAccionar = puedeResolverQMS() && !['Resuelto', 'Descartado'].includes(nc.estado);
+
+  return h('article', { class: 'qms-card' },
+    miniatura,
+    h('div', { class: 'qms-card-cuerpo' },
+      h('div', { class: 'qms-card-cab' },
+        h('span', { class: `qms-badge ${claseEstadoQMS(nc.estado)}`, text: ETIQUETAS_ESTADO_QMS[nc.estado] || nc.estado }),
+        h('span', { class: 'texto-suave', text: FORMATO.fechaHora(nc.fecha_registro) })
+      ),
+      h('h3', { class: 'qms-card-titulo', text: `${nc.numero_ot} · ${nc.nombre_sector || 'Sector'}` }),
+      h('p', { class: 'qms-card-tipo', text: nc.tipo_falla }),
+      nc.observacion ? h('p', { class: 'qms-card-obs', text: nc.observacion }) : null,
+      h('div', { class: 'qms-card-meta' },
+        h('span', { text: `Reporta: ${nc.encargado_reporta || '—'}` }),
+        nc.operario_responsable ? h('span', { text: `Operario: ${nc.operario_responsable}` }) : null,
+        nc.linea_area ? h('span', { text: `Línea: ${nc.linea_area}` }) : null
+      ),
+      nc.accion_correctiva
+        ? h('div', { class: 'qms-accion' },
+          h('b', { text: 'Acción correctiva: ' }),
+          h('span', { text: nc.accion_correctiva }))
+        : null,
+      h('footer', { class: 'qms-card-pie' },
+        h('span', {
+          class: 'texto-suave',
+          text: nc.resuelto_por ? `Resuelto por ${nc.resuelto_por}` : '',
+        }),
+        puedeAccionar
+          ? h('button', {
+            class: 'btn btn-primario btn-chico',
+            type: 'button',
+            onclick: () => abrirResolverQMS(nc),
+          }, iconoSvg('wrench'), ' Resolver')
+          : null
+      )
+    )
+  );
+}
+
+function abrirFotoQMS(nc) {
+  if (!esFotoSegura(nc.foto_url)) return;
+  const img = $('qms-foto-grande');
+  img.onerror = () => {
+    img.alt = 'No se pudo cargar la imagen de evidencia.';
+  };
+  img.src = nc.foto_url;
+  img.alt = `Evidencia de ${nc.tipo_falla} · OT ${nc.numero_ot}`;
+  $('qms-foto-pie').textContent = [
+    `OT ${nc.numero_ot}`,
+    nc.nombre_sector,
+    nc.tipo_falla,
+    nc.estado,
+    FORMATO.fechaHora(nc.fecha_registro),
+  ].filter(Boolean).join(' · ');
+  Modal.abrir('modal-qms-foto');
+}
+
+function abrirResolverQMS(nc) {
+  if (!puedeResolverQMS()) {
+    Avisos.error('No tiene permisos para resolver no conformidades.');
+    return;
+  }
+  $('qms-resolver-id').value = String(nc.id);
+  $('qms-resolver-resumen').textContent =
+    `OT ${nc.numero_ot} · ${nc.nombre_sector || 'Sector'} · ${nc.tipo_falla}`
+    + (nc.observacion ? ` — ${nc.observacion}` : '');
+  $('qms-resolver-accion').value = nc.accion_correctiva || '';
+  $('qms-resolver-error').textContent = '';
+  Modal.abrir('modal-qms-resolver');
+}
+
+async function guardarResolucionQMS(ev) {
+  ev.preventDefault();
+  const id = Number($('qms-resolver-id').value);
+  const accion = $('qms-resolver-accion').value.trim();
+  const error = $('qms-resolver-error');
+  error.textContent = '';
+
+  if (!accion) {
+    error.textContent = 'Escriba la acción correctiva realizada antes de resolver.';
+    $('qms-resolver-accion').focus();
+    return;
+  }
+
+  const btn = $('qms-resolver-guardar');
+  btn.disabled = true;
+  marcarCargando(btn, true);
+  try {
+    const r = await API.patch(`/api/qms/no-conformidades/${id}/resolver`, {
+      accion_correctiva: accion,
+    });
+    Modal.cerrar('modal-qms-resolver');
+    Avisos.ok('No conformidad resuelta',
+      `OT ${r.no_conformidad.numero_ot} · ${r.no_conformidad.tipo_falla}`);
+    await cargarQMS();
+  } catch (e) {
+    error.textContent = e.message || 'No se pudo resolver la no conformidad.';
+  } finally {
+    btn.disabled = false;
+    marcarCargando(btn, false);
+  }
+}

@@ -45,6 +45,7 @@ const API = {
   get(ruta) { return this.req('GET', ruta); },
   post(ruta, cuerpo) { return this.req('POST', ruta, cuerpo || {}); },
   put(ruta, cuerpo) { return this.req('PUT', ruta, cuerpo || {}); },
+  patch(ruta, cuerpo) { return this.req('PATCH', ruta, cuerpo || {}); },
   del(ruta) { return this.req('DELETE', ruta); },
 
   /* ------------- Sesiones (auditoría V-1) ------------- */
@@ -112,6 +113,8 @@ const ICONOS_UI = {
   package: '<path d="M21 8v8a2 2 0 0 1-1 1.73l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 16V8a2 2 0 0 1 1-1.73l7-4a2 2 0 0 1 2 0l7 4A2 2 0 0 1 21 8z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
   wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
   bug: '<path d="M8 3v2M16 3v2"/><path d="M9 9h6a4 4 0 0 1 4 4v1a7 7 0 0 1-14 0v-1a4 4 0 0 1 4-4Z"/><path d="M12 9v9M8 13H3M21 13h-5M6 19l-2 2M18 19l2 2M7 5 5 3M17 5l2-2"/>',
+  camera: '<path d="M14.5 4h-5L8 6.5H5a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a2 2 0 0 0-2-2h-3L14.5 4Z"/><circle cx="12" cy="13" r="4"/>',
+  shieldCheck: '<path d="M12 2 4 6v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6l-8-4Z"/><path d="m9 12 2 2 4-4"/>',
   send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
   scan: '<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M7 12h10"/>',
   // Marca de flujo industrial: dos chevrones encadenados + nodo final, que
@@ -224,6 +227,112 @@ function minutosDeEtapa(etapa, ahoraServidor) {
     seg += (ahora - new Date(etapa.pausa_inicio).getTime()) / 1000;
   }
   return Math.max(0, (ms / 1000 - seg) / 60);
+}
+
+/* ------------------------------------------------------------------ */
+/* Evidencia fotográfica QMS (sin dependencias, APIs HTML5 nativas)    */
+/* ------------------------------------------------------------------ */
+
+/** Lee un File como data URL usando FileReader. */
+function leerArchivoDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result || ''));
+    fr.onerror = () => reject(new Error('No se pudo leer la foto seleccionada.'));
+    fr.readAsDataURL(file);
+  });
+}
+
+/** Carga un data URL en un <img> y espera a que el navegador lo decodifique. */
+function cargarImagenDataURL(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('El archivo no es una imagen válida.'));
+    img.src = dataUrl;
+  });
+}
+
+/**
+ * Comprime y redimensiona una foto EN EL DISPOSITIVO antes de enviarla.
+ * Objetivo: que una cámara de 12 MP no viaje completa por la red de planta
+ * ni supere el límite de cuerpo de Vercel. Devuelve un data URI WEBP (o JPEG
+ * como respaldo) listo para `POST /api/qms/no-conformidades`.
+ *
+ * @param {File} file
+ * @param {{maxLado?:number,maxChars?:number,calidad?:number}} [opciones]
+ */
+async function comprimirImagen(file, opciones = {}) {
+  if (!file || !(file.type ? file.type.startsWith('image/') : /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name || ''))) {
+    throw new Error('Seleccione una imagen (JPG, PNG, WEBP o HEIC).');
+  }
+  if (file.size > 25 * 1024 * 1024) {
+    throw new Error('La foto original supera los 25 MB. Vuelva a tomarla.');
+  }
+
+  const maxLado = opciones.maxLado || 1280;
+  const maxChars = opciones.maxChars || 900000; // ~650 KB binarios
+  const calidadInicial = opciones.calidad || 0.76;
+
+  const original = await leerArchivoDataURL(file);
+  const img = await cargarImagenDataURL(original);
+  const anchoOriginal = img.naturalWidth || img.width;
+  const altoOriginal = img.naturalHeight || img.height;
+  if (!anchoOriginal || !altoOriginal) throw new Error('La imagen no tiene dimensiones válidas.');
+
+  const lienzo = document.createElement('canvas');
+  const ctx = lienzo.getContext('2d');
+  if (!ctx) throw new Error('El navegador no pudo procesar la imagen.');
+
+  let mime = 'image/webp';
+  let lado = Math.min(maxLado, Math.max(anchoOriginal, altoOriginal));
+  let calidad = calidadInicial;
+  let dataUrl = '';
+
+  for (let intento = 0; intento < 8; intento += 1) {
+    const escala = Math.min(1, lado / Math.max(anchoOriginal, altoOriginal));
+    lienzo.width = Math.max(1, Math.round(anchoOriginal * escala));
+    lienzo.height = Math.max(1, Math.round(altoOriginal * escala));
+    ctx.clearRect(0, 0, lienzo.width, lienzo.height);
+    ctx.drawImage(img, 0, 0, lienzo.width, lienzo.height);
+
+    dataUrl = lienzo.toDataURL(mime, calidad);
+    // Navegadores sin encoder WEBP devuelven PNG: se usa JPEG en ese caso.
+    if (mime === 'image/webp' && !dataUrl.startsWith('data:image/webp')) {
+      mime = 'image/jpeg';
+      dataUrl = lienzo.toDataURL(mime, calidad);
+    }
+    if (dataUrl.length <= maxChars) break;
+    lado = Math.max(640, Math.round(lado * 0.82));
+    calidad = Math.max(0.45, calidad - 0.06);
+  }
+
+  if (dataUrl.length > 3500000) {
+    throw new Error('La foto sigue siendo demasiado grande. Intente con menos luz o menor resolución.');
+  }
+
+  return {
+    dataUrl,
+    tipo: mime,
+    nombre: file.name || 'evidencia.jpg',
+    ancho: lienzo.width,
+    alto: lienzo.height,
+    bytes: Math.round((dataUrl.length * 3) / 4),
+  };
+}
+
+/** Sólo se renderizan fotos con esquema permitido (data:image o http/https). */
+function esFotoSegura(url) {
+  if (!url) return false;
+  return /^data:image\/(webp|jpe?g|png);base64,/i.test(String(url))
+    || /^https?:\/\//i.test(String(url));
+}
+
+/** Tamaño legible para la miniatura de evidencia. */
+function pesoFoto(bytes) {
+  const n = Number(bytes || 0);
+  if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(n / 1024))} KB`;
 }
 
 /** Avisos flotantes. */

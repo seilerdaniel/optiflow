@@ -219,6 +219,29 @@
         <span>Observación (opcional)</span>
         <textarea id="obs-pausa" maxlength="500" placeholder="Ej: llega el proveedor de herrajes a las 15:00"></textarea>
       </label>
+
+      <!-- Evidencia QMS: aparece sólo para motivos de reproceso/falla. -->
+      <div class="qms-evidencia" id="bloque-evidencia-pausa" hidden>
+        <div class="qms-evidencia-cabecera">
+          <b>Evidencia de la falla</b>
+          <span class="texto-suave">Se adjunta al reporte de No Conformidad.</span>
+        </div>
+        <label class="campo">
+          <span>Tipo de falla *</span>
+          <select id="tipo-falla-pausa"></select>
+        </label>
+        <button type="button" class="btn btn-primario qms-btn-foto" id="btn-foto-pausa">
+          📸 Tomar Foto de Evidencia
+        </button>
+        <input type="file" id="input-foto-pausa" accept="image/*" capture="environment" hidden>
+        <div class="qms-preview" id="preview-foto-pausa" hidden>
+          <img id="img-foto-pausa" alt="Previsualización de la evidencia fotográfica">
+          <div class="qms-preview-info">
+            <span id="peso-foto-pausa" class="texto-suave"></span>
+            <button type="button" class="btn btn-chico btn-peligro" id="btn-quitar-foto-pausa">Quitar foto</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="modal-pie">
       <button class="btn" data-cerrar="modal-pausa"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>Cancelar</button>
@@ -247,6 +270,63 @@
       <button class="btn" data-cerrar="modal-finalizar"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>Cancelar</button>
       <button class="btn btn-peligro" id="btn-confirmar-finalizar">Sí, finalizar</button>
     </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: REPORTAR NO CONFORMIDAD (QMS) ============ -->
+<div class="modal-fondo" id="modal-no-conformidad">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titulo-no-conformidad">
+    <div class="modal-cabecera">
+      <h3 id="titulo-no-conformidad"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2 4 6v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg>Reportar No Conformidad</h3>
+      <button class="modal-cerrar" data-cerrar="modal-no-conformidad" aria-label="Cerrar"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <form id="form-no-conformidad" novalidate>
+      <div class="modal-cuerpo">
+        <div class="resumen-modal" id="nc-resumen"></div>
+
+        <label class="campo">
+          <span>Sector donde se detectó *</span>
+          <select id="nc-sector" required></select>
+        </label>
+
+        <label class="campo">
+          <span>Tipo de falla *</span>
+          <select id="nc-tipo-falla" required></select>
+        </label>
+
+        <label class="campo">
+          <span>Observación</span>
+          <textarea id="nc-observacion" maxlength="2000" placeholder="Describa la falla, la pieza afectada y cualquier detalle útil para el reproceso."></textarea>
+        </label>
+
+        <label class="campo">
+          <span>Reportado por *</span>
+          <input type="text" id="nc-reporta" maxlength="120" required
+                 placeholder="Nombre del encargado que reporta" autocomplete="off">
+        </label>
+
+        <button type="button" class="btn btn-primario qms-btn-foto" id="btn-foto-nc">
+          📸 Tomar Foto de Evidencia
+        </button>
+        <input type="file" id="input-foto-nc" accept="image/*" capture="environment" hidden>
+        <div class="qms-preview" id="preview-foto-nc" hidden>
+          <img id="img-foto-nc" alt="Previsualización de la evidencia fotográfica">
+          <div class="qms-preview-info">
+            <span id="peso-foto-nc" class="texto-suave"></span>
+            <button type="button" class="btn btn-chico btn-peligro" id="btn-quitar-foto-nc">Quitar foto</button>
+          </div>
+        </div>
+
+        <p class="texto-suave" style="margin:10px 0 0;">
+          La foto se comprime en este dispositivo antes de enviarse. Si la OT tiene una etapa abierta,
+          el sistema la pausará y dejará la OT en <b>Detenido</b> para que Calidad pueda intervenir.
+        </p>
+      </div>
+      <div class="modal-pie">
+        <button type="button" class="btn" data-cerrar="modal-no-conformidad"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>Cancelar</button>
+        <button type="submit" class="btn btn-peligro" id="btn-confirmar-nc">Registrar No Conformidad</button>
+      </div>
+    </form>
   </div>
 </div>
 
