@@ -25,6 +25,11 @@ const S = {
   anioObjetivos: null,   // año elegido en el selector anual
   qms: null,             // no conformidades + resumen del mes
   qmsFiltros: { estado: '', sector_id: '' },
+  // Oficina Técnica: despiece de la OT elegida y estado de edición.
+  despiece: null,
+  despieceOT: null,
+  despieceSucio: false,
+  despieceTab: 'piezas',
 };
 
 const $ = (id) => document.getElementById(id);
@@ -206,6 +211,9 @@ function ligarEventos() {
   // Buscador global (Ctrl/⌘ + K): se liga al final para que todo el estado
   // del panel (S.ordenes, S.meta…) ya esté disponible.
   CommandPalette.ligar();
+
+  // Oficina Técnica: grilla de despiece, bultos y pañol.
+  ligarEventosDespiece();
 }
 
 /* ------------------------------------------------------------------ */
@@ -1646,6 +1654,9 @@ async function cargarOrdenes() {
     S.ordenes = r.ordenes;
     pintarTabla();
     pintarSeguimiento();
+    // El selector del despiece se mantiene sincronizado sin perder la OT
+    // elegida (poblarSelectDespiece conserva el value actual).
+    poblarSelectDespiece();
   } catch (e) {
     manejarError(e, 'Cargar OTs');
   }
@@ -2160,6 +2171,14 @@ async function verDetalle(id) {
     // Hoja de Ruta imprimible (Fase 7): guarda la OT y liga el botón.
     S.detalleActual = ot;
     $('detalle-hoja-ruta').onclick = () => imprimirHojaRuta(ot);
+    // Salto directo al módulo de Oficina Técnica con esta OT ya elegida.
+    $('detalle-despiece').onclick = () => {
+      if (irADespiece(ot) === false) return;
+      Modal.cerrar('modal-detalle');
+      // El modal restaura el foco a la fila de la OT; lo llevamos al panel.
+      const selDespiece = $('despiece-ot');
+      if (selDespiece) selDespiece.focus({ preventScroll: true });
+    };
   } catch (e) {
     manejarError(e, 'Detalle OT');
     Modal.cerrar('modal-detalle');
@@ -3463,4 +3482,1192 @@ async function guardarResolucionQMS(ev) {
     btn.disabled = false;
     marcarCargando(btn, false);
   }
+}
+
+/* ==================================================================== */
+/* OFICINA TÉCNICA: DESPIECE, BULTOS Y PAÑOL                            */
+/* ==================================================================== */
+
+/**
+ * Catálogos de la grilla. `tipo_pieza` es una lista cerrada y debe coincidir
+ * con TIPOS_PIEZA de server/routes/despiece.js; placa y espesor son sugerencias
+ * (la API acepta valores de proveedor que no estén en la lista corta).
+ */
+const DESPIECE_TIPOS_PIEZA = Object.freeze([
+  'Lateral', 'Estante', 'Piso', 'Techo', 'Fondo 18mm', 'Ajuste',
+  'Cierratecho', 'Zócalo', 'Pieza Cajonera',
+]);
+const DESPIECE_TIPOS_PLACA = Object.freeze([
+  'MDF Crudo', 'Melamina Aglomerado', 'Melamina MDF', 'Fondo Fibro', 'Terciado',
+]);
+const DESPIECE_ESPESORES = Object.freeze([3, 5.5, 9, 12, 15, 18, 22, 25, 30]);
+
+// Token de la última carga: si el usuario cambia de OT mientras una respuesta
+// está en vuelo, la respuesta vieja no debe pisar la selección nueva.
+let despieceCargaSeq = 0;
+
+function despiecePuedeGestionar() {
+  return !!S.usuario && ['admin', 'encargado'].includes(S.usuario.rol);
+}
+
+function despieceNumero(valor, decimales = 2) {
+  const n = Number(valor);
+  if (!Number.isFinite(n)) return '—';
+  return n.toLocaleString('es-AR', {
+    minimumFractionDigits: decimales,
+    maximumFractionDigits: decimales,
+  });
+}
+
+/** Select con opciones string; fija el value después de crear los option. */
+function selectorDespiece(valor, opciones, attrs) {
+  const sel = h('select', attrs || {});
+  for (const o of opciones) {
+    sel.append(h('option', { value: String(o), text: String(o) }));
+  }
+  sel.value = String(valor);
+  return sel;
+}
+
+function selectorTipoPiezaDespiece(valor, attrs) {
+  const v = String(valor || 'Lateral');
+  const opciones = DESPIECE_TIPOS_PIEZA.includes(v)
+    ? [...DESPIECE_TIPOS_PIEZA]
+    : [...DESPIECE_TIPOS_PIEZA, v];
+  return selectorDespiece(v, opciones, attrs);
+}
+
+function selectorPlacaDespiece(valor, attrs) {
+  const v = String(valor || 'Melamina Aglomerado');
+  const opciones = DESPIECE_TIPOS_PLACA.includes(v)
+    ? [...DESPIECE_TIPOS_PLACA]
+    : [...DESPIECE_TIPOS_PLACA, v];
+  return selectorDespiece(v, opciones, attrs);
+}
+
+function selectorEspesorDespiece(valor, attrs) {
+  const v = Number(valor) || 18;
+  const opciones = [...DESPIECE_ESPESORES];
+  if (!opciones.some((x) => Math.abs(x - v) < 0.001)) opciones.push(v);
+  return selectorDespiece(v, opciones, attrs);
+}
+
+function campoDespiece(etiqueta, control, attrs) {
+  return h('label', { class: 'campo', ...(attrs || {}) },
+    h('span', { text: etiqueta }), control);
+}
+
+/* ------------------------------------------------------------------ */
+/* Ciclo de vida del panel                                             */
+/* ------------------------------------------------------------------ */
+
+function ligarEventosDespiece() {
+  const sel = $('despiece-ot');
+  if (!sel) return;
+
+  sel.addEventListener('change', () => {
+    if (S.despieceSucio && !confirm('Hay cambios sin guardar en el despiece. ¿Descartarlos?')) {
+      sel.value = S.despieceOT ? String(S.despieceOT) : '';
+      return;
+    }
+    // No limpiamos `despieceSucio` acá: si la carga falla, el panel sigue
+    // mostrando la OT anterior y sus cambios deben seguir marcados.
+    cargarDespiece();
+  });
+
+  $('btn-despiece-recargar').addEventListener('click', () => {
+    if (!S.despieceOT) { Avisos.aviso('Elegí una OT primero.'); return; }
+    if (S.despieceSucio && !confirm('Hay cambios sin guardar. ¿Recargar y descartarlos?')) return;
+    cargarDespiece();
+  });
+
+  $('btn-despiece-nuevo-modulo').addEventListener('click', agregarModuloDespiece);
+  $('btn-despiece-guardar').addEventListener('click', guardarDespiece);
+  $('tab-despiece-piezas').addEventListener('click', () => activarTabDespiece('piezas'));
+  $('tab-despiece-herrajes').addEventListener('click', () => activarTabDespiece('herrajes'));
+  $('form-despiece-herraje').addEventListener('submit', agregarHerrajeDespiece);
+  $('btn-despiece-imprimir-herrajes').addEventListener('click', imprimirHojaHerrajes);
+
+  // Delegación: la tabla se re-renderiza al agregar/quitar filas, pero los
+  // inputs de una fila existente no se recrean mientras el usuario escribe.
+  const cont = $('despiece-modulos');
+  ['input', 'change'].forEach((evt) => cont.addEventListener(evt, editarCampoDespiece));
+
+  // Roles de sólo lectura: pueden consultar e imprimir, pero no guardar.
+  if (!despiecePuedeGestionar()) {
+    $('btn-despiece-nuevo-modulo').hidden = true;
+    $('btn-despiece-guardar').hidden = true;
+    $('btn-despiece-agregar-herraje').hidden = true;
+    ['herr-mueble', 'herr-nombre', 'herr-sku', 'herr-cantidad', 'herr-obs', 'herr-entregado']
+      .forEach((id) => { const el = $(id); if (el) el.disabled = true; });
+  }
+}
+
+/** Repuebla el selector de OTs sin perder la selección vigente. */
+function poblarSelectDespiece() {
+  const sel = $('despiece-ot');
+  if (!sel) return;
+
+  const previo = sel.value || (S.despieceOT ? String(S.despieceOT) : '');
+  const firma = S.ordenes
+    .map((o) => `${o.id}:${o.numero_ot}:${o.cliente}:${o.metros_lineales}`)
+    .join('|');
+  if (sel.dataset.firma === firma) {
+    if (previo) sel.value = previo;
+    return;
+  }
+  sel.dataset.firma = firma;
+  sel.innerHTML = '';
+
+  if (!S.ordenes.length) {
+    sel.append(h('option', { value: '', text: 'No hay OTs cargadas' }));
+    return;
+  }
+
+  sel.append(h('option', { value: '', text: 'Elegí una OT…' }));
+  for (const ot of S.ordenes) {
+    sel.append(h('option', {
+      value: String(ot.id),
+      text: `${ot.numero_ot} · ${ot.cliente} · ${FORMATO.metros(ot.metros_lineales)}`,
+    }));
+  }
+  if (previo && [...sel.options].some((o) => o.value === previo)) sel.value = previo;
+}
+
+/** Salto desde el detalle de OT: elige la OT, carga y hace scroll al panel. */
+function irADespiece(ot) {
+  const sel = $('despiece-ot');
+  if (!sel || !ot) return false;
+
+  const valor = String(ot.id);
+  const mismaOT = S.despieceOT && String(S.despieceOT) === valor;
+
+  // Ya estamos en esa OT: no recargamos (perdería los cambios sin guardar).
+  if (mismaOT) {
+    activarTabDespiece('piezas');
+    $('panel-despiece').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return true;
+  }
+
+  if (S.despieceSucio && S.despieceOT) {
+    if (!confirm('Hay cambios sin guardar en el despiece actual. ¿Descartarlos?')) return false;
+  }
+
+  if (![...sel.options].some((o) => o.value === valor)) {
+    sel.append(h('option', { value: valor, text: `${ot.numero_ot} · ${ot.cliente}` }));
+  }
+  sel.value = valor;
+  activarTabDespiece('piezas');
+  cargarDespiece();
+  $('panel-despiece').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  return true;
+}
+
+async function cargarDespiece() {
+  const sel = $('despiece-ot');
+  const id = Number(sel && sel.value);
+  const seq = ++despieceCargaSeq;
+
+  if (!id) {
+    S.despiece = null;
+    S.despieceOT = null;
+    S.despieceSucio = false;
+    pintarDespiece();
+    return;
+  }
+
+  try {
+    const d = await API.get(`/api/ot/${id}/despiece`);
+    if (seq !== despieceCargaSeq) return; // hay una carga más nueva en curso
+    S.despiece = d;
+    S.despieceOT = id;
+    S.despieceSucio = false;
+    pintarDespiece();
+  } catch (e) {
+    if (seq !== despieceCargaSeq) return; // error de una carga ya descartada
+    manejarError(e, 'Cargar despiece');
+
+    // Si la OT ya no existe, no dejamos en pantalla el despiece de otra OT.
+    if (e.status === 404) {
+      if (sel) sel.value = '';
+      S.despiece = null;
+      S.despieceOT = null;
+      S.despieceSucio = false;
+      pintarDespiece();
+      return;
+    }
+
+    // El selector no debe quedar apuntando a una OT que no se pudo cargar:
+    // el panel sigue mostrando la última OT válida (y sus cambios sin guardar).
+    if (sel) sel.value = S.despieceOT ? String(S.despieceOT) : '';
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Render                                                              */
+/* ------------------------------------------------------------------ */
+
+function pintarDespiece() {
+  const d = S.despiece;
+  const chip = $('despiece-chip');
+  const datos = $('despiece-ot-datos');
+  const guardar = $('btn-despiece-guardar');
+
+  if (!d || !d.ot) {
+    if (chip) { chip.textContent = 'Sin OT'; chip.className = 'chip chip-gris'; }
+    if (datos) datos.innerHTML = '<span class="texto-suave">Elegí una OT para comenzar.</span>';
+    const mod = $('despiece-modulos');
+    if (mod) mod.innerHTML = '<p class="vacio">Sin despiece cargado.</p>';
+    const rp = $('despiece-resumen-placas');
+    if (rp) rp.innerHTML = '<p class="vacio">Sin piezas.</p>';
+    const bu = $('despiece-bultos');
+    if (bu) bu.innerHTML = '<p class="vacio">Sin bultos.</p>';
+    const he = $('despiece-herrajes');
+    if (he) he.innerHTML = '<p class="vacio">Sin herrajes cargados.</p>';
+    if (guardar) guardar.disabled = true;
+    marcarEstadoDespiece();
+    activarTabDespiece(S.despieceTab);
+    return;
+  }
+
+  if (chip) {
+    chip.textContent = `${d.ot.numero_ot} · ${(d.modulos || []).length} módulo(s)`;
+    chip.className = 'chip chip-azul';
+  }
+
+  if (datos) {
+    datos.innerHTML = '';
+    const chips = [
+      h('span', { class: 'chip chip-gris', text: d.ot.cliente }),
+      h('span', { class: 'chip chip-gris', text: d.ot.linea_area || '—' }),
+      h('span', { class: 'chip chip-gris', text: `${despieceNumero(d.ot.metros_lineales, 2)} m lineales` }),
+      h('span', { class: 'chip chip-gris', text: d.ot.estado_general || '—' }),
+    ];
+    if (d.ot.modelo) chips.push(h('span', { class: 'chip chip-gris', text: d.ot.modelo }));
+    datos.append(...chips);
+  }
+
+  pintarModulosDespiece();
+  pintarHerrajesDespiece();
+  if (guardar) guardar.disabled = !despiecePuedeGestionar();
+  marcarEstadoDespiece();
+  activarTabDespiece(S.despieceTab);
+}
+
+function pintarModulosDespiece() {
+  const cont = $('despiece-modulos');
+  if (!cont) return;
+
+  cont.innerHTML = '';
+  const modulos = S.despiece && Array.isArray(S.despiece.modulos) ? S.despiece.modulos : [];
+
+  if (!modulos.length) {
+    cont.append(h('p', {
+      class: 'vacio',
+      text: 'Todavía no hay módulos. Usá “+ Agregar módulo” para empezar.',
+    }));
+    pintarResumenDespiece();
+    pintarBultosDespiece();
+    return;
+  }
+
+  modulos.forEach((m, mi) => cont.append(tarjetaModuloDespiece(m, mi)));
+  pintarResumenDespiece();
+  pintarBultosDespiece();
+}
+
+function tarjetaModuloDespiece(m, mi) {
+  const puede = despiecePuedeGestionar();
+  const solo = puede ? {} : { disabled: true };
+  const base = { 'data-mi': String(mi) };
+  const attrs = (campo) => ({ ...base, 'data-campo': campo, ...solo });
+  const piezas = m.piezas || [];
+  const unidades = piezas.reduce((s, p) => s + (Number(p.cantidad) || 0), 0);
+
+  const cabecera = h('div', { class: 'despiece-modulo-cab' },
+    h('div', { class: 'form-grid despiece-modulo-datos' },
+      campoDespiece('N° Mueble', h('input', {
+        type: 'number', min: '1', step: '1',
+        value: String(Number(m.mueble_numero) || 1), ...attrs('mueble_numero'),
+      })),
+      campoDespiece('N° Módulo', h('input', {
+        type: 'number', min: '1', step: '1',
+        value: String(Number(m.modulo_numero) || 1), ...attrs('modulo_numero'),
+      })),
+      campoDespiece('Nombre del módulo', h('input', {
+        type: 'text', maxlength: '150',
+        value: m.nombre_modulo || '',
+        placeholder: 'Ej: Vestidor Módulo Torre Cajones',
+        ...attrs('nombre_modulo'),
+      }), { style: 'grid-column:span 2;' }),
+      campoDespiece('Metros lineales', h('input', {
+        type: 'number', min: '0', step: '0.01',
+        value: String(Number(m.metros_lineales) || 0), ...attrs('metros_lineales'),
+      })),
+      campoDespiece('Cajoneras', h('input', {
+        type: 'number', min: '0', step: '1',
+        value: String(Number(m.cantidad_cajoneras) || 0), ...attrs('cantidad_cajoneras'),
+      })),
+      h('label', { class: 'check despiece-check' },
+        h('input', {
+          type: 'checkbox',
+          checked: !!m.posee_puertas_vidrio_rometal,
+          ...attrs('posee_puertas_vidrio_rometal'),
+        }),
+        ' Puertas de vidrio Romeral'),
+      campoDespiece('Observaciones', h('input', {
+        type: 'text', maxlength: '1000',
+        value: m.observaciones || '',
+        placeholder: 'Opcional',
+        ...attrs('observaciones'),
+      }), { style: 'grid-column:span 2;' })
+    ),
+    h('button', {
+      type: 'button', class: 'btn btn-chico btn-peligro',
+      disabled: !puede, title: 'Quitar módulo',
+      onclick: () => eliminarModuloDespiece(mi),
+    }, iconoSvg('trash'), ' Quitar módulo')
+  );
+
+  const tbody = h('tbody', {});
+  if (!piezas.length) {
+    tbody.append(h('tr', {},
+      h('td', { colspan: '14', class: 'vacio', text: 'Sin piezas. Usá “+ Agregar pieza”.' })));
+  } else {
+    piezas.forEach((p, pi) => tbody.append(filaPiezaDespiece(p, mi, pi)));
+  }
+
+  const tabla = h('table', { class: 'tabla despiece-tabla' },
+    h('thead', {}, h('tr', {},
+      h('th', { class: 'num', text: '# Bulto' }),
+      h('th', { text: 'Tipo' }),
+      h('th', { text: 'Pieza' }),
+      h('th', { class: 'num', text: 'Cant.' }),
+      h('th', { class: 'num', text: 'Ancho mm' }),
+      h('th', { class: 'num', text: 'Prof. mm' }),
+      h('th', { text: 'Espesor' }),
+      h('th', { text: 'Placa' }),
+      h('th', { text: 'Color / código' }),
+      h('th', { class: 'num', text: 'Filos' }),
+      h('th', { text: 'Detalle filos' }),
+      h('th', { text: 'Laq.' }),
+      h('th', { text: 'Ench.' }),
+      h('th', { text: '' })
+    )),
+    tbody
+  );
+
+  const pie = h('div', { class: 'fila-flex despiece-modulo-pie' },
+    h('button', {
+      type: 'button', class: 'btn btn-chico',
+      disabled: !puede,
+      onclick: () => agregarPiezaDespiece(mi),
+    }, '+ Agregar pieza'),
+    h('span', {
+      class: 'texto-suave',
+      text: `${piezas.length} fila(s) · ${unidades} unidad(es)`,
+    })
+  );
+
+  return h('article', { class: 'despiece-modulo', 'data-modulo': String(mi) },
+    cabecera,
+    h('div', { class: 'tabla-envoltura' }, tabla),
+    pie
+  );
+}
+
+function filaPiezaDespiece(p, mi, pi) {
+  const puede = despiecePuedeGestionar();
+  const solo = puede ? {} : { disabled: true };
+  const base = { 'data-mi': String(mi), 'data-pi': String(pi) };
+  const attrs = (campo) => ({ ...base, 'data-campo': campo, ...solo });
+  const numVal = (v) => String(Number(v) || 0);
+
+  return h('tr', {},
+    h('td', { class: 'num' }, h('span', {
+      class: 'despiece-bulto-num',
+      'data-bulto': `${mi}-${pi}`,
+      text: p.numero_bulto ? String(p.numero_bulto) : '',
+    })),
+    h('td', {}, selectorTipoPiezaDespiece(p.tipo_pieza, attrs('tipo_pieza'))),
+    h('td', {}, h('input', {
+      type: 'text', maxlength: '100',
+      value: p.nombre_pieza || '',
+      placeholder: 'Lateral izquierdo',
+      ...attrs('nombre_pieza'),
+    })),
+    h('td', { class: 'num' }, h('input', {
+      type: 'number', min: '1', step: '1',
+      value: numVal(p.cantidad || 1), ...attrs('cantidad'),
+    })),
+    h('td', { class: 'num' }, h('input', {
+      type: 'number', min: '0.01', step: '0.1',
+      value: numVal(p.ancho_mm), ...attrs('ancho_mm'),
+    })),
+    h('td', { class: 'num' }, h('input', {
+      type: 'number', min: '0.01', step: '0.1',
+      value: numVal(p.profundidad_mm), ...attrs('profundidad_mm'),
+    })),
+    h('td', {}, selectorEspesorDespiece(p.espesor_mm, attrs('espesor_mm'))),
+    h('td', {}, selectorPlacaDespiece(p.tipo_placa, attrs('tipo_placa'))),
+    h('td', {}, h('input', {
+      type: 'text', maxlength: '100',
+      value: p.color_codigo || '',
+      placeholder: 'Seda Giorno - 402',
+      ...attrs('color_codigo'),
+    })),
+    h('td', { class: 'num' }, h('input', {
+      type: 'number', min: '0', step: '1',
+      value: numVal(p.filos_cantidad), ...attrs('filos_cantidad'),
+    })),
+    h('td', {}, h('input', {
+      type: 'text', maxlength: '100',
+      value: p.filos_detalle || '',
+      placeholder: 'ABS 1mm en 2 largos',
+      ...attrs('filos_detalle'),
+    })),
+    h('td', { class: 'check-celda' }, h('input', {
+      type: 'checkbox', checked: !!p.es_laqueado,
+      'aria-label': 'Laqueado (Lustre)', ...attrs('es_laqueado'),
+    })),
+    h('td', { class: 'check-celda' }, h('input', {
+      type: 'checkbox', checked: !!p.es_enchapado,
+      'aria-label': 'Enchapado', ...attrs('es_enchapado'),
+    })),
+    h('td', {}, h('button', {
+      type: 'button', class: 'btn btn-chico btn-peligro',
+      disabled: !puede, title: 'Quitar pieza', 'aria-label': 'Quitar pieza',
+      onclick: () => eliminarPiezaDespiece(mi, pi),
+    }, iconoSvg('trash')))
+  );
+}
+
+/**
+ * Reasigna 1..N los bultos en el modelo, en el orden actual de módulos/piezas.
+ *
+ * SOLO se llama después de un cambio estructural (alta/baja de módulo o pieza).
+ * El render NO renumera: los números que llegan del servidor son la verdad y
+ * además son los que usa el PATCH de despacho. Renumerar en el render podía
+ * dejar el número visible distinto del de la base y marcar el bulto equivocado.
+ */
+function renumerarBultosDespiece() {
+  if (!S.despiece || !Array.isArray(S.despiece.modulos)) return;
+
+  let numero = 1;
+  for (const m of S.despiece.modulos) {
+    for (const p of (m.piezas || [])) {
+      p.numero_bulto = numero;
+      numero += 1;
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Edición                                                             */
+/* ------------------------------------------------------------------ */
+
+function editarCampoDespiece(ev) {
+  const t = ev.target;
+  const campo = t.dataset.campo;
+  if (!campo || !S.despiece) return;
+
+  const mi = Number(t.dataset.mi);
+  const modulo = S.despiece.modulos[mi];
+  if (!modulo) return;
+
+  let destino = modulo;
+  if (t.dataset.pi !== undefined && t.dataset.pi !== '') {
+    destino = modulo.piezas[Number(t.dataset.pi)];
+  }
+  if (!destino) return;
+
+  if (t.type === 'checkbox') destino[campo] = t.checked;
+  else if (t.type === 'number') destino[campo] = t.value === '' ? '' : Number(t.value);
+  else destino[campo] = t.value;
+
+  marcarDespieceSucio();
+  // No se repinta la grilla (perdería el foco): sólo los paneles derivados.
+  pintarResumenDespiece();
+  pintarBultosDespiece();
+}
+
+function marcarDespieceSucio() {
+  S.despieceSucio = true;
+  marcarEstadoDespiece();
+}
+
+function marcarEstadoDespiece() {
+  const chip = $('despiece-estado');
+  if (!chip) return;
+  if (!S.despiece) {
+    chip.textContent = 'Elegí una OT.';
+    chip.className = 'chip chip-gris';
+    return;
+  }
+  if (S.despieceSucio) {
+    chip.textContent = 'Cambios sin guardar';
+    chip.className = 'chip chip-amarillo';
+    return;
+  }
+  chip.textContent = 'Guardado';
+  chip.className = 'chip chip-verde';
+}
+
+function agregarModuloDespiece() {
+  if (!S.despiece) { Avisos.aviso('Elegí una OT primero.'); return; }
+  const modulos = S.despiece.modulos;
+  const ultimo = modulos[modulos.length - 1];
+  const mueble = ultimo ? (Number(ultimo.mueble_numero) || 1) : 1;
+  const modulo = ultimo ? (Number(ultimo.modulo_numero) || 0) + 1 : 1;
+
+  modulos.push({
+    id: null,
+    mueble_numero: mueble,
+    modulo_numero: modulo,
+    nombre_modulo: `Módulo ${modulo}`,
+    metros_lineales: 0,
+    posee_puertas_vidrio_rometal: false,
+    cantidad_cajoneras: 0,
+    observaciones: '',
+    piezas: [],
+  });
+
+  marcarDespieceSucio();
+  renumerarBultosDespiece();
+  pintarModulosDespiece();
+  const cards = $('despiece-modulos').querySelectorAll('.despiece-modulo');
+  const card = cards[cards.length - 1];
+  const input = card && card.querySelector('input[data-campo="nombre_modulo"]');
+  if (input) { input.focus(); input.select(); }
+}
+
+function agregarPiezaDespiece(mi) {
+  if (!S.despiece || !S.despiece.modulos[mi]) return;
+  S.despiece.modulos[mi].piezas.push({
+    id: null,
+    numero_bulto: 0,
+    tipo_pieza: 'Lateral',
+    nombre_pieza: '',
+    cantidad: 1,
+    ancho_mm: 0,
+    profundidad_mm: 0,
+    espesor_mm: 18,
+    tipo_placa: 'Melamina Aglomerado',
+    color_codigo: '',
+    es_laqueado: false,
+    es_enchapado: false,
+    filos_cantidad: 0,
+    filos_detalle: null,
+    cargado_en_flete: false,
+    fecha_cargado: null,
+  });
+
+  marcarDespieceSucio();
+  renumerarBultosDespiece();
+  pintarModulosDespiece();
+
+  const cards = $('despiece-modulos').querySelectorAll('.despiece-modulo');
+  const card = cards[mi];
+  if (!card) return;
+  const filas = card.querySelectorAll('tbody tr');
+  const ultima = filas[filas.length - 1];
+  const input = ultima && ultima.querySelector('input[data-campo="nombre_pieza"]');
+  if (input) input.focus();
+}
+
+function eliminarModuloDespiece(mi) {
+  if (!S.despiece) return;
+  const m = S.despiece.modulos[mi];
+  if (!m) return;
+  const piezas = (m.piezas || []).length;
+  if (!confirm(`¿Quitar el módulo "${m.nombre_modulo || 'sin nombre'}" y sus ${piezas} pieza(s)?`)) return;
+  S.despiece.modulos.splice(mi, 1);
+  marcarDespieceSucio();
+  renumerarBultosDespiece();
+  pintarModulosDespiece();
+}
+
+function eliminarPiezaDespiece(mi, pi) {
+  if (!S.despiece) return;
+  const m = S.despiece.modulos[mi];
+  if (!m || !m.piezas[pi]) return;
+  const p = m.piezas[pi];
+  if (!confirm(`¿Quitar la pieza "${p.nombre_pieza || 'sin nombre'}"?`)) return;
+  m.piezas.splice(pi, 1);
+  marcarDespieceSucio();
+  renumerarBultosDespiece();
+  pintarModulosDespiece();
+}
+
+/* ------------------------------------------------------------------ */
+/* Resumen de placas y bultos                                          */
+/* ------------------------------------------------------------------ */
+
+function calcularResumenPlacasDespiece(modulos) {
+  const mapa = new Map();
+  for (const m of modulos || []) {
+    for (const p of (m.piezas || [])) {
+      const tipoPlaca = String(p.tipo_placa || '').trim() || '—';
+      const color = String(p.color_codigo || '').trim() || '—';
+      const espesor = Number(p.espesor_mm) || 0;
+      const clave = `${tipoPlaca}\u0000${espesor}\u0000${color}`;
+
+      let g = mapa.get(clave);
+      if (!g) {
+        g = {
+          tipo_placa: tipoPlaca, espesor_mm: espesor, color_codigo: color,
+          filas: 0, piezas: 0, laqueadas: 0, m2: 0,
+        };
+        mapa.set(clave, g);
+      }
+
+      const cantidad = Number(p.cantidad) || 0;
+      g.filas += 1;
+      g.piezas += cantidad;
+      g.laqueadas += p.es_laqueado ? cantidad : 0;
+      g.m2 += (Number(p.ancho_mm) || 0) * (Number(p.profundidad_mm) || 0) * cantidad / 1000000;
+    }
+  }
+
+  return [...mapa.values()]
+    .map((g) => ({ ...g, m2: Math.round(g.m2 * 1000) / 1000 }))
+    .sort((a, b) => a.tipo_placa.localeCompare(b.tipo_placa, 'es')
+      || a.espesor_mm - b.espesor_mm
+      || a.color_codigo.localeCompare(b.color_codigo, 'es'));
+}
+
+function pintarResumenDespiece() {
+  const cont = $('despiece-resumen-placas');
+  if (!cont) return;
+
+  const filas = calcularResumenPlacasDespiece(S.despiece ? S.despiece.modulos : []);
+  cont.innerHTML = '';
+
+  if (!filas.length) {
+    cont.append(h('p', { class: 'vacio', text: 'Sin piezas.' }));
+    return;
+  }
+
+  const tabla = h('table', { class: 'tabla despiece-resumen-tabla' },
+    h('thead', {}, h('tr', {},
+      h('th', { text: 'Placa' }),
+      h('th', { class: 'num', text: 'Esp.' }),
+      h('th', { text: 'Color / código' }),
+      h('th', { class: 'num', text: 'Piezas' }),
+      h('th', { class: 'num', text: 'm²' }),
+      h('th', { class: 'num', text: 'Laq.' })
+    )),
+    h('tbody', {}, filas.map((f) => h('tr', {},
+      h('td', { text: f.tipo_placa }),
+      h('td', { class: 'num', text: `${f.espesor_mm} mm` }),
+      h('td', { text: f.color_codigo }),
+      h('td', { class: 'num', text: String(f.piezas) }),
+      h('td', { class: 'num', text: despieceNumero(f.m2, 2) }),
+      h('td', { class: 'num', text: String(f.laqueadas) })
+    )))
+  );
+
+  const total = filas.reduce((s, f) => ({
+    piezas: s.piezas + f.piezas,
+    m2: s.m2 + f.m2,
+  }), { piezas: 0, m2: 0 });
+
+  cont.append(
+    h('div', { class: 'tabla-envoltura' }, tabla),
+    h('p', {
+      class: 'texto-suave',
+      style: 'margin:6px 0 0;',
+      text: `${total.piezas} pieza(s) · ${despieceNumero(total.m2, 2)} m²`,
+    })
+  );
+}
+
+function pintarBultosDespiece() {
+  const cont = $('despiece-bultos');
+  if (!cont) return;
+
+  const mapa = new Map();
+  for (const m of (S.despiece ? S.despiece.modulos : [])) {
+    for (const p of (m.piezas || [])) {
+      let b = mapa.get(p.numero_bulto);
+      if (!b) {
+        b = {
+          numero_bulto: p.numero_bulto,
+          unidades: 0,
+          m2: 0,
+          cargado: true,
+          modulos: new Set(),
+        };
+        mapa.set(p.numero_bulto, b);
+      }
+      const cantidad = Number(p.cantidad) || 0;
+      b.unidades += cantidad;
+      b.m2 += (Number(p.ancho_mm) || 0) * (Number(p.profundidad_mm) || 0) * cantidad / 1000000;
+      b.cargado = b.cargado && !!p.cargado_en_flete;
+      b.modulos.add(`M${m.mueble_numero}·${m.modulo_numero}`);
+    }
+  }
+
+  cont.innerHTML = '';
+  if (!mapa.size) {
+    cont.append(h('p', { class: 'vacio', text: 'Sin bultos.' }));
+    return;
+  }
+
+  const puede = despiecePuedeGestionar();
+  const grid = h('div', { class: 'despiece-bultos-grid' });
+
+  for (const b of [...mapa.values()].sort((a, b2) => a.numero_bulto - b2.numero_bulto)) {
+    grid.append(h('label', {
+      class: `bulto-card${b.cargado ? ' cargado' : ''}`,
+      title: b.cargado ? 'Bulto cargado en flete' : 'Bulto pendiente de carga',
+    },
+    h('input', {
+      type: 'checkbox',
+      checked: b.cargado,
+      disabled: !puede || S.despieceSucio,
+      'aria-label': `Bulto ${b.numero_bulto} cargado en flete`,
+      onchange: (ev) => alternarBultoDespiece(b.numero_bulto, ev.target.checked, ev.target),
+    }),
+    h('span', { class: 'bulto-card-txt' },
+      h('strong', { text: `Bulto #${b.numero_bulto}` }),
+      h('small', {
+        class: 'texto-suave',
+        text: `${b.unidades} pza · ${despieceNumero(b.m2, 2)} m² · ${[...b.modulos].join(', ')}`,
+      })
+    )));
+  }
+
+  cont.append(grid);
+  if (S.despieceSucio) {
+    cont.append(h('p', {
+      class: 'texto-suave',
+      style: 'margin:6px 0 0;',
+      text: 'Guardá el despiece para habilitar el control de flete.',
+    }));
+  }
+}
+
+async function alternarBultoDespiece(numero, cargado, checkbox) {
+  if (!S.despieceOT || !S.despiece) return;
+
+  if (S.despieceSucio) {
+    if (checkbox) checkbox.checked = !cargado;
+    Avisos.aviso('Guardá el despiece antes de marcar bultos.');
+    return;
+  }
+
+  try {
+    const r = await API.patch(
+      `/api/ot/${S.despieceOT}/despacho/bulto/${numero}`,
+      { cargado }
+    );
+    for (const m of S.despiece.modulos) {
+      for (const p of (m.piezas || [])) {
+        if (p.numero_bulto === numero) {
+          p.cargado_en_flete = !!r.cargado;
+          p.fecha_cargado = r.fecha_cargado || null;
+        }
+      }
+    }
+    pintarBultosDespiece();
+    Avisos.ok(`Bulto #${numero} ${r.cargado ? 'cargado' : 'pendiente'}.`);
+  } catch (e) {
+    if (checkbox) checkbox.checked = !cargado;
+    manejarError(e, 'Control de flete');
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Pañol                                                               */
+/* ------------------------------------------------------------------ */
+
+function pintarHerrajesDespiece() {
+  const cont = $('despiece-herrajes');
+  if (!cont) return;
+
+  const herrajes = (S.despiece && S.despiece.herrajes) || [];
+  cont.innerHTML = '';
+
+  if (!herrajes.length) {
+    cont.append(h('p', { class: 'vacio', text: 'Sin herrajes cargados.' }));
+    return;
+  }
+
+  const puede = despiecePuedeGestionar();
+  const filas = herrajes.map((hr, i) => h('tr', {},
+    h('td', { class: 'num', text: String(hr.mueble_numero) }),
+    h('td', { text: hr.herraje_nombre }),
+    h('td', { text: hr.codigo_sku || '—' }),
+    h('td', { class: 'num', text: String(hr.cantidad) }),
+    h('td', { class: 'check-celda' }, h('input', {
+      type: 'checkbox',
+      checked: !!hr.entregado_por_panol,
+      disabled: !puede,
+      'aria-label': 'Entregado por pañol',
+      onchange: (ev) => marcarHerrajeDespiece(i, ev.target.checked, ev.target),
+    })),
+    h('td', { text: hr.observaciones || '—' }),
+    h('td', {}, h('button', {
+      type: 'button', class: 'btn btn-chico btn-peligro',
+      disabled: !puede, title: 'Quitar herraje', 'aria-label': 'Quitar herraje',
+      onclick: () => eliminarHerrajeDespiece(i),
+    }, iconoSvg('trash')))
+  ));
+
+  const totalUnidades = herrajes.reduce((s, x) => s + (Number(x.cantidad) || 0), 0);
+
+  cont.append(
+    h('div', { class: 'tabla-envoltura' },
+      h('table', { class: 'tabla despiece-herr-tabla' },
+        h('thead', {}, h('tr', {},
+          h('th', { text: 'Mueble' }),
+          h('th', { text: 'Herraje' }),
+          h('th', { text: 'SKU' }),
+          h('th', { class: 'num', text: 'Cant.' }),
+          h('th', { text: 'Entregado' }),
+          h('th', { text: 'Observaciones' }),
+          h('th', { text: '' })
+        )),
+        h('tbody', {}, filas)
+      )
+    ),
+    h('p', {
+      class: 'texto-suave',
+      style: 'margin:6px 0 0;',
+      text: `${herrajes.length} ítem(s) · ${totalUnidades} unidad(es)`,
+    })
+  );
+}
+
+function agregarHerrajeDespiece(ev) {
+  ev.preventDefault();
+  if (!S.despiece) { Avisos.aviso('Elegí una OT primero.'); return; }
+  if (!Array.isArray(S.despiece.herrajes)) S.despiece.herrajes = [];
+
+  const nombre = $('herr-nombre').value.trim();
+  const cantidad = Number($('herr-cantidad').value);
+  const mueble = Number($('herr-mueble').value);
+
+  if (!nombre) {
+    Avisos.error('El nombre del herraje es obligatorio.');
+    $('herr-nombre').focus();
+    return;
+  }
+  if (!Number.isInteger(cantidad) || cantidad < 1) {
+    Avisos.error('La cantidad debe ser un entero mayor a 0.');
+    $('herr-cantidad').focus();
+    return;
+  }
+  if (!Number.isInteger(mueble) || mueble < 1) {
+    Avisos.error('El N° de mueble debe ser un entero mayor a 0.');
+    $('herr-mueble').focus();
+    return;
+  }
+
+  S.despiece.herrajes.push({
+    id: null,
+    mueble_numero: mueble,
+    herraje_nombre: nombre,
+    codigo_sku: $('herr-sku').value.trim() || null,
+    cantidad,
+    entregado_por_panol: $('herr-entregado').checked,
+    observaciones: $('herr-obs').value.trim() || null,
+  });
+
+  marcarDespieceSucio();
+  pintarHerrajesDespiece();
+
+  $('herr-nombre').value = '';
+  $('herr-sku').value = '';
+  $('herr-cantidad').value = '1';
+  $('herr-obs').value = '';
+  $('herr-entregado').checked = false;
+  $('herr-nombre').focus();
+  Avisos.ok('Herraje agregado. Guardá el despiece para persistirlo.');
+}
+
+async function marcarHerrajeDespiece(indice, entregado, checkbox) {
+  if (!S.despiece || !S.despieceOT) return;
+  const hr = S.despiece.herrajes[indice];
+  if (!hr) return;
+
+  // Fila nueva sin guardar: se persiste junto con el despiece.
+  if (!hr.id) {
+    hr.entregado_por_panol = entregado;
+    marcarDespieceSucio();
+    pintarHerrajesDespiece();
+    return;
+  }
+
+  try {
+    const r = await API.patch(
+      `/api/ot/${S.despieceOT}/herrajes/${hr.id}/entrega`,
+      { entregado_por_panol: entregado }
+    );
+    hr.entregado_por_panol = !!r.entregado_por_panol;
+    pintarHerrajesDespiece();
+  } catch (e) {
+    if (checkbox) checkbox.checked = !entregado;
+    manejarError(e, 'Pañol');
+  }
+}
+
+function eliminarHerrajeDespiece(indice) {
+  if (!S.despiece) return;
+  const hr = S.despiece.herrajes[indice];
+  if (!hr) return;
+  if (!confirm(`¿Quitar "${hr.herraje_nombre}" de la lista?`)) return;
+  S.despiece.herrajes.splice(indice, 1);
+  marcarDespieceSucio();
+  pintarHerrajesDespiece();
+}
+
+/* ------------------------------------------------------------------ */
+/* Guardado                                                            */
+/* ------------------------------------------------------------------ */
+
+function validarDespieceCliente() {
+  const errores = [];
+  const modulos = (S.despiece && S.despiece.modulos) || [];
+
+  modulos.forEach((m, mi) => {
+    if (!String(m.nombre_modulo || '').trim()) {
+      errores.push(`Módulo #${mi + 1}: falta el nombre.`);
+    }
+    (m.piezas || []).forEach((p, pi) => {
+      const ref = `Módulo #${mi + 1}, pieza #${pi + 1}`;
+      if (!String(p.nombre_pieza || '').trim()) errores.push(`${ref}: falta el nombre.`);
+      if (!(Number(p.ancho_mm) > 0)) errores.push(`${ref}: ancho inválido.`);
+      if (!(Number(p.profundidad_mm) > 0)) errores.push(`${ref}: profundidad inválida.`);
+      if (!(Number(p.espesor_mm) > 0)) errores.push(`${ref}: espesor inválido.`);
+      if (!String(p.tipo_placa || '').trim()) errores.push(`${ref}: falta el tipo de placa.`);
+      if (!String(p.color_codigo || '').trim()) errores.push(`${ref}: falta color/código.`);
+    });
+  });
+
+  ((S.despiece && S.despiece.herrajes) || []).forEach((hr, i) => {
+    if (!String(hr.herraje_nombre || '').trim()) errores.push(`Herraje #${i + 1}: falta el nombre.`);
+    if (!(Number(hr.cantidad) >= 1)) errores.push(`Herraje #${i + 1}: cantidad inválida.`);
+  });
+
+  return errores;
+}
+
+async function guardarDespiece() {
+  if (!S.despiece || !S.despieceOT) {
+    Avisos.aviso('Elegí una OT primero.');
+    return;
+  }
+
+  const errores = validarDespieceCliente();
+  if (errores.length) {
+    Avisos.error('Revisá el despiece antes de guardar.', errores.slice(0, 3).join(' '));
+    return;
+  }
+
+  if (!S.despiece.modulos.length
+    && !confirm('El despiece quedará vacío (se borran módulos, piezas y bultos). ¿Guardar igual?')) {
+    return;
+  }
+
+  const otId = S.despieceOT;
+  const btn = $('btn-despiece-guardar');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+
+  try {
+    const payload = {
+      modulos: S.despiece.modulos.map((m) => ({
+        mueble_numero: Number(m.mueble_numero) || 1,
+        modulo_numero: Number(m.modulo_numero) || 1,
+        nombre_modulo: String(m.nombre_modulo || '').trim(),
+        metros_lineales: Number(m.metros_lineales) || 0,
+        posee_puertas_vidrio_rometal: !!m.posee_puertas_vidrio_rometal,
+        cantidad_cajoneras: Number(m.cantidad_cajoneras) || 0,
+        observaciones: String(m.observaciones || '').trim() || null,
+        piezas: (m.piezas || []).map((p) => ({
+          tipo_pieza: p.tipo_pieza,
+          nombre_pieza: String(p.nombre_pieza || '').trim(),
+          cantidad: Number(p.cantidad) || 1,
+          ancho_mm: Number(p.ancho_mm) || 0,
+          profundidad_mm: Number(p.profundidad_mm) || 0,
+          espesor_mm: Number(p.espesor_mm) || 0,
+          tipo_placa: String(p.tipo_placa || '').trim(),
+          color_codigo: String(p.color_codigo || '').trim(),
+          es_laqueado: !!p.es_laqueado,
+          es_enchapado: !!p.es_enchapado,
+          filos_cantidad: Number(p.filos_cantidad) || 0,
+          filos_detalle: String(p.filos_detalle || '').trim() || null,
+        })),
+      })),
+      herrajes: (S.despiece.herrajes || []).map((hr) => ({
+        mueble_numero: Number(hr.mueble_numero) || 1,
+        herraje_nombre: String(hr.herraje_nombre || '').trim(),
+        codigo_sku: String(hr.codigo_sku || '').trim() || null,
+        cantidad: Number(hr.cantidad) || 1,
+        entregado_por_panol: !!hr.entregado_por_panol,
+        observaciones: String(hr.observaciones || '').trim() || null,
+      })),
+    };
+
+    const d = await API.post(`/api/ot/${otId}/despiece`, payload);
+    // Si el usuario cambió de OT mientras guardaba, no pisamos la vista nueva.
+    if (S.despieceOT !== otId) return;
+    S.despiece = d;
+    S.despieceSucio = false;
+    pintarDespiece();
+    Avisos.ok('Despiece guardado.',
+      `${d.resumen.piezas} pieza(s) en ${d.resumen.bultos} bulto(s).`);
+
+    // La OT pudo quedar marcada con requiere_lustre: refrescamos la tabla.
+    cargarOrdenes();
+  } catch (e) {
+    manejarError(e, 'Guardar despiece');
+  } finally {
+    btn.disabled = !despiecePuedeGestionar();
+    btn.textContent = original;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Impresión de la hoja de herrajes                                    */
+/* ------------------------------------------------------------------ */
+
+async function imprimirHojaHerrajes() {
+  if (!S.despieceOT) {
+    Avisos.aviso('Elegí una OT primero.');
+    return;
+  }
+
+  if (S.despieceSucio && !confirm(
+    'Hay cambios sin guardar. La hoja se imprimirá con la última versión guardada. ¿Continuar?'
+  )) return;
+
+  const btn = $('btn-despiece-imprimir-herrajes');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Preparando…';
+
+  try {
+    const data = await API.get(`/api/ot/${S.despieceOT}/hoja-herrajes`);
+    const ot = data.ot;
+    const linea = ot.linea_area || 'Placares';
+    const claseLinea = linea === 'Cocinas' ? 'cocinas' : 'placares';
+
+    const filas = [];
+    for (const bloque of data.muebles) {
+      filas.push(h('tr', { class: 'hoja-subfila' },
+        h('td', { colspan: '6', text: `Mueble #${bloque.mueble_numero}` })));
+      for (const hr of bloque.herrajes) {
+        filas.push(h('tr', {},
+          h('td', { class: 'num', text: String(hr.mueble_numero) }),
+          h('td', { text: hr.herraje_nombre }),
+          h('td', { text: hr.codigo_sku || '—' }),
+          h('td', { class: 'num', text: String(hr.cantidad) }),
+          h('td', { class: 'centro' }, h('span', { class: 'casilla' })),
+          h('td', { text: hr.observaciones || '' })
+        ));
+      }
+    }
+    if (!filas.length) {
+      filas.push(h('tr', {},
+        h('td', { colspan: '6', class: 'vacio', text: 'Sin herrajes cargados.' })));
+    }
+
+    const hoja = h('div', { class: `hoja-ruta ${claseLinea} hoja-herrajes` },
+      h('div', { class: 'hoja-cabecera' },
+        h('div', { class: 'hoja-marca' },
+          h('div', { class: 'hoja-escudo' }, iconoSvg('wrench')),
+          h('div', {},
+            h('h1', { text: 'HOJA DE HERRAJES' }),
+            h('p', { text: 'Optiflow · Pañol · Entrega a Planta' }))),
+        h('div', { class: 'hoja-linea', text: 'PAÑOL' })),
+
+      h('div', { class: 'hoja-datos' },
+        h('div', { class: 'hoja-dato' }, h('span', { text: 'N° de OT' }), h('b', { text: ot.numero_ot })),
+        h('div', { class: 'hoja-dato' }, h('span', { text: 'Cliente' }), h('b', { text: ot.cliente })),
+        h('div', { class: 'hoja-dato' }, h('span', { text: 'Modelo' }), h('b', { text: ot.modelo || '—' })),
+        h('div', { class: 'hoja-dato' }, h('span', { text: 'Línea' }), h('b', { text: linea })),
+        h('div', { class: 'hoja-dato' }, h('span', { text: 'Fecha' }),
+          h('b', { text: FORMATO.fecha(new Date().toISOString()) })),
+        h('div', { class: 'hoja-dato' }, h('span', { text: 'Ítems' }),
+          h('b', { text: `${data.resumen.items} (${data.resumen.unidades} u.)` }))),
+
+      h('h2', { class: 'hoja-titulo', text: 'Lista de entrega' }),
+      h('p', {
+        class: 'hoja-nota',
+        text: 'El pañol marca la casilla al entregar cada ítem. La firma cierra la entrega.',
+      }),
+      h('table', { class: 'hoja-tabla hoja-herrajes-tabla' },
+        h('thead', {}, h('tr', {},
+          h('th', { text: 'Mueble' }),
+          h('th', { text: 'Herraje' }),
+          h('th', { text: 'SKU' }),
+          h('th', { class: 'num', text: 'Cant.' }),
+          h('th', { class: 'centro', text: 'Entregado' }),
+          h('th', { text: 'Observaciones' })
+        )),
+        h('tbody', {}, filas)),
+
+      h('div', { class: 'hoja-resumen' },
+        h('span', { text: `Entregados: ${data.resumen.entregados}` }),
+        h('span', { text: `Pendientes: ${data.resumen.pendientes}` }),
+        h('span', { text: `Total: ${data.resumen.items} ítem(s)` })),
+
+      h('div', { class: 'hoja-firmas-herrajes' },
+        h('div', { class: 'hoja-firma' }, h('span', { text: 'Entregado por (Pañol)' })),
+        h('div', { class: 'hoja-firma' }, h('span', { text: 'Recibido por (Planta)' })),
+        h('div', { class: 'hoja-firma' }, h('span', { text: 'Fecha / Hora' }))),
+
+      h('div', { class: 'hoja-pie' },
+        h('span', { text: `Impreso: ${FORMATO.fechaHora(new Date().toISOString())}` }),
+        h('span', { text: `Origen: ${window.location.origin}` }))
+    );
+
+    let capa = $('capa-impresion');
+    if (!capa) {
+      capa = h('div', { id: 'capa-impresion' });
+      document.body.append(capa);
+    }
+    capa.innerHTML = '';
+    capa.append(hoja);
+    document.body.classList.add('imprimiendo');
+
+    const limpiar = () => {
+      document.body.classList.remove('imprimiendo');
+      if (capa) capa.innerHTML = '';
+      window.removeEventListener('afterprint', limpiar);
+    };
+    window.addEventListener('afterprint', limpiar);
+    setTimeout(() => window.print(), 60);
+  } catch (e) {
+    manejarError(e, 'Hoja de herrajes');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Pestañas                                                            */
+/* ------------------------------------------------------------------ */
+
+function activarTabDespiece(tab) {
+  const esPiezas = tab !== 'herrajes';
+  S.despieceTab = esPiezas ? 'piezas' : 'herrajes';
+
+  const tabPiezas = $('tab-despiece-piezas');
+  const tabHerrajes = $('tab-despiece-herrajes');
+  const panelPiezas = $('despiece-panel-piezas');
+  const panelHerrajes = $('despiece-panel-herrajes');
+  if (!tabPiezas || !tabHerrajes || !panelPiezas || !panelHerrajes) return;
+
+  tabPiezas.classList.toggle('activo', esPiezas);
+  tabPiezas.setAttribute('aria-selected', esPiezas ? 'true' : 'false');
+  tabHerrajes.classList.toggle('activo', !esPiezas);
+  tabHerrajes.setAttribute('aria-selected', !esPiezas ? 'true' : 'false');
+  panelPiezas.hidden = !esPiezas;
+  panelHerrajes.hidden = esPiezas;
 }

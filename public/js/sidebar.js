@@ -44,6 +44,10 @@
       clave: 'ots', href: '/admin#panel-ots', ico: 'clipboard', titulo: 'Órdenes de Trabajo',
       texto: 'Órdenes de Trabajo', sub: 'Listado · alta · Hoja de Ruta',
     },
+    {
+      clave: 'despiece', href: '/admin#panel-despiece', ico: 'despiece',
+      texto: 'Despiece Oficina Técnica', sub: 'Piezas · bultos · herrajes del pañol',
+    },
 
     { seccion: 'Líneas de producción' },
     {
@@ -111,6 +115,7 @@
     salir:    '<path d="M12 3v9"/><path d="M7.5 6.5a7 7 0 1 0 9 0"/>',
     herramienta: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
     calidad:   '<path d="M12 2 4 6v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6l-8-4Z"/><path d="m9 12 2 2 4-4"/>',
+    despiece:  '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/><path d="M15 9v6"/><path d="M15 15h6"/>',
     menu:      '<path d="M4 6h16M4 12h16M4 18h16"/>',
     panel:     '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   };
@@ -140,6 +145,7 @@
   /** Anclas de admin -> clave de ítem activo. */
   const ANCLAS = {
     'panel-ots': 'ots',
+    'panel-despiece': 'despiece',
     'panel-qms': 'calidad',
     'panel-operarios': 'operarios',
     'panel-sectores': 'sectores',

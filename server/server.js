@@ -30,6 +30,7 @@ const db = require('./db');
 const auth = require('./lib/auth');
 const { ApiError, sendJson, sendText, readBody, queryToObject } = require('./lib/http');
 const ordenes = require('./routes/ordenes');
+const despiece = require('./routes/despiece');
 const sectores = require('./routes/sectores');
 const registros = require('./routes/registros');
 const operarios = require('./routes/operarios');
@@ -251,6 +252,16 @@ const RUTAS = [
   ['PUT', '/api/ordenes/:id/materiales', ordenes.actualizarMateriales, { auth: 'gestion' }],
   ['PUT', '/api/ordenes/:id/materiales/:mid', ordenes.actualizarMaterial, { auth: 'gestion' }],
   ['DELETE', '/api/ordenes/:id', ordenes.eliminar, { auth: 'gestion' }],
+
+  // --- Oficina Técnica: despiece, bultos y pañol ---
+  // Lectura para oficina/planta (incluida la hoja del Pañol). Las escrituras
+  // son de gestión: la grilla la edita la Oficina Técnica y el estado de
+  // flete/entrega lo mueve el encargado, no un operario desde la terminal.
+  ['GET', '/api/ot/:id/despiece', despiece.obtener, { auth: 'usuario' }],
+  ['POST', '/api/ot/:id/despiece', despiece.guardar, { auth: 'gestion' }],
+  ['GET', '/api/ot/:id/hoja-herrajes', despiece.hojaHerrajes, { auth: 'usuario' }],
+  ['PATCH', '/api/ot/:id/despacho/bulto/:numero_bulto', despiece.alternarBulto, { auth: 'gestion' }],
+  ['PATCH', '/api/ot/:id/herrajes/:hid/entrega', despiece.marcarHerraje, { auth: 'gestion' }],
 
   // --- Registros de tiempos (escrituras de PLANTA: cualquier usuario) ---
   ['GET', '/api/estado', registros.estado, { auth: 'usuario' }],

@@ -2972,3 +2972,367 @@ a { color: var(--acento); }
   #qms-actualizado { margin-left: 0; }
   .qms-galeria { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   OFICINA TÉCNICA — DESPIECE, BULTOS Y PAÑOL
+   ------------------------------------------------------------
+   Grilla de corte editable (scroll horizontal contenido) y
+   tarjetas de bulto para Control de Flete. La hoja de herrajes
+   reutiliza la base A4 .hoja-ruta / .hoja-tabla.
+   ============================================================ */
+
+.despiece-barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 4px 0 12px;
+}
+.despiece-ot-datos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  min-width: 0;
+}
+
+.despiece-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 2px solid var(--borde);
+  margin: 4px 0 14px;
+}
+.despiece-tab {
+  appearance: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--texto-dim);
+  font: inherit;
+  font-weight: 700;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+.despiece-tab:hover { background: #f2f7fc; color: var(--acento); }
+.despiece-tab.activo {
+  background: #eef5fd;
+  color: var(--acento);
+  border-bottom-color: var(--acento);
+}
+.despiece-tab:focus-visible {
+  outline: 3px solid var(--estado-cian, #22B8CF);
+  outline-offset: 2px;
+}
+.despiece-panel[hidden] { display: none !important; }
+
+.despiece-acciones {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.despiece-modulos { display: flex; flex-direction: column; gap: 14px; }
+.despiece-modulo {
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-md);
+  background: #fff;
+  color: var(--texto);
+  padding: 12px;
+  box-shadow: 0 1px 2px rgba(15, 47, 79, .04);
+}
+.despiece-modulo-cab {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.despiece-modulo-datos { flex: 1 1 680px; }
+.despiece-modulo-pie { margin-top: 8px; flex-wrap: wrap; gap: 8px; }
+.despiece-check { align-self: end; min-height: 44px; }
+
+.despiece-tabla { min-width: 1480px; }
+.despiece-tabla th { white-space: nowrap; }
+.despiece-tabla td { vertical-align: top; padding: 6px; }
+.despiece-tabla input[type="text"],
+.despiece-tabla input[type="number"],
+.despiece-tabla select {
+  width: 100%;
+  min-width: 86px;
+  min-height: 40px;
+  padding: 7px 8px;
+  border: 1.5px solid var(--borde);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--texto);
+  font: inherit;
+  font-size: .86rem;
+}
+.despiece-tabla input[type="text"]:focus,
+.despiece-tabla input[type="number"]:focus,
+.despiece-tabla select:focus {
+  outline: 2px solid var(--acento);
+  outline-offset: 1px;
+  border-color: var(--acento);
+}
+.despiece-tabla input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--acento);
+}
+.despiece-bulto-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #eef5fd;
+  color: var(--acento);
+  font-weight: 800;
+  font-size: .82rem;
+}
+.check-celda, .centro { text-align: center; vertical-align: middle !important; }
+
+.despiece-grid-resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+.despiece-resumen {
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-md);
+  background: #fff;
+  color: var(--texto);
+  padding: 12px;
+  min-width: 0;
+}
+.despiece-resumen-tabla { min-width: 0; font-size: .82rem; }
+.despiece-resumen-tabla th,
+.despiece-resumen-tabla td { padding: 6px 7px; }
+
+.despiece-bultos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+.bulto-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1.5px solid var(--borde);
+  border-radius: 9px;
+  background: #fafcfe;
+  color: var(--texto);
+  padding: 9px 10px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.bulto-card:hover { border-color: var(--acento); }
+.bulto-card.cargado { border-color: #16a34a; background: #f0fdf4; }
+.bulto-card input {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  accent-color: #16a34a;
+}
+.bulto-card-txt {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  min-width: 0;
+}
+.bulto-card-txt strong { font-size: .86rem; }
+.bulto-card-txt small { font-size: .72rem; overflow-wrap: anywhere; }
+
+.despiece-herr-form { margin-bottom: 14px; }
+.despiece-herr-tabla { min-width: 860px; }
+.despiece-herr-tabla td { vertical-align: middle; }
+.despiece-herr-tabla input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--acento);
+}
+
+/*
+ * Contraste dentro del panel oscuro: las tarjetas del despiece son blancas,
+ * así que el texto y los controles que heredan los estilos claros de
+ * `.panel-industrial` necesitan volver a la paleta oscura. El formulario de
+ * herrajes y su tabla quedan fuera: viven directamente sobre el fondo oscuro.
+ */
+.panel-industrial .despiece-modulo .campo > span { color: var(--texto-suave); }
+.panel-industrial .despiece-modulo .texto-suave,
+.panel-industrial .despiece-resumen .texto-suave { color: var(--texto-suave); }
+.panel-industrial .despiece-resumen h3 { color: var(--texto); }
+.panel-industrial .despiece-modulo .vacio,
+.panel-industrial .despiece-resumen .vacio { color: var(--texto-suave); }
+/* Los vacíos que cuelgan directo del panel están sobre el fondo oscuro. */
+.panel-industrial #despiece-modulos > .vacio,
+.panel-industrial #despiece-herrajes > .vacio { color: var(--texto-dim); }
+/* Sólo las celdas: el thead conserva el fondo oscuro del panel y su texto claro. */
+.panel-industrial .despiece-resumen .despiece-resumen-tabla td { color: var(--texto); }
+/* El hover oscuro del panel no debe aplicarse sobre las tarjetas blancas. */
+.panel-industrial .despiece-modulo .tabla tbody tr:hover,
+.panel-industrial .despiece-resumen .tabla tbody tr:hover { background: #f7fbff; }
+
+.panel-industrial .despiece-tabla input[type="text"],
+.panel-industrial .despiece-tabla input[type="number"],
+.panel-industrial .despiece-tabla select,
+.panel-industrial .despiece-modulo .campo input,
+.panel-industrial .despiece-modulo .campo select {
+  background: #fff;
+  color: var(--texto);
+  border-color: var(--borde);
+}
+.panel-industrial .despiece-modulo .btn-peligro,
+.panel-industrial .despiece-tabla .btn-peligro {
+  background: #fff;
+  color: var(--rojo-osc);
+  border-color: var(--rojo);
+}
+
+/* El formulario de herrajes vive sobre el panel oscuro: el input numérico y
+   la casilla no están cubiertos por las reglas de `.panel-industrial`. */
+.panel-industrial .despiece-herr-form input[type="number"] {
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-color);
+  color: var(--texto-claro);
+  border-radius: var(--radio-md);
+  min-height: 48px;
+  padding: 10px 12px;
+}
+.panel-industrial .despiece-herr-form .check {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  color: var(--texto-claro);
+}
+.panel-industrial .despiece-herr-form .check:hover { border-color: var(--acento); }
+
+/* Hoja de herrajes imprimible: hereda .hoja-ruta (A4, azul/rojo por línea). */
+.hoja-herrajes .hoja-herrajes-tabla { font-size: 11px; }
+.hoja-herrajes .hoja-herrajes-tabla tbody tr { height: 30px; }
+.hoja-herrajes .hoja-subfila td {
+  background: var(--linea-suave);
+  color: var(--linea);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-size: 10px;
+  padding: 5px 9px;
+}
+.hoja-herrajes .centro { text-align: center; }
+.hoja-herrajes .casilla {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid #334155;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+.hoja-herrajes .hoja-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 6px 0 18px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.hoja-herrajes .hoja-firmas-herrajes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 26px;
+  margin-top: 28px;
+}
+.hoja-herrajes .hoja-firma {
+  border-top: 1.5px solid #334155;
+  padding-top: 5px;
+  text-align: center;
+  font-size: 10.5px;
+  color: #334155;
+}
+
+@media print {
+  .hoja-herrajes .hoja-herrajes-tabla tr,
+  .hoja-herrajes .hoja-firmas-herrajes { break-inside: avoid; }
+  .hoja-herrajes .hoja-herrajes-tabla thead { display: table-header-group; }
+}
+
+@media (max-width: 720px) {
+  .despiece-barra { align-items: stretch; }
+  .despiece-ot-datos { min-height: 0; }
+  .despiece-tab { flex: 1 1 auto; }
+  .despiece-modulo { padding: 9px; }
+  .despiece-grid-resumen { grid-template-columns: 1fr; }
+}
+
+/* La grilla de despiece es una planilla editable: en móvil conserva la tabla
+   con scroll horizontal en lugar de apilar 14 campos por pieza como tarjetas
+   (la regla genérica .tabla de 767px oculta el thead y deja los inputs sin
+   etiqueta). */
+@media (max-width: 767px) {
+  .despiece-panel .tabla-envoltura { overflow-x: auto; }
+
+  .despiece-tabla,
+  .despiece-herr-tabla,
+  .despiece-resumen-tabla { display: table; }
+  .despiece-tabla thead,
+  .despiece-herr-tabla thead,
+  .despiece-resumen-tabla thead { display: table-header-group; }
+  .despiece-tabla tbody,
+  .despiece-herr-tabla tbody,
+  .despiece-resumen-tabla tbody { display: table-row-group; }
+  .despiece-tabla tr,
+  .despiece-herr-tabla tr,
+  .despiece-resumen-tabla tr { display: table-row; }
+  .despiece-tabla th,
+  .despiece-tabla td,
+  .despiece-herr-tabla th,
+  .despiece-herr-tabla td,
+  .despiece-resumen-tabla th,
+  .despiece-resumen-tabla td { display: table-cell; }
+
+  .despiece-tabla { min-width: 1480px; }
+  .despiece-herr-tabla { min-width: 860px; }
+  .despiece-resumen-tabla { min-width: 0; }
+
+  .despiece-tabla tbody tr,
+  .despiece-herr-tabla tbody tr,
+  .despiece-resumen-tabla tbody tr {
+    border: 0;
+    border-radius: 0;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+  /* Las tablas dentro de las tarjetas blancas conservan filas claras: la regla
+     genérica de panel-industrial las pintaría oscuras y ocultaría el texto. */
+  .panel-industrial .despiece-modulo .tabla tbody tr,
+  .panel-industrial .despiece-resumen .tabla tbody tr { background: #fff; }
+  .despiece-tabla tbody td,
+  .despiece-herr-tabla tbody td,
+  .despiece-resumen-tabla tbody td {
+    text-align: left;
+    padding: 6px;
+    border-bottom: 1px solid var(--borde);
+  }
+  .despiece-tabla tbody td::before,
+  .despiece-herr-tabla tbody td::before,
+  .despiece-resumen-tabla tbody td::before { content: none; }
+
+  .despiece-tabla .num,
+  .despiece-herr-tabla .num,
+  .despiece-resumen-tabla .num { text-align: right; }
+  .despiece-tabla .check-celda { text-align: center; }
+
+  .despiece-tabla .btn,
+  .despiece-tabla .btn-chico,
+  .despiece-herr-tabla .btn,
+  .despiece-herr-tabla .btn-chico { width: auto; min-height: 40px; }
+}
