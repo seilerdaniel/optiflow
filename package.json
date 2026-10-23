@@ -7,7 +7,12 @@
   "scripts": {
     "start": "node server/server.js",
     "start:win": ".runtime\\node\\node.exe server\\server.js",
-    "dev": "node server/server.js --no-browser",
+    "dev": "concurrently -k -n api,web -c blue,cyan \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "node server/server.js --no-browser",
+    "dev:web": "next dev -p 3001",
+    "build": "next build",
+    "start:web": "next start -p 3001",
+    "typecheck": "tsc --noEmit",
     "vercel:dev": "vercel dev",
     "demo:export": "node server/tools/prueba-api.js",
     "prueba:ui": "node server/tools/prueba-ui.js"
@@ -27,6 +32,19 @@
   ],
   "license": "UNLICENSED",
   "dependencies": {
-    "pg": "^8.23.1"
+    "next": "^15.5.28",
+    "pg": "^8.23.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "autoprefixer": "^10.6.1",
+    "concurrently": "^9.2.5",
+    "postcss": "^8.5.31",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.9.3"
   }
 }

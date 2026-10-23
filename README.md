@@ -13,13 +13,44 @@ En la **Fase 7** la plataforma se despliega en la nube: la base de datos vive en
 
 ---
 
+## 0. Interfaz Next.js (Fase 1 de migración)
+
+La interfaz nueva vive en `app/` con **Next.js App Router + TypeScript + Tailwind**. El API legado
+de `server/` sigue siendo la fuente de verdad de las reglas de negocio y se ejecuta en el puerto
+**3000**; Next.js corre en **3001** y reescribe `/api/*` al API legado para conservar cookies y el
+comportamiento de los `409`.
+
+### Scripts
+
+| Comando | Qué hace |
+|---|---|
+| `npm run dev` | Levanta el API legado (3000) y Next.js (3001) con `concurrently`. |
+| `npm run dev:api` | Sólo el API legado en 3000. |
+| `npm run dev:web` | Sólo Next.js en 3001. |
+| `npm run build` | Build de producción de Next.js. |
+| `npm run start:web` | Sirve el build de Next.js en 3001. |
+| `npm run typecheck` | Verifica tipos con `tsc --noEmit`. |
+
+### URLs
+
+| URL | Pantalla |
+|---|---|
+| `http://localhost:3001/terminal` | Terminal táctil nueva. Admite `?ot=<id>` para preseleccionar la OT. |
+| `http://localhost:3001/admin/dashboard` | Administración nueva (Fase 1, lectura). |
+| `http://localhost:3000/admin` | Panel legado, disponible durante la migración. |
+
+El detalle de arquitectura, rutas y alcance de la Fase 1 está en
+[`docs/MIGRACION_NEXT.md`](docs/MIGRACION_NEXT.md).
+
+---
+
 ## 1. Requisitos
 
 | Ítem | Detalle |
 |---|---|
 | Base de datos | **Supabase** (PostgreSQL) — se conecta por la cadena `SUPABASE_DB_URL` |
 | Runtime | **Node.js 22.5+** (en Vercel se provee solo; local, `install.bat` instala el portátil en `.runtime\node`) |
-| Dependencias | Sólo **`pg`** (driver de PostgreSQL). Sin compilación ni servicios locales |
+| Dependencias | **`pg`** para el API legado + **Next.js 15, React 19, TypeScript y Tailwind 3** para la interfaz nueva |
 | Navegador | Chrome / Edge / Safari (la UI está optimizada para pantallas táctiles; funciona como PWA) |
 | Despliegue | **Vercel** (producción) o `start.bat` (local / red de planta) |
 

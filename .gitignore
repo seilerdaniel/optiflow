@@ -18,6 +18,11 @@ data/
 # Caché local de skills/herramientas
 .atl/
 
+# Next.js
+.next/
+out/
+*.tsbuildinfo
+
 # Vercel
 .vercel/
 
