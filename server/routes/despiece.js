@@ -125,6 +125,7 @@ function validarPieza(valor, nModulo, nPieza) {
     es_enchapado: booleano(p.es_enchapado, false),
     filos_cantidad: enteroMin(p.filos_cantidad, `Filos de la ${ref}`, 0, 0),
     filos_detalle: textoOpcional(p.filos_detalle, `Detalle de filos de la ${ref}`, { max: 100 }),
+    observacion: textoOpcional(p.observacion, `Observación de la ${ref}`, { max: 500 }),
   };
 }
 
@@ -241,6 +242,7 @@ function mapPieza(p) {
     es_enchapado: !!p.es_enchapado,
     filos_cantidad: Number(p.filos_cantidad) || 0,
     filos_detalle: p.filos_detalle || null,
+    observacion: p.observacion || null,
     cargado_en_flete: !!p.cargado_en_flete,
     fecha_cargado: aFechaISO(p.fecha_cargado),
   };
@@ -249,6 +251,7 @@ function mapPieza(p) {
 function mapHerraje(h) {
   return {
     id: Number(h.id),
+    ot_id: Number(h.ot_id),
     mueble_numero: Number(h.mueble_numero),
     herraje_nombre: h.herraje_nombre,
     codigo_sku: h.codigo_sku || null,
@@ -339,15 +342,23 @@ function resumenBultos(piezas) {
 
   return [...mapa.values()]
     .sort((a, b) => a.numero_bulto - b.numero_bulto)
-    .map((b) => ({
-      numero_bulto: b.numero_bulto,
-      filas: b.filas,
-      unidades: b.unidades,
-      m2: r3(b.m2),
-      cargado: b.cargado,
-      fecha_cargado: b.fecha_cargado,
-      modulos: [...b.modulos],
-    }));
+    .map((b) => {
+      const modulos = [...b.modulos];
+      return {
+        numero_bulto: b.numero_bulto,
+        // Contrato explícito para la hoja de despacho. `filas`/`unidades`/
+        // `cargado` se mantienen por compatibilidad con la UI existente.
+        descripcion: modulos.join(' · '),
+        cantidad_piezas: b.unidades,
+        cargado_en_flete: b.cargado,
+        filas: b.filas,
+        unidades: b.unidades,
+        m2: r3(b.m2),
+        cargado: b.cargado,
+        fecha_cargado: b.fecha_cargado,
+        modulos,
+      };
+    });
 }
 
 /**
@@ -434,7 +445,7 @@ async function obtener({ params }) {
  *     piezas: [{
  *       tipo_pieza, nombre_pieza, cantidad, ancho_mm, profundidad_mm,
  *       espesor_mm, tipo_placa, color_codigo, es_laqueado, es_enchapado,
- *       filos_cantidad, filos_detalle
+ *       filos_cantidad, filos_detalle, observacion
  *     }]
  *   }],
  *   herrajes: [{ mueble_numero, herraje_nombre, codigo_sku, cantidad,
@@ -500,7 +511,7 @@ async function guardar({ params, body }) {
     //    Excel con cientos de filas no debe consumir cientos de round-trips
     //    dentro del límite de ejecución de Vercel.
     const LOTE = 200;
-    const FILA_PIEZA = `(${Array(17).fill('?').join(', ')})`;
+    const FILA_PIEZA = `(${Array(18).fill('?').join(', ')})`;
     const FILA_HERRAJE = `(${Array(7).fill('?').join(', ')})`;
 
     let numeroBulto = 1;
@@ -514,7 +525,7 @@ async function guardar({ params, body }) {
            (modulo_id, ot_id, numero_bulto, tipo_pieza, nombre_pieza, cantidad,
             ancho_mm, profundidad_mm, espesor_mm, tipo_placa, color_codigo,
             es_laqueado, es_enchapado, filos_cantidad, filos_detalle,
-            cargado_en_flete, fecha_cargado)
+            observacion, cargado_en_flete, fecha_cargado)
          VALUES ${lotePiezas.join(', ')};`,
         ...paramsPiezas
       );
@@ -547,6 +558,7 @@ async function guardar({ params, body }) {
           moduloId, id, numeroBulto, p.tipo_pieza, p.nombre_pieza, p.cantidad,
           p.ancho_mm, p.profundidad_mm, p.espesor_mm, p.tipo_placa, p.color_codigo,
           p.es_laqueado, p.es_enchapado, p.filos_cantidad, p.filos_detalle,
+          p.observacion,
           previa ? !!previa.cargado_en_flete : false,
           previa ? previa.fecha_cargado : null
         );

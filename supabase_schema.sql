@@ -394,6 +394,10 @@ create table if not exists public.ot_despiece_piezas (
   es_enchapado     boolean not null default false,
   filos_cantidad   integer not null default 0 check (filos_cantidad >= 0),
   filos_detalle    varchar(100),
+  -- Observación libre por pieza (ej. "Con Led", "Veta horizontal").
+  -- Aditiva y opcional: no altera la identidad física usada para preservar
+  -- el estado de flete al reemplazar el despiece.
+  observacion      text,
   cargado_en_flete boolean not null default false,
   fecha_cargado    timestamptz,
   creado_el        timestamptz not null default current_timestamp

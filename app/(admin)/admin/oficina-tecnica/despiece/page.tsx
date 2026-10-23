@@ -1,13 +1,19 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
-import { DespieceView } from '@/components/despiece/DespieceView';
+import { DespieceEditor } from '@/components/despiece/DespieceEditor';
+import { NuevaOTForm } from '@/components/despiece/NuevaOTForm';
 import { AuthRequiredPanel, ApiErrorPanel, EmptyState } from '@/components/EmptyState';
 import { PageHeader } from '@/components/PageHeader';
 import { Panel } from '@/components/Panel';
 import { formatInteger, plural } from '@/lib/format';
 import { isAuthError, safeServerFetch } from '@/lib/api-server';
-import type { DespieceOT, OrdenesResponse, OrdenTrabajo } from '@/types/optiflow';
+import type {
+  DespieceOT,
+  OrdenesResponse,
+  OrdenTrabajo,
+  UsuarioActualResponse,
+} from '@/types/optiflow';
 
 export const metadata: Metadata = { title: 'Oficina Técnica · Despiece' };
 export const dynamic = 'force-dynamic';
@@ -29,7 +35,7 @@ function OtSelector({ ordenes, otId }: { ordenes: OrdenTrabajo[]; otId: number |
   return (
     <Panel
       title="Seleccionar OT"
-      description={`${formatInteger(ordenes.length)} ${plural(ordenes.length, 'orden disponible', 'órdenes disponibles')}. El despiece se carga desde el API existente.`}
+      description={`${formatInteger(ordenes.length)} ${plural(ordenes.length, 'orden disponible', 'órdenes disponibles')}. Elegí la OT para cargar el despiece, los herrajes del pañol y el control de bultos.`}
       actions={
         <Link className="text-xs font-medium text-cian hover:text-cyan-300" href="/admin/ordenes">
           Ver listado completo
@@ -62,16 +68,20 @@ export default async function DespiecePage({ searchParams }: DespiecePageProps) 
   const otId = otParam && /^\d+$/.test(otParam) ? Number(otParam) : null;
   const otInvalida = Boolean(otParam) && otId === null;
 
-  const [ordenesResult, despieceResult] = await Promise.all([
+  const [ordenesResult, despieceResult, usuarioResult] = await Promise.all([
     safeServerFetch<OrdenesResponse>('/api/ordenes'),
     otId ? safeServerFetch<DespieceOT>(`/api/ot/${otId}/despiece`) : Promise.resolve(null),
+    safeServerFetch<UsuarioActualResponse>('/api/auth/usuario'),
   ]);
+
+  const rol = usuarioResult.ok ? usuarioResult.data.usuario?.rol : null;
+  const puedeGestionar = rol === 'admin' || rol === 'encargado';
 
   const header = (
     <PageHeader
       eyebrow="Oficina Técnica · Despiece"
-      title="Despiece, bultos y pañol"
-      description="Vista dedicada del despiece por módulo, el control de flete por bulto y la lista de herrajes del pañol. La edición sigue en el API existente hasta la Fase 2."
+      title="Creación de OT, despiece y hoja de ruta"
+      description="Alta de la OT, grilla de piezas con observaciones, lista de herrajes para el pañol, control de bultos para logística y hoja A4 imprimible con QR."
       actions={
         <>
           <Link className="btn btn-ghost" href="/admin/dashboard">
@@ -104,12 +114,14 @@ export default async function DespiecePage({ searchParams }: DespiecePageProps) 
   }
 
   const ordenes = sortOrders(ordenesResult.data.ordenes);
+  const formAlta = puedeGestionar ? <NuevaOTForm abrir={!otId} /> : null;
 
   if (otInvalida) {
     return (
       <>
         {header}
         <div className="space-y-4">
+          {formAlta}
           <OtSelector ordenes={ordenes} otId={null} />
           <EmptyState
             tone="error"
@@ -135,6 +147,7 @@ export default async function DespiecePage({ searchParams }: DespiecePageProps) 
       <>
         {header}
         <div className="space-y-4">
+          {formAlta}
           <OtSelector ordenes={ordenes} otId={otId} />
           <ApiErrorPanel message={despieceResult.error} status={despieceResult.status} />
         </div>
@@ -147,10 +160,11 @@ export default async function DespiecePage({ searchParams }: DespiecePageProps) 
       <>
         {header}
         <div className="space-y-4">
+          {formAlta}
           <OtSelector ordenes={ordenes} otId={null} />
           <EmptyState
-            title="Seleccioná una OT para ver el despiece"
-            description="El módulo muestra los módulos y piezas, los bultos con su estado de flete, la lista de herrajes del pañol y el resumen de placas."
+            title="Seleccioná una OT para cargar el despiece"
+            description="El flujo continúa con la grilla de piezas y observaciones, la lista de herrajes del pañol, el control de bultos para logística y la hoja A4 con QR."
           />
         </div>
       </>
@@ -160,10 +174,15 @@ export default async function DespiecePage({ searchParams }: DespiecePageProps) 
   return (
     <>
       {header}
-      <div className="mb-4">
+      <div className="mb-4 space-y-4">
+        {formAlta}
         <OtSelector ordenes={ordenes} otId={otId} />
       </div>
-      <DespieceView data={despieceResult.data} />
+      <DespieceEditor
+        key={despieceResult.data.ot.id}
+        data={despieceResult.data}
+        puedeGestionar={puedeGestionar}
+      />
     </>
   );
 }

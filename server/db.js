@@ -380,6 +380,15 @@ async function asegurarEsquema(p) {
   // TPM/Objetivos/QMS, se asegura en cada arranque (idempotente). No modifica
   // registros de tiempos ni sesiones: sólo crea tablas nuevas si faltan.
   await p.query(TABLAS_DESPIECE);
+
+  // Migración aditiva: la observación por pieza nació después de la tabla.
+  // `observacion` no forma parte de la clave física de la pieza (mueble +
+  // módulo + tipo + nombre + medidas + color), así que agregarla no cambia la
+  // preservación de `cargado_en_flete` al reemplazar el despiece.
+  await p.query(`
+    alter table public.ot_despiece_piezas
+      add column if not exists observacion text;
+  `);
 }
 
 /**
@@ -546,6 +555,7 @@ const TABLAS_DESPIECE = `
     es_enchapado     boolean not null default false,
     filos_cantidad   integer not null default 0 check (filos_cantidad >= 0),
     filos_detalle    varchar(100),
+    observacion      text,
     cargado_en_flete boolean not null default false,
     fecha_cargado    timestamptz,
     creado_el        timestamptz not null default current_timestamp

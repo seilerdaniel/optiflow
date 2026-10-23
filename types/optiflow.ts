@@ -231,6 +231,35 @@ export interface OrdenesResponse {
   ordenes: OrdenTrabajo[];
 }
 
+/** Body de `POST /api/ordenes` (alta desde Oficina Técnica). */
+export interface CrearOTPayload {
+  numero_ot: string;
+  cliente: string;
+  modelo?: string | null;
+  linea_area: LineaOT;
+  metros_lineales: number;
+  fecha_prometida?: string | null;
+  requiere_vidrio?: boolean;
+  requiere_lustre?: boolean;
+  requiere_herreria?: boolean;
+  requiere_especiales?: boolean;
+}
+
+export type RolUsuario = 'admin' | 'encargado' | 'operario';
+
+export interface UsuarioSesion {
+  id: number;
+  usuario: string;
+  nombre: string;
+  rol: RolUsuario;
+}
+
+/** Respuesta de `GET /api/auth/usuario` (200 siempre; `usuario` puede ser null). */
+export interface UsuarioActualResponse {
+  ok: boolean;
+  usuario: UsuarioSesion | null;
+}
+
 /** Cabecera reducida que devuelve `GET /api/ot/:id/despiece`. */
 export type OrdenTrabajoDespiece = Pick<
   OrdenTrabajo,
@@ -268,6 +297,8 @@ export interface DespiecePieza {
   es_enchapado: boolean;
   filos_cantidad: number;
   filos_detalle: string | null;
+  /** Observación libre de la pieza: "Con Led", "Veta horizontal", etc. */
+  observacion?: string | null;
   cargado_en_flete: boolean;
   fecha_cargado: string | null;
 }
@@ -287,6 +318,7 @@ export interface DespieceModulo {
 
 export interface HerrajeItem {
   id: number;
+  ot_id: number;
   mueble_numero: number;
   herraje_nombre: string;
   codigo_sku: string | null;
@@ -305,11 +337,23 @@ export interface ResumenPlaca {
   m2: number;
 }
 
-export interface ResumenBulto {
+/**
+ * Bulto del control de despacho. `numero_bulto` es secuencial por OT y lo
+ * asigna el servidor; el cliente nunca lo impone.
+ */
+export interface BultoDespacho {
   numero_bulto: number;
+  /** Módulos que componen el bulto, ej. "M1 · Mód. 2 (Vestidor)". */
+  descripcion: string;
+  cantidad_piezas: number;
+  cargado_en_flete: boolean;
+}
+
+export interface ResumenBulto extends BultoDespacho {
   filas: number;
   unidades: number;
   m2: number;
+  /** Alias histórico de `cargado_en_flete`. */
   cargado: boolean;
   fecha_cargado: string | null;
   modulos: string[];
